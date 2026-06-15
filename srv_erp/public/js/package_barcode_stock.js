@@ -45,7 +45,9 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 					return;
 				}
 
-				this.update_table(data)
+				const row_data = data.package_barcode ? { ...data, barcode: null } : data;
+
+				this.update_table(row_data)
 					.then((row) => {
 						if (data.package_barcode) {
 							this.add_package_barcode_scan(data);
