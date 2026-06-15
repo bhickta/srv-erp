@@ -40,10 +40,14 @@ app_license = "mit"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js"}
 
 # include js in doctype views
-doctype_js = {"Item": "public/js/item.js"}
+doctype_js = {
+	"Item": "public/js/item.js",
+	"Stock Entry": "public/js/package_barcode_stock.js",
+	"Delivery Note": "public/js/package_barcode_stock.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -86,7 +90,8 @@ doctype_js = {"Item": "public/js/item.js"}
 # ------------
 
 # before_install = "srv_erp.install.before_install"
-# after_install = "srv_erp.install.after_install"
+after_install = "srv_erp.install.after_install"
+after_migrate = ["srv_erp.install.after_migrate"]
 
 # Uninstallation
 # ------------
@@ -138,13 +143,14 @@ doctype_js = {"Item": "public/js/item.js"}
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Stock Entry": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+	"Delivery Note": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+}
 
 # Scheduled Tasks
 # ---------------
