@@ -48,6 +48,7 @@ srv_erp.package_barcode.PackageBarcodeGeneratorPage = class PackageBarcodeGenera
 					fieldname: "uom",
 					label: __("UOM"),
 					reqd: 1,
+					onchange: () => this.render_preview(),
 				},
 				{
 					fieldtype: "Column Break",
@@ -58,9 +59,14 @@ srv_erp.package_barcode.PackageBarcodeGeneratorPage = class PackageBarcodeGenera
 					label: __("No. of Barcodes"),
 					reqd: 1,
 					default: 1,
+					onchange: () => this.render_preview(),
 				},
 				{
 					fieldtype: "Section Break",
+				},
+				{
+					fieldtype: "HTML",
+					fieldname: "preview",
 				},
 				{
 					fieldtype: "HTML",
@@ -72,13 +78,17 @@ srv_erp.package_barcode.PackageBarcodeGeneratorPage = class PackageBarcodeGenera
 		this.form.make();
 
 		this.page.set_primary_action(__("Generate Excel"), () => this.generate(), "download");
+		this.item_details = null;
+		this.render_preview();
 	}
 
 	set_uom_options() {
 		const item_code = this.form.get_value("item_code");
+		this.item_details = null;
 		this.form.set_value("uom", "");
 		this.form.get_field("uom").df.options = "";
 		this.form.get_field("uom").refresh();
+		this.render_preview();
 
 		if (!item_code) {
 			return;
@@ -89,14 +99,49 @@ srv_erp.package_barcode.PackageBarcodeGeneratorPage = class PackageBarcodeGenera
 			args: { item_code },
 			callback: (r) => {
 				const details = r.message || {};
+				this.item_details = details;
 				const uoms = details.uoms || [];
 				this.form.get_field("uom").df.options = uoms.join("\n");
 				this.form.get_field("uom").refresh();
 				if (details.stock_uom && uoms.includes(details.stock_uom)) {
 					this.form.set_value("uom", details.stock_uom);
 				}
+				this.render_preview();
 			},
 		});
+	}
+
+	render_preview() {
+		const values = {
+			item_code: this.form?.get_value("item_code"),
+			uom: this.form?.get_value("uom"),
+			no_of_barcodes: this.form?.get_value("no_of_barcodes") || 0,
+		};
+		const item_name = this.item_details?.item_name || "-";
+
+		this.form.get_field("preview").$wrapper.html(`
+			<div class="package-barcode-preview">
+				<div class="package-barcode-preview__title">${__("Generation Preview")}</div>
+				<div class="package-barcode-preview__grid">
+					<div>
+						<div class="text-muted small">${__("Item")}</div>
+						<div class="text-truncate">${frappe.utils.escape_html(values.item_code || "-")}</div>
+					</div>
+					<div>
+						<div class="text-muted small">${__("Item Name")}</div>
+						<div class="text-truncate">${frappe.utils.escape_html(item_name)}</div>
+					</div>
+					<div>
+						<div class="text-muted small">${__("UOM")}</div>
+						<div>${frappe.utils.escape_html(values.uom || "-")}</div>
+					</div>
+					<div>
+						<div class="text-muted small">${__("Count")}</div>
+						<div>${frappe.utils.escape_html(cint(values.no_of_barcodes).toString())}</div>
+					</div>
+				</div>
+			</div>
+		`);
 	}
 
 	generate() {
@@ -140,3 +185,27 @@ srv_erp.package_barcode.PackageBarcodeGeneratorPage = class PackageBarcodeGenera
 		window.open(url, "_blank");
 	}
 };
+
+frappe.dom.set_style(`
+	.package-barcode-preview {
+		background: var(--control-bg);
+		border: 1px solid var(--border-color);
+		border-radius: 8px;
+		margin-bottom: 12px;
+		padding: 12px;
+	}
+	.package-barcode-preview__title {
+		font-weight: 600;
+		margin-bottom: 10px;
+	}
+	.package-barcode-preview__grid {
+		display: grid;
+		gap: 12px;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+	@media (max-width: 767px) {
+		.package-barcode-preview__grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+`);

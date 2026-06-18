@@ -229,6 +229,8 @@ def get_item_uom_options(item_code: str) -> list[str]:
 def get_item_uom_details(item_code: str) -> dict:
 	item = frappe.get_cached_doc("Item", item_code)
 	return {
+		"item_code": item.name,
+		"item_name": item.item_name,
 		"stock_uom": item.stock_uom,
 		"uoms": get_item_uom_options(item_code),
 	}
