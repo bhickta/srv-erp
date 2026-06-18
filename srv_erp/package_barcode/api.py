@@ -4,7 +4,11 @@ from frappe.utils.xlsxutils import build_xlsx_response
 from srv_erp.package_barcode.service import (
 	PackageBarcodeGenerator,
 	PackageBarcodeResolver,
+	QTY_RULE_FORCE_BARCODE,
+	get_effective_qty_entry_rule,
+	get_default_qty_entry_rule,
 	get_item_uom_details,
+	get_item_qty_entry_rules,
 )
 
 
@@ -26,6 +30,19 @@ def scan_package_barcode(search_value: str, ctx: dict | str | None = None) -> di
 		return scan_barcode(search_value, ctx)
 
 	return PackageBarcodeResolver(search_value).resolve().as_dict()
+
+
+@frappe.whitelist()
+def get_barcode_only_items(item_codes: list[str] | str) -> list[str]:
+	item_codes = frappe.parse_json(item_codes) if isinstance(item_codes, str) else item_codes
+	item_codes = sorted({item_code for item_code in item_codes or [] if item_code})
+	item_rules = get_item_qty_entry_rules(item_codes)
+	default_rule = get_default_qty_entry_rule()
+	return [
+		item_code
+		for item_code in item_codes
+		if get_effective_qty_entry_rule(item_code, item_rules, default_rule) == QTY_RULE_FORCE_BARCODE
+	]
 
 
 @frappe.whitelist()

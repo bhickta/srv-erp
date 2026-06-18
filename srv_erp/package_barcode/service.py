@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import secrets
 from dataclasses import dataclass
 
 import frappe
 from frappe import _
-from frappe.utils import cint, nowdate
+from frappe.model.naming import make_autoname
+from frappe.utils import cint
 
 
-PACKAGE_BARCODE_PREFIX = "PBC"
+DEFAULT_BARCODE_NAMING_SERIES = "PBC-.YYYY.-.#####"
+QTY_RULE_DEFAULT = "Default"
+QTY_RULE_ALLOW_MANUAL = "Allow Manual Qty"
+QTY_RULE_FORCE_BARCODE = "Force Barcode Only"
 
 
 @dataclass(frozen=True)
@@ -109,8 +112,9 @@ class PackageBarcodeGenerator:
 			)
 
 	def make_unique_barcode(self) -> str:
+		series = get_barcode_naming_series()
 		for _ in range(10):
-			barcode = f"{PACKAGE_BARCODE_PREFIX}-{nowdate().replace('-', '')}-{secrets.token_hex(5).upper()}"
+			barcode = make_autoname(series)
 			if not frappe.db.exists("Package Barcode", {"barcode": barcode}):
 				return barcode
 
@@ -153,11 +157,9 @@ class PackageBarcodeTransactionValidator:
 		self.rows = list(doc.get("package_barcodes") or [])
 
 	def validate(self) -> None:
-		if not self.rows:
-			return
-
 		self.validate_duplicate_scans()
 		self.validate_master_data()
+		self.validate_barcode_only_quantities()
 
 	def validate_duplicate_scans(self) -> None:
 		seen = set()
@@ -216,6 +218,95 @@ class PackageBarcodeTransactionValidator:
 					_("Row {0}: Item/UOM does not match the Package Barcode master.").format(row.idx),
 					PackageBarcodeError,
 				)
+
+	def validate_barcode_only_quantities(self) -> None:
+		barcode_only_items = get_barcode_only_items(self.doc)
+		if not barcode_only_items:
+			return
+
+		scanned_qty = get_scanned_qty_by_item(self.rows)
+		quantity_field = get_transaction_quantity_field(self.doc.doctype)
+		item_rows = list(self.doc.get("items") or [])
+		mismatches = []
+
+		for row in item_rows:
+			if row.item_code not in barcode_only_items:
+				continue
+
+			row_qty = cint(row.get(quantity_field))
+			expected_qty = scanned_qty.get(row.item_code, 0)
+			if row_qty != expected_qty:
+				mismatches.append(f"{row.item_code}: {row_qty} != {expected_qty}")
+
+		if mismatches:
+			frappe.throw(
+				_(
+					"Quantity can only be entered through Package Barcode scans for these item(s): {0}"
+				).format(", ".join(mismatches)),
+				PackageBarcodeError,
+			)
+
+
+def get_barcode_naming_series() -> str:
+	return (
+		frappe.db.get_single_value("Barcode Settings", "package_barcode_naming_series")
+		or DEFAULT_BARCODE_NAMING_SERIES
+	)
+
+
+def get_default_qty_entry_rule() -> str:
+	return (
+		frappe.db.get_single_value("Barcode Settings", "package_barcode_default_qty_entry_rule")
+		or QTY_RULE_FORCE_BARCODE
+	)
+
+
+def get_item_qty_entry_rules(item_codes: list[str]) -> dict[str, str]:
+	if not item_codes:
+		return {}
+
+	return {
+		row.name: row.package_barcode_qty_entry_rule
+		for row in frappe.get_all(
+			"Item",
+			filters={"name": ("in", item_codes)},
+			fields=["name", "package_barcode_qty_entry_rule"],
+		)
+	}
+
+
+def get_effective_qty_entry_rule(item_code: str, item_rules: dict[str, str], default_rule: str) -> str:
+	item_rule = item_rules.get(item_code)
+	if item_rule and item_rule != QTY_RULE_DEFAULT:
+		return item_rule
+	return default_rule
+
+
+def get_barcode_only_items(doc) -> set[str]:
+	item_codes = sorted({row.item_code for row in doc.get("items") or [] if row.item_code})
+	item_rules = get_item_qty_entry_rules(item_codes)
+	default_rule = get_default_qty_entry_rule()
+	return {
+		item_code
+		for item_code in item_codes
+		if get_effective_qty_entry_rule(item_code, item_rules, default_rule) == QTY_RULE_FORCE_BARCODE
+	}
+
+
+def get_scanned_qty_by_item(rows) -> dict[str, int]:
+	scanned_qty: dict[str, int] = {}
+	for row in rows:
+		if row.item_code:
+			scanned_qty[row.item_code] = scanned_qty.get(row.item_code, 0) + 1
+	return scanned_qty
+
+
+def get_transaction_quantity_field(doctype: str) -> str:
+	if doctype == "Delivery Note":
+		return "qty"
+	if doctype == "Stock Entry":
+		return "qty"
+	return "qty"
 
 
 def get_item_uom_options(item_code: str) -> list[str]:
