@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "creation": "2026-06-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "package_barcode_tab",
+  "package_barcode_generation_section",
+  "package_barcode_naming_series",
+  "package_barcode_quantity_control_section",
+  "package_barcode_default_qty_entry_rule"
+ ],
+ "fields": [
+  {
+   "fieldname": "package_barcode_tab",
+   "fieldtype": "Tab Break",
+   "label": "Package Barcode"
+  },
+  {
+   "fieldname": "package_barcode_generation_section",
+   "fieldtype": "Section Break",
+   "label": "Generation"
+  },
+  {
+   "default": "PBC-.YYYY.-.#####",
+   "description": "Naming series used for generated package barcode values.",
+   "fieldname": "package_barcode_naming_series",
+   "fieldtype": "Data",
+   "label": "Package Barcode Naming Series",
+   "reqd": 1
+  },
+  {
+   "fieldname": "package_barcode_quantity_control_section",
+   "fieldtype": "Section Break",
+   "label": "Quantity Control"
+  },
+  {
+   "default": "Force Barcode Only",
+   "description": "Default rule for Stock Entry and Delivery Note item rows. Item-level setting can override this.",
+   "fieldname": "package_barcode_default_qty_entry_rule",
+   "fieldtype": "Select",
+   "label": "Package Barcode Default Qty Entry Rule",
+   "options": "Allow Manual Qty\nForce Barcode Only",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "Barcode Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Stock User",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
