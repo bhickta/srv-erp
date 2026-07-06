@@ -35,7 +35,7 @@
    "label": "Quantity Control"
   },
   {
-   "default": "Force Barcode Only",
+   "default": "Allow Manual Qty",
    "description": "Default rule for Stock Entry and Delivery Note item rows. Item-level setting can override this.",
    "fieldname": "package_barcode_default_qty_entry_rule",
    "fieldtype": "Select",

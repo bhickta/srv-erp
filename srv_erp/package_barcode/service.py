@@ -257,7 +257,7 @@ def get_barcode_naming_series() -> str:
 def get_default_qty_entry_rule() -> str:
 	return (
 		frappe.db.get_single_value("Barcode Settings", "package_barcode_default_qty_entry_rule")
-		or QTY_RULE_FORCE_BARCODE
+		or QTY_RULE_ALLOW_MANUAL
 	)
 
 

@@ -1,7 +1,7 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_FORCE_BARCODE
+from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 
 
 def after_install():
@@ -63,5 +63,5 @@ def set_package_barcode_settings_defaults():
 		)
 	if not frappe.db.get_single_value("Barcode Settings", "package_barcode_default_qty_entry_rule"):
 		frappe.db.set_single_value(
-			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_FORCE_BARCODE
+			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_ALLOW_MANUAL
 		)
