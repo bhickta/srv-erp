@@ -44,9 +44,26 @@ page_js = {"package-barcode-generator": "srv_erp/page/package_barcode_generator/
 
 # include js in doctype views
 doctype_js = {
-	"Item": "public/js/item.js",
-	"Stock Entry": "public/js/package_barcode_stock.js",
-	"Delivery Note": "public/js/package_barcode_stock.js",
+	"Item": [
+		"public/js/item.js",
+		"public/js/item/variant_select_all_dialog.js",
+	],
+	"Stock Entry": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
+	"Delivery Note": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_list_js = {
