@@ -4,6 +4,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "desk_display_tab",
+  "transaction_table_display_section",
+  "show_item_name_before_item_code_in_stock_tables",
   "package_barcode_tab",
   "package_barcode_generation_section",
   "package_barcode_naming_series",
@@ -11,6 +14,23 @@
   "package_barcode_default_qty_entry_rule"
  ],
  "fields": [
+  {
+   "fieldname": "desk_display_tab",
+   "fieldtype": "Tab Break",
+   "label": "Desk Display"
+  },
+  {
+   "fieldname": "transaction_table_display_section",
+   "fieldtype": "Section Break",
+   "label": "Transaction Tables"
+  },
+  {
+   "default": "0",
+   "description": "Show Item links as Item Name: Item Code in Stock Entry and Delivery Note item tables.",
+   "fieldname": "show_item_name_before_item_code_in_stock_tables",
+   "fieldtype": "Check",
+   "label": "Show Item Name Before Item Code in Stock Tables"
+  },
   {
    "fieldname": "package_barcode_tab",
    "fieldtype": "Tab Break",

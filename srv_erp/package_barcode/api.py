@@ -46,6 +46,17 @@ def get_barcode_only_items(item_codes: list[str] | str) -> list[str]:
 
 
 @frappe.whitelist()
+def get_stock_table_display_settings() -> dict:
+	return {
+		"show_item_name_before_item_code": bool(
+			frappe.db.get_single_value(
+				"Barcode Settings", "show_item_name_before_item_code_in_stock_tables"
+			)
+		)
+	}
+
+
+@frappe.whitelist()
 def download_package_barcode_batch(batch: str) -> None:
 	rows = [["Item Code", "Barcode", "UOM", "Package Barcode", "Status"]]
 	for row in frappe.get_all(
