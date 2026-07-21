@@ -10,6 +10,7 @@ from srv_erp.package_barcode.service import (
 	QTY_RULE_ALLOW_MANUAL,
 	QTY_RULE_FORCE_BARCODE,
 	get_item_uom_options,
+	validate_stock_transaction,
 )
 
 
@@ -90,7 +91,7 @@ class TestPackageBarcode(ERPNextTestSuite):
 		)
 
 		with self.assertRaises(PackageBarcodeError):
-			PackageBarcodeTransactionValidator(doc).validate()
+			validate_stock_transaction(doc)
 
 	def test_forced_package_barcode_qty_rejects_manual_qty_mismatch(self):
 		frappe.db.set_single_value(
@@ -149,3 +150,32 @@ class TestPackageBarcode(ERPNextTestSuite):
 		)
 
 		PackageBarcodeTransactionValidator(doc).validate()
+
+	def test_stock_reconciliation_supports_forced_package_barcode_qty(self):
+		frappe.db.set_single_value(
+			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_FORCE_BARCODE
+		)
+		result = generate_package_barcodes(self.item.name, "Nos", 1)
+		barcode = frappe.db.get_value("Package Barcode", result.barcodes[0], "barcode")
+		doc = frappe._dict(
+			{
+				"doctype": "Stock Reconciliation",
+				"items": [
+					frappe._dict({"idx": 1, "item_code": self.item.name, "qty": 2}),
+				],
+				"package_barcodes": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"package_barcode": result.barcodes[0],
+							"barcode": barcode,
+							"item_code": self.item.name,
+							"uom": "Nos",
+						}
+					),
+				],
+			}
+		)
+
+		with self.assertRaises(PackageBarcodeError):
+			PackageBarcodeTransactionValidator(doc).validate()

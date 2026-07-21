@@ -328,5 +328,5 @@ def get_item_uom_details(item_code: str) -> dict:
 
 
 def validate_stock_transaction(doc, method=None) -> None:
-	if doc.doctype in {"Stock Entry", "Delivery Note"}:
+	if doc.doctype in {"Stock Entry", "Delivery Note", "Stock Reconciliation"}:
 		PackageBarcodeTransactionValidator(doc).validate()

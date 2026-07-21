@@ -64,6 +64,14 @@ doctype_js = {
 		"public/js/package_barcode/stock_scanner.js",
 		"public/js/package_barcode_stock.js",
 	],
+	"Stock Reconciliation": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_list_js = {
@@ -169,6 +177,9 @@ doc_events = {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
 	"Delivery Note": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+	"Stock Reconciliation": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
 }
