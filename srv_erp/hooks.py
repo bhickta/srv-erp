@@ -40,7 +40,10 @@ app_license = "mit"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-page_js = {"package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js"}
+page_js = {
+	"package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js",
+	"zero-stock-reconciliation": "srv_erp/page/zero_stock_reconciliation/zero_stock_reconciliation.js",
+}
 
 # include js in doctype views
 doctype_js = {

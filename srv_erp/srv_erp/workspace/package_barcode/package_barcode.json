@@ -89,7 +89,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Stock Transactions",
-   "link_count": 4,
+   "link_count": 5,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -134,6 +134,17 @@
    "link_count": 0,
    "link_to": "Pick List",
    "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Item, Warehouse",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zero Stock Reconciliation",
+   "link_count": 0,
+   "link_to": "zero-stock-reconciliation",
+   "link_type": "Page",
    "onboard": 0,
    "type": "Link"
   },

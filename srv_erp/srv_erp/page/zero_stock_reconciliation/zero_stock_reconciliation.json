@@ -1,0 +1,23 @@
+{
+ "creation": "2026-07-21 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "stock",
+ "idx": 0,
+ "modified": "2026-07-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "zero-stock-reconciliation",
+ "owner": "Administrator",
+ "page_name": "zero-stock-reconciliation",
+ "roles": [
+  {
+   "role": "Stock Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "standard": "Yes",
+ "title": "Zero Stock Reconciliation"
+}
