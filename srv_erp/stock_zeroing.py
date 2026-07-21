@@ -82,7 +82,7 @@ def get_stock_rows_to_zero(filters: frappe._dict, limit: int) -> list[frappe._di
 		"item.has_variants = 0",
 		"sle.posting_datetime <= %(posting_datetime)s",
 	]
-	result_conditions = ["ranked.row_number = 1"]
+	result_conditions = ["ranked.row_rank = 1"]
 	params = {
 		"company": filters.company,
 		"posting_datetime": f"{filters.posting_date} {filters.posting_time}",
@@ -139,7 +139,7 @@ def get_stock_rows_to_zero(filters: frappe._dict, limit: int) -> list[frappe._di
 				row_number() over (
 					partition by sle.item_code, sle.warehouse
 					order by sle.posting_datetime desc, sle.creation desc, sle.name desc
-				) as row_number
+				) as row_rank
 			from `tabStock Ledger Entry` sle
 			inner join `tabWarehouse` wh on wh.name = sle.warehouse
 			inner join `tabItem` item on item.name = sle.item_code
