@@ -1,7 +1,7 @@
 {
  "app": "srv_erp",
  "charts": [],
- "content": "[{\"id\":\"pb-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Package Barcode</b></span>\",\"col\":12}},{\"id\":\"pb-generate-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Generate & Export\",\"col\":4}},{\"id\":\"pb-records-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Barcode Records\",\"col\":4}},{\"id\":\"pb-stock-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Transactions\",\"col\":4}},{\"id\":\"pb-master-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}}]",
+ "content": "[{\"id\":\"pb-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Package Barcode Tools</b></span>\",\"col\":12}},{\"id\":\"pb-generate-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Generate & Export\",\"col\":4}},{\"id\":\"pb-records-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Barcode Records\",\"col\":4}},{\"id\":\"pb-stock-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Transactions\",\"col\":4}},{\"id\":\"pb-master-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}}]",
  "creation": "2026-06-18 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -12,7 +12,7 @@
  "idx": 0,
  "indicator_color": "blue",
  "is_hidden": 0,
- "label": "Package Barcode",
+ "label": "Package Barcode Tools",
  "links": [
   {
    "hidden": 0,
@@ -207,10 +207,10 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-18 00:00:00.000000",
+ "modified": "2026-07-23 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Srv Erp",
- "name": "Package Barcode",
+ "name": "Package Barcode Tools",
  "number_cards": [],
  "owner": "Administrator",
  "parent_page": "Stock",
@@ -229,6 +229,6 @@
  ],
  "sequence_id": 25.0,
  "shortcuts": [],
- "title": "Package Barcode",
+ "title": "Package Barcode Tools",
  "type": "Workspace"
 }
