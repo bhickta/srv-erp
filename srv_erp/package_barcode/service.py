@@ -159,7 +159,7 @@ class PackageBarcodeTransactionValidator:
 	def validate(self) -> None:
 		self.validate_duplicate_scans()
 		self.validate_master_data()
-		self.validate_stock_reconciliation_package_uom_quantities()
+		self.sync_stock_reconciliation_package_uom_quantities()
 		self.validate_barcode_only_quantities()
 
 	def validate_duplicate_scans(self) -> None:
@@ -258,7 +258,7 @@ class PackageBarcodeTransactionValidator:
 				PackageBarcodeError,
 			)
 
-	def validate_stock_reconciliation_package_uom_quantities(self) -> None:
+	def sync_stock_reconciliation_package_uom_quantities(self) -> None:
 		if self.doc.doctype != "Stock Reconciliation":
 			return
 
@@ -269,24 +269,13 @@ class PackageBarcodeTransactionValidator:
 			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.package_uom)
 			package_qty = flt(row.get("package_qty"))
 			qty_precision = get_row_precision(row, "qty")
-			expected_qty = flt(package_qty * conversion_factor, qty_precision)
 			row_qty = flt(row.get("qty"), qty_precision)
 
-			if row_qty != expected_qty:
-				frappe.throw(
-					_(
-						"Row {0}: Stock Reconciliation Qty must be {1} for {2} {3} of Item {4}."
-					).format(
-						row.idx,
-						expected_qty,
-						package_qty,
-						frappe.bold(row.package_uom),
-						frappe.bold(row.item_code),
-					),
-					PackageBarcodeError,
-				)
-
 			row.package_conversion_factor = conversion_factor
+			if package_qty:
+				row.qty = flt(package_qty * conversion_factor, qty_precision)
+			elif row_qty:
+				row.package_qty = flt(row_qty / conversion_factor, get_row_precision(row, "package_qty"))
 
 
 def get_barcode_naming_series() -> str:
@@ -417,3 +406,8 @@ def get_item_uom_details(item_code: str) -> dict:
 def validate_stock_transaction(doc, method=None) -> None:
 	if doc.doctype in {"Stock Entry", "Delivery Note", "Stock Reconciliation"}:
 		PackageBarcodeTransactionValidator(doc).validate()
+
+
+def sync_stock_transaction_package_quantities(doc, method=None) -> None:
+	if doc.doctype == "Stock Reconciliation":
+		PackageBarcodeTransactionValidator(doc).sync_stock_reconciliation_package_uom_quantities()

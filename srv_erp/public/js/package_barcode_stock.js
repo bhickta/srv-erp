@@ -90,21 +90,21 @@ srv_erp.package_barcode.recalculate_stock_reconciliation_qty = function (frm, cd
 		});
 };
 
-srv_erp.package_barcode.enforce_stock_reconciliation_package_qty = function (frm, cdt, cdn) {
+srv_erp.package_barcode.recalculate_stock_reconciliation_package_qty = function (frm, cdt, cdn) {
 	if (
 		frm.doctype !== "Stock Reconciliation" ||
 		frm.package_barcode_recalculating_uom ||
-		frm.package_barcode_enforcing_package_qty
+		frm.package_barcode_recalculating_package_qty
 	) {
 		return;
 	}
 
 	const row = locals[cdt][cdn];
-	if (!row?.item_code || !row.package_uom || !flt(row.package_qty)) {
+	if (!row?.item_code || !row.package_uom) {
 		return;
 	}
 
-	frm.package_barcode_enforcing_package_qty = true;
+	frm.package_barcode_recalculating_package_qty = true;
 	srv_erp.package_barcode
 		.get_item_uom_details(row.item_code)
 		.then((details) => {
@@ -113,28 +113,18 @@ srv_erp.package_barcode.enforce_stock_reconciliation_package_qty = function (frm
 				frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.package_uom, row.item_code]));
 			}
 
-			const expected_qty = flt(row.package_qty) * conversion_factor;
-			if (flt(row.qty) === flt(expected_qty)) {
-				return;
-			}
-
-			frappe.show_alert({
-				message: __("Qty is controlled by Package UOM. Clear Package UOM to enter Stock Qty manually."),
-				indicator: "orange",
-			});
-
 			return frappe.model.set_value(cdt, cdn, {
 				package_conversion_factor: conversion_factor,
-				qty: expected_qty,
+				package_qty: flt(row.qty) / conversion_factor,
 			});
 		})
 		.finally(() => {
-			frm.package_barcode_enforcing_package_qty = false;
+			frm.package_barcode_recalculating_package_qty = false;
 		});
 };
 
 srv_erp.package_barcode.handle_stock_reconciliation_qty_change = function (frm, cdt, cdn) {
-	srv_erp.package_barcode.enforce_stock_reconciliation_package_qty(frm, cdt, cdn);
+	srv_erp.package_barcode.recalculate_stock_reconciliation_package_qty(frm, cdt, cdn);
 	srv_erp.package_barcode.handle_qty_change(frm);
 };
 

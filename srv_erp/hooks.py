@@ -187,6 +187,7 @@ doc_events = {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
 	"Stock Reconciliation": {
+		"before_validate": "srv_erp.package_barcode.service.sync_stock_transaction_package_quantities",
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
 }
