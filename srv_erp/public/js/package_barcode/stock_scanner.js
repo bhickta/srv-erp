@@ -46,15 +46,25 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 				}
 
 				const row_data = data.package_barcode ? { ...data, barcode: null } : data;
+				if (data.package_barcode && this.frm.doctype === "Stock Reconciliation") {
+					row_data.uom = null;
+				}
 
 				this.update_table(row_data)
 					.then((row) => {
 						if (data.package_barcode) {
-							this.add_package_barcode_scan(data);
-							srv_erp.package_barcode.record_successful_scan(this.frm, data.barcode);
+							return Promise.resolve(
+								srv_erp.package_barcode.apply_stock_reconciliation_package_uom(this.frm, row, data)
+							).then(() => {
+								this.add_package_barcode_scan(data);
+								srv_erp.package_barcode.record_successful_scan(this.frm, data.barcode);
+							});
 						}
+						return null;
+					})
+					.then(() => {
 						this.play_success_sound();
-						resolve(row);
+						resolve();
 					})
 					.catch(() => {
 						if (data.package_barcode) {

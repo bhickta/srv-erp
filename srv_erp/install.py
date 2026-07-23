@@ -6,11 +6,13 @@ from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_R
 
 def after_install():
 	create_package_barcode_custom_fields()
+	create_stock_reconciliation_package_uom_custom_fields()
 	set_package_barcode_settings_defaults()
 
 
 def after_migrate():
 	create_package_barcode_custom_fields()
+	create_stock_reconciliation_package_uom_custom_fields()
 	set_package_barcode_settings_defaults()
 
 
@@ -51,7 +53,44 @@ def create_package_barcode_custom_fields():
 				"read_only": 1,
 				"allow_on_submit": 1,
 			},
-		]
+		],
+	}
+	create_custom_fields(custom_fields, update=True)
+
+
+def create_stock_reconciliation_package_uom_custom_fields():
+	custom_fields = {
+		"Stock Reconciliation Item": [
+			{
+				"fieldname": "package_uom_section",
+				"fieldtype": "Section Break",
+				"insert_after": "qty",
+				"label": "Package UOM",
+				"collapsible": 1,
+			},
+			{
+				"fieldname": "package_qty",
+				"fieldtype": "Float",
+				"insert_after": "package_uom_section",
+				"label": "Package Qty",
+				"precision": "3",
+			},
+			{
+				"fieldname": "package_uom",
+				"fieldtype": "Link",
+				"insert_after": "package_qty",
+				"label": "Package UOM",
+				"options": "UOM",
+			},
+			{
+				"fieldname": "package_conversion_factor",
+				"fieldtype": "Float",
+				"insert_after": "package_uom",
+				"label": "Package Conversion Factor",
+				"precision": "9",
+				"read_only": 1,
+			},
+		],
 	}
 	create_custom_fields(custom_fields, update=True)
 

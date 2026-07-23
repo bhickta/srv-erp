@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import frappe
 from frappe import _
 from frappe.model.naming import make_autoname
-from frappe.utils import cint
+from frappe.utils import cint, flt
 
 
 DEFAULT_BARCODE_NAMING_SERIES = "PBC-.YYYY.-.#####"
@@ -159,6 +159,7 @@ class PackageBarcodeTransactionValidator:
 	def validate(self) -> None:
 		self.validate_duplicate_scans()
 		self.validate_master_data()
+		self.validate_stock_reconciliation_package_uom_quantities()
 		self.validate_barcode_only_quantities()
 
 	def validate_duplicate_scans(self) -> None:
@@ -224,7 +225,10 @@ class PackageBarcodeTransactionValidator:
 		if not barcode_only_items:
 			return
 
-		scanned_qty = get_scanned_qty_by_item(self.rows)
+		if self.doc.doctype == "Stock Reconciliation":
+			scanned_qty = get_scanned_stock_qty_by_item(self.rows)
+		else:
+			scanned_qty = get_scanned_qty_by_item(self.rows)
 		quantity_field = get_transaction_quantity_field(self.doc.doctype)
 		item_rows = list(self.doc.get("items") or [])
 		mismatches = []
@@ -245,6 +249,36 @@ class PackageBarcodeTransactionValidator:
 				).format(", ".join(mismatches)),
 				PackageBarcodeError,
 			)
+
+	def validate_stock_reconciliation_package_uom_quantities(self) -> None:
+		if self.doc.doctype != "Stock Reconciliation":
+			return
+
+		for row in self.doc.get("items") or []:
+			if not row.item_code or not row.get("package_uom"):
+				continue
+
+			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.package_uom)
+			package_qty = flt(row.get("package_qty"))
+			qty_precision = get_row_precision(row, "qty")
+			expected_qty = flt(package_qty * conversion_factor, qty_precision)
+			row_qty = flt(row.get("qty"), qty_precision)
+
+			if row_qty != expected_qty:
+				frappe.throw(
+					_(
+						"Row {0}: Stock Reconciliation Qty must be {1} for {2} {3} of Item {4}."
+					).format(
+						row.idx,
+						expected_qty,
+						package_qty,
+						frappe.bold(row.package_uom),
+						frappe.bold(row.item_code),
+					),
+					PackageBarcodeError,
+				)
+
+			row.package_conversion_factor = conversion_factor
 
 
 def get_barcode_naming_series() -> str:
@@ -301,6 +335,15 @@ def get_scanned_qty_by_item(rows) -> dict[str, int]:
 	return scanned_qty
 
 
+def get_scanned_stock_qty_by_item(rows) -> dict[str, float]:
+	scanned_qty: dict[str, float] = {}
+	for row in rows:
+		if row.item_code and row.uom:
+			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.uom)
+			scanned_qty[row.item_code] = scanned_qty.get(row.item_code, 0) + conversion_factor
+	return scanned_qty
+
+
 def get_transaction_quantity_field(doctype: str) -> str:
 	if doctype == "Delivery Note":
 		return "qty"
@@ -317,6 +360,27 @@ def get_item_uom_options(item_code: str) -> list[str]:
 	return uoms
 
 
+def get_item_uom_conversion_factor(item_code: str, uom: str) -> float:
+	item = frappe.get_cached_doc("Item", item_code)
+	if uom == item.stock_uom:
+		return 1.0
+
+	for row in item.get("uoms"):
+		if row.uom == uom:
+			return flt(row.conversion_factor)
+
+	frappe.throw(
+		_("UOM {0} is not configured for Item {1}.").format(frappe.bold(uom), frappe.bold(item_code)),
+		PackageBarcodeError,
+	)
+
+
+def get_row_precision(row, fieldname: str, default: int = 3) -> int:
+	if hasattr(row, "precision"):
+		return row.precision(fieldname)
+	return default
+
+
 def get_item_uom_details(item_code: str) -> dict:
 	item = frappe.get_cached_doc("Item", item_code)
 	return {
@@ -324,6 +388,9 @@ def get_item_uom_details(item_code: str) -> dict:
 		"item_name": item.item_name,
 		"stock_uom": item.stock_uom,
 		"uoms": get_item_uom_options(item_code),
+		"conversion_factors": {
+			uom: get_item_uom_conversion_factor(item_code, uom) for uom in get_item_uom_options(item_code)
+		},
 	}
 
 

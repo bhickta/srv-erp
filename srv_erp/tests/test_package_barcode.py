@@ -179,3 +179,64 @@ class TestPackageBarcode(ERPNextTestSuite):
 
 		with self.assertRaises(PackageBarcodeError):
 			PackageBarcodeTransactionValidator(doc).validate()
+
+	def test_stock_reconciliation_package_uom_converts_to_stock_uom_qty(self):
+		frappe.db.set_single_value(
+			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_FORCE_BARCODE
+		)
+		result = generate_package_barcodes(self.item.name, "Box", 1)
+		barcode = frappe.db.get_value("Package Barcode", result.barcodes[0], "barcode")
+		doc = frappe._dict(
+			{
+				"doctype": "Stock Reconciliation",
+				"items": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"item_code": self.item.name,
+							"qty": 10,
+							"package_qty": 1,
+							"package_uom": "Box",
+						}
+					),
+				],
+				"package_barcodes": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"package_barcode": result.barcodes[0],
+							"barcode": barcode,
+							"item_code": self.item.name,
+							"uom": "Box",
+						}
+					),
+				],
+			}
+		)
+
+		validate_stock_transaction(doc)
+
+	def test_stock_reconciliation_package_uom_rejects_wrong_stock_uom_qty(self):
+		frappe.db.set_single_value(
+			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_ALLOW_MANUAL
+		)
+		doc = frappe._dict(
+			{
+				"doctype": "Stock Reconciliation",
+				"items": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"item_code": self.item.name,
+							"qty": 1,
+							"package_qty": 1,
+							"package_uom": "Box",
+						}
+					),
+				],
+				"package_barcodes": [],
+			}
+		)
+
+		with self.assertRaises(PackageBarcodeError):
+			validate_stock_transaction(doc)
