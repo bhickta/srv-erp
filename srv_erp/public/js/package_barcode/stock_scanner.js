@@ -49,6 +49,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 				if (data.package_barcode && this.frm.doctype === "Stock Reconciliation") {
 					row_data.uom = null;
 					this.stock_reconciliation_package_uom = data.uom;
+					this.frm.package_barcode_recalculating_uom = true;
 				}
 
 				this.update_table(row_data)
@@ -72,6 +73,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 							srv_erp.package_barcode.record_blocked_scan(this.frm, data.barcode);
 						}
 						this.stock_reconciliation_package_uom = null;
+						this.frm.package_barcode_recalculating_uom = false;
 						this.play_fail_sound();
 						reject();
 					});
@@ -91,14 +93,33 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		}
 
 		const items_table = this.frm.doc[this.items_table_name] || [];
-		const same_package_uom_row = items_table.find((row) => {
-			return row.item_code === item_code && row.package_uom === this.stock_reconciliation_package_uom;
+		const target_warehouse = this.frm.doc.last_scanned_warehouse || default_warehouse || this.frm.doc.set_warehouse;
+		const same_item_warehouse_row = items_table.find((row) => {
+			const warehouse_matches = !target_warehouse || !row.warehouse || row.warehouse === target_warehouse;
+			return row.item_code === item_code && warehouse_matches;
 		});
-		if (same_package_uom_row) {
-			return same_package_uom_row;
+		if (same_item_warehouse_row) {
+			this.stock_reconciliation_scan_row_state = {
+				name: same_item_warehouse_row.name,
+				qty: flt(same_item_warehouse_row.qty),
+				package_qty: flt(same_item_warehouse_row.package_qty),
+				package_uom: same_item_warehouse_row.package_uom,
+				package_conversion_factor: flt(same_item_warehouse_row.package_conversion_factor),
+			};
+			return same_item_warehouse_row;
 		}
 
-		return items_table.find((row) => !row.item_code);
+		const empty_row = items_table.find((row) => !row.item_code);
+		this.stock_reconciliation_scan_row_state = empty_row
+			? {
+				name: empty_row.name,
+				qty: 0,
+				package_qty: 0,
+				package_uom: null,
+				package_conversion_factor: 0,
+			}
+			: null;
+		return empty_row;
 	}
 
 	add_package_barcode_scan(data) {

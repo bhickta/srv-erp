@@ -60,19 +60,48 @@ srv_erp.package_barcode.apply_stock_reconciliation_package_uom = function (frm, 
 		}
 
 		const existing_package_qty = row.package_uom === data.uom ? flt(row.package_qty) : 0;
-		const package_qty = existing_package_qty + flt(data.qty || 1);
-		const stock_qty = package_qty * conversion_factor;
+		const scanned_package_qty = flt(data.qty || 1);
+		const scanned_stock_qty = scanned_package_qty * conversion_factor;
+		const scanner = frm.cscript.barcode_scanner;
+		const row_state = scanner?.stock_reconciliation_scan_row_state?.name === row.name
+			? scanner.stock_reconciliation_scan_row_state
+			: null;
+		const previous_qty = row_state ? flt(row_state.qty) : flt(row.qty) - scanned_package_qty;
+		const previous_package_qty = row_state ? flt(row_state.package_qty) : existing_package_qty;
+		const previous_package_uom = row_state ? row_state.package_uom : row.package_uom;
+		const previous_conversion_factor = row_state
+			? flt(row_state.package_conversion_factor)
+			: flt(row.package_conversion_factor);
+		const previous_package_stock_qty = previous_package_qty * previous_conversion_factor;
+		const can_keep_package_fields =
+			(!previous_qty || previous_qty === previous_package_stock_qty) &&
+			(!previous_package_uom || previous_package_uom === data.uom);
+		const package_qty = can_keep_package_fields ? previous_package_qty + scanned_package_qty : 0;
+		const stock_qty = can_keep_package_fields
+			? package_qty * conversion_factor
+			: previous_qty + scanned_stock_qty;
 
 		frm.package_barcode_recalculating_uom = true;
 		return frappe.run_serially([
-			() => frappe.model.set_value(row.doctype, row.name, "package_uom", data.uom),
-			() => frappe.model.set_value(row.doctype, row.name, "package_conversion_factor", conversion_factor),
+			() => frappe.model.set_value(row.doctype, row.name, "package_uom", can_keep_package_fields ? data.uom : ""),
+			() => frappe.model.set_value(row.doctype, row.name, "package_conversion_factor", can_keep_package_fields ? conversion_factor : 0),
 			() => frappe.model.set_value(row.doctype, row.name, "package_qty", package_qty),
 			() => frappe.model.set_value(row.doctype, row.name, "qty", stock_qty),
 			() => srv_erp.package_barcode.refresh_stock_reconciliation_package_row(frm, row.doctype, row.name),
+			() => {
+				if (!can_keep_package_fields) {
+					frappe.show_alert({
+						message: __("Package fields were cleared because this row has mixed manual or package quantities."),
+						indicator: "orange",
+					});
+				}
+			},
 		])
 			.finally(() => {
 				frm.package_barcode_recalculating_uom = false;
+				if (scanner) {
+					scanner.stock_reconciliation_scan_row_state = null;
+				}
 				frm.cscript.barcode_scanner.stock_reconciliation_package_uom = null;
 			});
 	});

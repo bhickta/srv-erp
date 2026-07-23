@@ -40,6 +40,10 @@ srv_erp.package_barcode.refresh_barcode_only_items = function (frm) {
 };
 
 srv_erp.package_barcode.enforce_barcode_only_qty = function (frm, notify = false) {
+	if (frm.doctype === "Stock Reconciliation") {
+		return;
+	}
+
 	if (frm.package_barcode_enforcing_qty) {
 		return;
 	}
