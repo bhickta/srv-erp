@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 srv_erp.patches.add_package_barcode_custom_fields
 srv_erp.patches.add_stock_reconciliation_package_uom_fields
+srv_erp.patches.set_stock_reconciliation_package_uom_grid_columns

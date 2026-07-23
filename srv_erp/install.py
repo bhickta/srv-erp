@@ -95,6 +95,33 @@ def create_stock_reconciliation_package_uom_custom_fields():
 	create_custom_fields(custom_fields, update=True)
 
 
+def set_stock_reconciliation_package_uom_grid_columns():
+	create_stock_reconciliation_package_uom_custom_fields()
+	field_properties = {
+		"item_code": {"columns": 2, "in_list_view": 1},
+		"item_name": {"columns": 2, "in_list_view": 1},
+		"warehouse": {"columns": 2, "in_list_view": 1},
+		"package_qty": {"columns": 1, "in_list_view": 1},
+		"package_uom": {"columns": 1, "in_list_view": 1},
+		"qty": {"columns": 1, "in_list_view": 1},
+		"stock_uom": {"columns": 1, "in_list_view": 1},
+		"package_conversion_factor": {"columns": 0, "in_list_view": 0},
+	}
+
+	for fieldname, properties in field_properties.items():
+		for property_name, value in properties.items():
+			frappe.make_property_setter(
+				{
+					"doctype": "Stock Reconciliation Item",
+					"doctype_or_field": "DocField",
+					"fieldname": fieldname,
+					"property": property_name,
+					"value": value,
+					"property_type": "Int",
+				}
+			)
+
+
 def set_package_barcode_settings_defaults():
 	if not frappe.db.get_single_value("Barcode Settings", "package_barcode_naming_series"):
 		frappe.db.set_single_value(
