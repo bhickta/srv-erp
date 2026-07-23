@@ -36,6 +36,18 @@ srv_erp.package_barcode.get_item_uom_details = function (item_code) {
 	return srv_erp.package_barcode.item_uom_details[item_code];
 };
 
+srv_erp.package_barcode.refresh_stock_reconciliation_package_row = function (frm, cdt, cdn) {
+	if (frm.doctype !== "Stock Reconciliation") {
+		return;
+	}
+
+	if (frm.events?.set_amount_quantity) {
+		frm.events.set_amount_quantity(frm, cdt, cdn);
+	}
+
+	frm.refresh_field("items");
+};
+
 srv_erp.package_barcode.apply_stock_reconciliation_package_uom = function (frm, row, data) {
 	if (frm.doctype !== "Stock Reconciliation" || !row || !data?.uom) {
 		return;
@@ -49,20 +61,29 @@ srv_erp.package_barcode.apply_stock_reconciliation_package_uom = function (frm, 
 
 		const existing_package_qty = row.package_uom === data.uom ? flt(row.package_qty) : 0;
 		const package_qty = existing_package_qty + flt(data.qty || 1);
-		return frappe.model.set_value(row.doctype, row.name, {
-			package_qty,
-			package_uom: data.uom,
-			package_conversion_factor: conversion_factor,
-			qty: package_qty * conversion_factor,
-		})
+		const stock_qty = package_qty * conversion_factor;
+
+		frm.package_barcode_recalculating_uom = true;
+		return frappe.run_serially([
+			() => frappe.model.set_value(row.doctype, row.name, "package_uom", data.uom),
+			() => frappe.model.set_value(row.doctype, row.name, "package_conversion_factor", conversion_factor),
+			() => frappe.model.set_value(row.doctype, row.name, "package_qty", package_qty),
+			() => frappe.model.set_value(row.doctype, row.name, "qty", stock_qty),
+			() => srv_erp.package_barcode.refresh_stock_reconciliation_package_row(frm, row.doctype, row.name),
+		])
 			.finally(() => {
+				frm.package_barcode_recalculating_uom = false;
 				frm.cscript.barcode_scanner.stock_reconciliation_package_uom = null;
 			});
 	});
 };
 
 srv_erp.package_barcode.recalculate_stock_reconciliation_qty = function (frm, cdt, cdn) {
-	if (frm.doctype !== "Stock Reconciliation" || frm.package_barcode_recalculating_uom) {
+	if (
+		frm.doctype !== "Stock Reconciliation" ||
+		frm.package_barcode_recalculating_uom ||
+		frm.package_barcode_clearing_package_fields
+	) {
 		return;
 	}
 
@@ -80,51 +101,55 @@ srv_erp.package_barcode.recalculate_stock_reconciliation_qty = function (frm, cd
 				frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.package_uom, row.item_code]));
 			}
 
-			return frappe.model.set_value(cdt, cdn, {
-				package_conversion_factor: conversion_factor,
-				qty: flt(row.package_qty) * conversion_factor,
-			});
+			return frappe.run_serially([
+				() => frappe.model.set_value(cdt, cdn, "package_conversion_factor", conversion_factor),
+				() => frappe.model.set_value(cdt, cdn, "qty", flt(row.package_qty) * conversion_factor),
+				() => srv_erp.package_barcode.refresh_stock_reconciliation_package_row(frm, cdt, cdn),
+			]);
 		})
 		.finally(() => {
 			frm.package_barcode_recalculating_uom = false;
 		});
 };
 
-srv_erp.package_barcode.recalculate_stock_reconciliation_package_qty = function (frm, cdt, cdn) {
+srv_erp.package_barcode.clear_stock_reconciliation_package_fields = function (frm, cdt, cdn) {
 	if (
 		frm.doctype !== "Stock Reconciliation" ||
 		frm.package_barcode_recalculating_uom ||
-		frm.package_barcode_recalculating_package_qty
+		frm.package_barcode_clearing_package_fields
 	) {
 		return;
 	}
 
 	const row = locals[cdt][cdn];
-	if (!row?.item_code || !row.package_uom) {
+	if (!row?.package_uom && !flt(row?.package_qty) && !flt(row?.package_conversion_factor)) {
 		return;
 	}
 
-	frm.package_barcode_recalculating_package_qty = true;
-	srv_erp.package_barcode
-		.get_item_uom_details(row.item_code)
-		.then((details) => {
-			const conversion_factor = flt(details.conversion_factors?.[row.package_uom] || 0);
-			if (!conversion_factor) {
-				frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.package_uom, row.item_code]));
-			}
-
-			return frappe.model.set_value(cdt, cdn, {
-				package_conversion_factor: conversion_factor,
-				package_qty: flt(row.qty) / conversion_factor,
+	frm.package_barcode_clearing_package_fields = true;
+	frappe.run_serially([
+		() => frappe.model.set_value(cdt, cdn, "package_qty", 0),
+		() => frappe.model.set_value(cdt, cdn, "package_uom", ""),
+		() => frappe.model.set_value(cdt, cdn, "package_conversion_factor", 0),
+		() => srv_erp.package_barcode.refresh_stock_reconciliation_package_row(frm, cdt, cdn),
+	])
+		.then(() => {
+			frappe.show_alert({
+				message: __("Package fields were cleared because Stock Qty was edited manually."),
+				indicator: "orange",
 			});
 		})
 		.finally(() => {
-			frm.package_barcode_recalculating_package_qty = false;
+			frm.package_barcode_clearing_package_fields = false;
 		});
 };
 
 srv_erp.package_barcode.handle_stock_reconciliation_qty_change = function (frm, cdt, cdn) {
-	srv_erp.package_barcode.recalculate_stock_reconciliation_package_qty(frm, cdt, cdn);
+	if (frm.package_barcode_recalculating_uom) {
+		return;
+	}
+
+	srv_erp.package_barcode.clear_stock_reconciliation_package_fields(frm, cdt, cdn);
 	srv_erp.package_barcode.handle_qty_change(frm);
 };
 

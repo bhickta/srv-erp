@@ -74,6 +74,7 @@ def create_stock_reconciliation_package_uom_custom_fields():
 				"insert_after": "package_uom_section",
 				"label": "Package Qty",
 				"precision": "3",
+				"read_only": 1,
 			},
 			{
 				"fieldname": "package_uom",
@@ -81,6 +82,7 @@ def create_stock_reconciliation_package_uom_custom_fields():
 				"insert_after": "package_qty",
 				"label": "Package UOM",
 				"options": "UOM",
+				"read_only": 1,
 			},
 			{
 				"fieldname": "package_conversion_factor",

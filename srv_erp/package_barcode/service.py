@@ -273,9 +273,13 @@ class PackageBarcodeTransactionValidator:
 
 			row.package_conversion_factor = conversion_factor
 			if package_qty:
-				row.qty = flt(package_qty * conversion_factor, qty_precision)
+				expected_qty = flt(package_qty * conversion_factor, qty_precision)
+				if row_qty and row_qty != expected_qty:
+					clear_stock_reconciliation_package_fields(row)
+				else:
+					row.qty = expected_qty
 			elif row_qty:
-				row.package_qty = flt(row_qty / conversion_factor, get_row_precision(row, "package_qty"))
+				clear_stock_reconciliation_package_fields(row)
 
 
 def get_barcode_naming_series() -> str:
@@ -411,3 +415,9 @@ def validate_stock_transaction(doc, method=None) -> None:
 def sync_stock_transaction_package_quantities(doc, method=None) -> None:
 	if doc.doctype == "Stock Reconciliation":
 		PackageBarcodeTransactionValidator(doc).sync_stock_reconciliation_package_uom_quantities()
+
+
+def clear_stock_reconciliation_package_fields(row) -> None:
+	row.package_qty = 0
+	row.package_uom = None
+	row.package_conversion_factor = 0
