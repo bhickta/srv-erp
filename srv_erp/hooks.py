@@ -176,6 +176,10 @@ after_migrate = ["srv_erp.install.after_migrate"]
 # Hook on document methods and events
 
 doc_events = {
+	"Item": {
+		"validate": "srv_erp.item_group_sync.validate_item_group_sync",
+		"on_update": "srv_erp.item_group_sync.sync_template_item_group_to_variants",
+	},
 	"Stock Entry": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
