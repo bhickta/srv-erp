@@ -233,14 +233,22 @@ class PackageBarcodeTransactionValidator:
 		item_rows = list(self.doc.get("items") or [])
 		mismatches = []
 
-		for row in item_rows:
-			if row.item_code not in barcode_only_items:
-				continue
+		if self.doc.doctype == "Stock Reconciliation":
+			row_qty_by_item = get_transaction_qty_by_item(item_rows, quantity_field)
+			for item_code in barcode_only_items:
+				row_qty = row_qty_by_item.get(item_code, 0)
+				expected_qty = scanned_qty.get(item_code, 0)
+				if not quantities_match(row_qty, expected_qty):
+					mismatches.append(f"{item_code}: {row_qty} != {expected_qty}")
+		else:
+			for row in item_rows:
+				if row.item_code not in barcode_only_items:
+					continue
 
-			row_qty = cint(row.get(quantity_field))
-			expected_qty = scanned_qty.get(row.item_code, 0)
-			if row_qty != expected_qty:
-				mismatches.append(f"{row.item_code}: {row_qty} != {expected_qty}")
+				row_qty = cint(row.get(quantity_field))
+				expected_qty = scanned_qty.get(row.item_code, 0)
+				if row_qty != expected_qty:
+					mismatches.append(f"{row.item_code}: {row_qty} != {expected_qty}")
 
 		if mismatches:
 			frappe.throw(
@@ -342,6 +350,18 @@ def get_scanned_stock_qty_by_item(rows) -> dict[str, float]:
 			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.uom)
 			scanned_qty[row.item_code] = scanned_qty.get(row.item_code, 0) + conversion_factor
 	return scanned_qty
+
+
+def get_transaction_qty_by_item(rows, quantity_field: str) -> dict[str, float]:
+	qty_by_item: dict[str, float] = {}
+	for row in rows:
+		if row.item_code:
+			qty_by_item[row.item_code] = qty_by_item.get(row.item_code, 0) + flt(row.get(quantity_field))
+	return qty_by_item
+
+
+def quantities_match(left: float, right: float, precision: int = 3) -> bool:
+	return flt(left, precision) == flt(right, precision)
 
 
 def get_transaction_quantity_field(doctype: str) -> str:

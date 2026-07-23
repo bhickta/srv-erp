@@ -48,6 +48,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 				const row_data = data.package_barcode ? { ...data, barcode: null } : data;
 				if (data.package_barcode && this.frm.doctype === "Stock Reconciliation") {
 					row_data.uom = null;
+					this.stock_reconciliation_package_uom = data.uom;
 				}
 
 				this.update_table(row_data)
@@ -70,6 +71,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 						if (data.package_barcode) {
 							srv_erp.package_barcode.record_blocked_scan(this.frm, data.barcode);
 						}
+						this.stock_reconciliation_package_uom = null;
 						this.play_fail_sound();
 						reject();
 					});
@@ -81,6 +83,22 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		return (this.frm.doc.package_barcodes || []).some((row) => {
 			return row.package_barcode === package_barcode;
 		});
+	}
+
+	get_row_to_modify_on_scan(item_code, batch_no, uom, barcode, default_warehouse) {
+		if (this.frm.doctype !== "Stock Reconciliation" || !this.stock_reconciliation_package_uom) {
+			return super.get_row_to_modify_on_scan(item_code, batch_no, uom, barcode, default_warehouse);
+		}
+
+		const items_table = this.frm.doc[this.items_table_name] || [];
+		const same_package_uom_row = items_table.find((row) => {
+			return row.item_code === item_code && row.package_uom === this.stock_reconciliation_package_uom;
+		});
+		if (same_package_uom_row) {
+			return same_package_uom_row;
+		}
+
+		return items_table.find((row) => !row.item_code);
 	}
 
 	add_package_barcode_scan(data) {

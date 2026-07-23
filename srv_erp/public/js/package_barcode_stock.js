@@ -54,7 +54,10 @@ srv_erp.package_barcode.apply_stock_reconciliation_package_uom = function (frm, 
 			package_uom: data.uom,
 			package_conversion_factor: conversion_factor,
 			qty: package_qty * conversion_factor,
-		});
+		})
+			.finally(() => {
+				frm.cscript.barcode_scanner.stock_reconciliation_package_uom = null;
+			});
 	});
 };
 
