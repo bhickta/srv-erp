@@ -54,10 +54,10 @@ def create_missing_variants(filters=None, use_template_image=False):
 	return create_missing_variants_job(filters=dict(filters), use_template_image=use_template_image)
 
 
-def create_missing_variants_job(filters=None, use_template_image=False):
+def create_missing_variants_job(filters=None, use_template_image=False, ignore_permissions=False, limit=MAX_CREATE_ROWS):
 	filters = parse_filters(filters)
 	report = VariantCoverageReport(filters)
-	missing_rows = report.get_missing_rows(limit=MAX_CREATE_ROWS)
+	missing_rows = report.get_missing_rows(limit=limit)
 
 	created = 0
 	skipped = 0
@@ -71,7 +71,7 @@ def create_missing_variants_job(filters=None, use_template_image=False):
 
 		try:
 			variant = create_variant(row["item_template"], attributes, use_template_image=use_template_image)
-			variant.save()
+			variant.save(ignore_permissions=ignore_permissions)
 			created += 1
 		except Exception as exc:
 			errors.append(

@@ -7,6 +7,7 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants,
 	execute,
 )
+from srv_erp.variant_auto_creation import handle_item_attribute_update
 
 
 class TestVariantCoverage(ERPNextTestSuite):
@@ -45,6 +46,9 @@ class TestVariantCoverage(ERPNextTestSuite):
 			},
 		)
 		variant.save()
+		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 0)
+		frappe.db.set_single_value("SRV Settings", "variant_auto_create_attribute", self.brand_attribute)
+		frappe.db.set_single_value("SRV Settings", "variant_auto_create_use_template_image", 0)
 
 	def test_report_shows_created_and_missing_variant_combinations(self):
 		columns, rows = execute({"item_template": self.template, "variant_attribute": self.brand_attribute})
@@ -93,6 +97,23 @@ class TestVariantCoverage(ERPNextTestSuite):
 		)
 		self.assertEqual(repeated_result["created"], 0)
 
+	def test_brand_update_does_not_create_variants_when_setting_is_disabled(self):
+		attribute = self._add_attribute_value("_Test VC Brand C", "VCC")
+
+		handle_item_attribute_update(attribute)
+
+		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
+		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
+
+	def test_brand_update_creates_missing_variants_when_setting_is_enabled(self):
+		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 1)
+		attribute = self._add_attribute_value("_Test VC Brand C", "VCC")
+
+		handle_item_attribute_update(attribute)
+
+		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
+		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
+
 	def _ensure_template(self):
 		if frappe.db.exists("Item", self.template):
 			return frappe.get_doc("Item", self.template)
@@ -117,6 +138,14 @@ class TestVariantCoverage(ERPNextTestSuite):
 		for value, abbr in values:
 			doc.append("item_attribute_values", {"attribute_value": value, "abbr": abbr})
 		doc.save()
+
+	def _add_attribute_value(self, value, abbr):
+		doc = frappe.get_doc("Item Attribute", self.brand_attribute)
+		if value not in {row.attribute_value for row in doc.item_attribute_values}:
+			doc.append("item_attribute_values", {"attribute_value": value, "abbr": abbr})
+			doc.save()
+
+		return doc
 
 	def _delete_variant(self, item_code):
 		if frappe.db.exists("Item", item_code):

@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "creation": "2026-07-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "variant_automation_tab",
+  "brand_variant_creation_section",
+  "auto_create_variants_on_brand_update",
+  "variant_auto_create_attribute",
+  "variant_auto_create_use_template_image"
+ ],
+ "fields": [
+  {
+   "fieldname": "variant_automation_tab",
+   "fieldtype": "Tab Break",
+   "label": "Variant Automation"
+  },
+  {
+   "fieldname": "brand_variant_creation_section",
+   "fieldtype": "Section Break",
+   "label": "Brand Variant Creation"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, adding values to the configured Item Attribute creates missing variants for templates that use that attribute.",
+   "fieldname": "auto_create_variants_on_brand_update",
+   "fieldtype": "Check",
+   "label": "Auto Create Variants on Brand Update"
+  },
+  {
+   "default": "Brand",
+   "description": "Item Attribute watched for automatic variant creation.",
+   "fieldname": "variant_auto_create_attribute",
+   "fieldtype": "Link",
+   "label": "Variant Auto Create Attribute",
+   "options": "Item Attribute",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Use template image when automatically creating variants.",
+   "fieldname": "variant_auto_create_use_template_image",
+   "fieldtype": "Check",
+   "label": "Use Template Image for Auto Created Variants"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "SRV Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Stock User",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

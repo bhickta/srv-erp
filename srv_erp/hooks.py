@@ -180,6 +180,9 @@ doc_events = {
 		"validate": "srv_erp.item_group_sync.validate_item_group_sync",
 		"on_update": "srv_erp.item_group_sync.sync_template_item_group_to_variants",
 	},
+	"Item Attribute": {
+		"on_update": "srv_erp.variant_auto_creation.handle_item_attribute_update",
+	},
 	"Stock Entry": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
