@@ -3,6 +3,8 @@ from frappe.utils import cint
 
 from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	DEFAULT_VARIANT_ATTRIBUTE,
+	MAX_CREATE_ROWS,
+	VariantCoverageReport,
 	create_missing_variants_job,
 )
 
@@ -49,15 +51,21 @@ def sync_missing_brand_variants(enqueue=False):
 	use_template_image = cint(
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_use_template_image")
 	)
+	missing_rows = VariantCoverageReport({"variant_attribute": attribute}).get_missing_rows(
+		limit=MAX_CREATE_ROWS + 1
+	)
 
-	if enqueue and not frappe.flags.in_test:
+	if not missing_rows:
+		return {"created": 0, "skipped": 0, "queued": 0}
+
+	if enqueue and not frappe.flags.in_test and len(missing_rows) > MAX_CREATE_ROWS:
 		frappe.enqueue(
 			"srv_erp.variant_auto_creation.sync_missing_brand_variants_job",
 			queue="long",
 			attribute=attribute,
 			use_template_image=use_template_image,
 		)
-		return {"created": 0, "skipped": 0, "queued": 1}
+		return {"created": 0, "skipped": 0, "queued": len(missing_rows)}
 
 	return sync_missing_brand_variants_job(attribute, use_template_image)
 
