@@ -2,6 +2,7 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
+from srv_erp.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.variant_auto_creation import set_srv_settings_defaults
 
 
@@ -14,6 +15,7 @@ def after_install():
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
+	create_sales_order_attribute_custom_fields()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()
 
@@ -23,6 +25,7 @@ def after_migrate():
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
+	create_sales_order_attribute_custom_fields()
 	migrate_legacy_dsr_configuration()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()

@@ -51,6 +51,7 @@ doctype_js = {
 		"public/js/item.js",
 		"public/js/item/variant_select_all_dialog.js",
 	],
+	"Sales Order": "public/js/sales_order.js",
 	"Stock Entry": [
 		"public/js/package_barcode/namespace.js",
 		"public/js/package_barcode/stock_table_display.js",
