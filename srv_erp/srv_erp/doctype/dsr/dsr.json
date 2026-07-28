@@ -1,0 +1,620 @@
+{
+  "actions": [],
+  "allow_import": 1,
+  "allow_rename": 1,
+  "autoname": "format:{sales_person} {date} {#}",
+  "creation": "2023-06-03 11:55:42.478695",
+  "default_view": "List",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "payment_audited",
+    "audit_col_break_1",
+    "payment_rejected",
+    "audit_col_break_2",
+    "reason_for_rejection",
+    "partially_paid",
+    "section_break_oohvh",
+    "section_break_djmf9",
+    "visited_old_customer_too",
+    "column_break_bzvyh",
+    "visited_lead_only",
+    "column_break_ol3qz",
+    "visited_along_other_sales_person",
+    "section_break_rt8eu",
+    "dsr_sales_person_accompanied",
+    "section_break_gidh3",
+    "daily_sales_customer",
+    "section_break_cj11y",
+    "lead",
+    "section_break_qipbt",
+    "start_reading",
+    "start_reading_pic",
+    "start_reading_image",
+    "column_break_yzd5a",
+    "end_reading",
+    "end_reading_pic",
+    "end_reading_image",
+    "section_break_v2ddy",
+    "date",
+    "custom_day",
+    "sales_person",
+    "column_break_fjeif",
+    "km_travelled",
+    "amount_for_travel",
+    "total_amount",
+    "section_break_nqzok",
+    "daily_sales_expenses_by_admin",
+    "daily_sales_expense_by_admin_approved_amount",
+    "visits",
+    "receipts_section",
+    "receipts",
+    "fuel_added",
+    "fuel_info_section",
+    "rate_per_liter",
+    "fuel_info_col_break",
+    "amount_paid",
+    "fuel_quantity",
+    "section_break_hjwml",
+    "miscellaneous_informations",
+    "amended_from"
+  ],
+  "fields": [
+    {
+      "depends_on": "eval:doc.visited_along_other_sales_person",
+      "fieldname": "dsr_sales_person_accompanied",
+      "fieldtype": "Table",
+      "label": "Sales Persons Accompanied",
+      "options": "DSR Sales Person Accompanied",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_gidh3",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "depends_on": "eval:doc.visited_old_customer_too",
+      "fieldname": "daily_sales_customer",
+      "fieldtype": "Table",
+      "label": "Customers Visited",
+      "options": "DSR Customer",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_cj11y",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "depends_on": "eval:doc.visited_lead_only",
+      "fieldname": "lead",
+      "fieldtype": "Table",
+      "label": "Leads Visited",
+      "options": "DSR Lead",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_qipbt",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "date",
+      "fieldtype": "Date",
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "label": "Date",
+      "permlevel": 1,
+      "reqd": 1
+    },
+    {
+      "fetch_if_empty": 1,
+      "fieldname": "sales_person",
+      "fieldtype": "Link",
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "label": "Sales Person",
+      "options": "Sales Person",
+      "permlevel": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "column_break_fjeif",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "default": "0",
+      "fieldname": "km_travelled",
+      "fieldtype": "Int",
+      "label": "Km Travelled",
+      "non_negative": 1,
+      "permlevel": 1
+    },
+    {
+      "default": "0",
+      "fieldname": "amount_for_travel",
+      "fieldtype": "Currency",
+      "label": "Amount for Travel",
+      "permlevel": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_break_nqzok",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "daily_sales_expenses_by_admin",
+      "fieldtype": "Table",
+      "label": "Expenses",
+      "options": "DSR Expense",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "visits",
+      "fieldtype": "Table",
+      "hidden": 1,
+      "label": "Town Visits",
+      "options": "DSR Town Visit",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_v2ddy",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "start_reading",
+      "fieldtype": "Int",
+      "label": "Start Reading",
+      "non_negative": 1,
+      "permlevel": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "start_reading_pic",
+      "fieldtype": "Attach Image",
+      "label": "Start Reading Picture",
+      "permlevel": 1,
+      "reqd": 0
+    },
+    {
+      "fieldname": "end_reading",
+      "fieldtype": "Int",
+      "label": "End Reading",
+      "non_negative": 1,
+      "permlevel": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "end_reading_pic",
+      "fieldtype": "Attach Image",
+      "label": "End Reading Picture",
+      "permlevel": 1,
+      "reqd": 0
+    },
+    {
+      "fieldname": "start_reading_image",
+      "fieldtype": "Image",
+      "label": "Start Reading Image",
+      "options": "start_reading_pic",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "end_reading_image",
+      "fieldtype": "Image",
+      "label": "End Reading Image",
+      "max_height": "5px",
+      "options": "end_reading_pic",
+      "permlevel": 1,
+      "print_width": "5px",
+      "width": "5px"
+    },
+    {
+      "fieldname": "section_break_rt8eu",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "default": "0",
+      "fieldname": "visited_old_customer_too",
+      "fieldtype": "Check",
+      "label": "Visited Existing Customers",
+      "permlevel": 1
+    },
+    {
+      "default": "1",
+      "fieldname": "visited_lead_only",
+      "fieldtype": "Check",
+      "label": "Visited Leads",
+      "permlevel": 1
+    },
+    {
+      "default": "0",
+      "fieldname": "visited_along_other_sales_person",
+      "fieldtype": "Check",
+      "label": "Accompanied by Another Sales Person",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "column_break_bzvyh",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "column_break_ol3qz",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_hjwml",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "miscellaneous_informations",
+      "fieldtype": "Text",
+      "label": "Miscellaneous Information",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "column_break_yzd5a",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "allow_on_submit": 1,
+      "default": "0",
+      "fieldname": "payment_audited",
+      "fieldtype": "Check",
+      "in_list_view": 1,
+      "label": "Payment Audited",
+      "no_copy": 1
+    },
+    {
+      "fieldname": "section_break_djmf9",
+      "fieldtype": "Section Break",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "section_break_oohvh",
+      "fieldtype": "Column Break",
+      "permlevel": 1
+    },
+    {
+      "allow_on_submit": 1,
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "DSR",
+      "print_hide": 1
+    },
+    {
+      "allow_on_submit": 1,
+      "fieldname": "total_amount",
+      "fieldtype": "Currency",
+      "label": "Total Amount",
+      "non_negative": 1,
+      "read_only": 1
+    },
+    {
+      "allow_on_submit": 1,
+      "default": "0",
+      "fieldname": "partially_paid",
+      "fieldtype": "Check",
+      "in_list_view": 1,
+      "label": "Partially Paid",
+      "permlevel": 0,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "daily_sales_expense_by_admin_approved_amount",
+      "allow_on_submit": 1,
+      "depends_on": "eval:doc.partially_paid == 1",
+      "fieldtype": "Table",
+      "label": "Approved Expenses",
+      "options": "DSR Approved Expense",
+      "permlevel": 0,
+      "no_copy": 1
+    },
+    {
+      "fieldname": "audit_col_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "allow_on_submit": 1,
+      "default": "0",
+      "fieldname": "payment_rejected",
+      "fieldtype": "Check",
+      "label": "Payment Rejected",
+      "no_copy": 1
+    },
+    {
+      "fieldname": "audit_col_break_2",
+      "fieldtype": "Column Break"
+    },
+    {
+      "allow_on_submit": 1,
+      "depends_on": "eval:doc.payment_rejected == 1",
+      "fieldname": "reason_for_rejection",
+      "fieldtype": "Data",
+      "label": "Reason for Rejection",
+      "mandatory_depends_on": "eval:doc.payment_rejected == 1",
+      "no_copy": 1,
+      "placeholder": "Explain why the payment was rejected"
+    },
+    {
+      "fieldname": "custom_day",
+      "fieldtype": "Data",
+      "label": "Day",
+      "read_only": 1
+    },
+    {
+      "fieldname": "receipts_section",
+      "fieldtype": "Section Break",
+      "label": "Receipts"
+    },
+    {
+      "fieldname": "receipts",
+      "fieldtype": "Table",
+      "label": "Receipts",
+      "options": "DSR Receipt"
+    },
+    {
+      "default": "1",
+      "description": "Uncheck this when no fuel was purchased.",
+      "fieldname": "fuel_added",
+      "fieldtype": "Check",
+      "label": "Fuel Added"
+    },
+    {
+      "depends_on": "eval:doc.fuel_added == 1",
+      "fieldname": "fuel_info_section",
+      "fieldtype": "Section Break",
+      "label": "Fuel Details"
+    },
+    {
+      "depends_on": "eval:doc.fuel_added == 1",
+      "fieldname": "rate_per_liter",
+      "fieldtype": "Currency",
+      "label": "Rate per Liter",
+      "mandatory_depends_on": "eval:doc.fuel_added == 1",
+      "non_negative": 1
+    },
+    {
+      "fieldname": "fuel_info_col_break",
+      "fieldtype": "Column Break"
+    },
+    {
+      "depends_on": "eval:doc.fuel_added == 1",
+      "fieldname": "amount_paid",
+      "fieldtype": "Currency",
+      "label": "Amount Paid",
+      "mandatory_depends_on": "eval:doc.fuel_added == 1",
+      "non_negative": 1
+    },
+    {
+      "depends_on": "eval:doc.fuel_added == 1",
+      "fieldname": "fuel_quantity",
+      "fieldtype": "Float",
+      "label": "Fuel Quantity (Liters)",
+      "non_negative": 1,
+      "precision": "3",
+      "read_only": 1
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "is_submittable": 1,
+  "links": [],
+  "modified": "2026-07-28 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Srv Erp",
+  "name": "DSR",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "select": 1,
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales Rapl",
+      "select": 1,
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales Rapl",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Auditor",
+      "select": 1,
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Auditor",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales User",
+      "select": 1,
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales User",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "amend": 1,
+      "cancel": 1,
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales Manager",
+      "select": 1,
+      "share": 1,
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Sales Manager",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Accounts Manager",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Accounts Manager",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Payment Auditor",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "permlevel": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Payment Auditor",
+      "select": 1,
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "sort_field": "date",
+  "sort_order": "DESC",
+  "states": [
+    {
+      "color": "Green",
+      "title": "Paid"
+    },
+    {
+      "color": "Red",
+      "title": "Unpaid"
+    }
+  ],
+  "title_field": "sales_person",
+  "track_changes": 1
+}

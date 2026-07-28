@@ -1,0 +1,39 @@
+{
+ "actions": [],
+ "creation": "2026-07-28 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "receipt_image",
+  "receipt_description"
+ ],
+ "fields": [
+  {
+   "fieldname": "receipt_image",
+   "fieldtype": "Attach Image",
+   "in_list_view": 1,
+   "label": "Receipt Image",
+   "reqd": 1
+  },
+  {
+   "fieldname": "receipt_description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Receipt Description",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "DSR Receipt",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "states": []
+}

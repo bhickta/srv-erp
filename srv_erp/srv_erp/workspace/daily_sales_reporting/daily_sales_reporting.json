@@ -1,0 +1,162 @@
+{
+ "app": "srv_erp",
+ "charts": [],
+ "content": "[{\"id\":\"dsr-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Daily Sales Reporting</b></span>\",\"col\":12}},{\"id\":\"dsr-entry-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Daily Reports\",\"col\":4}},{\"id\":\"dsr-analysis-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Analysis\",\"col\":4}},{\"id\":\"dsr-master-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters & Settings\",\"col\":4}}]",
+ "creation": "2026-07-28 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "chart",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Daily Sales Reporting",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Reports",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "Sales Person",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "DSR",
+   "link_count": 0,
+   "link_to": "DSR",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Analysis",
+   "link_count": 3,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "DSR",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "DSR Expense Report",
+   "link_count": 0,
+   "link_to": "DSR Expense Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "DSR",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "DSR Lead Analysis",
+   "link_count": 0,
+   "link_to": "DSR Lead Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "DSR",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "DSR Expense Summary",
+   "link_count": 0,
+   "link_to": "DSR Expense Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters & Settings",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "DSR Expense Types",
+   "link_count": 0,
+   "link_to": "DSR Expense Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "DSR Towns",
+   "link_count": 0,
+   "link_to": "DSR Town",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Persons",
+   "link_count": 0,
+   "link_to": "Sales Person",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SRV Settings",
+   "link_count": 0,
+   "link_to": "SRV Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-07-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "Daily Sales Reporting",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Selling",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Sales Rapl"
+  },
+  {
+   "role": "Auditor"
+  },
+  {
+   "role": "Payment Auditor"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 26.0,
+ "shortcuts": [],
+ "title": "Daily Sales Reporting",
+ "type": "Workspace"
+}

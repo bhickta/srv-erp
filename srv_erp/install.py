@@ -5,16 +5,25 @@ from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_R
 from srv_erp.variant_auto_creation import set_srv_settings_defaults
 
 
+def before_migrate():
+	ensure_dsr_roles()
+
+
 def after_install():
+	ensure_dsr_roles()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
+	create_dsr_custom_fields()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()
 
 
 def after_migrate():
+	ensure_dsr_roles()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
+	create_dsr_custom_fields()
+	migrate_legacy_dsr_configuration()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()
 
@@ -59,6 +68,102 @@ def create_package_barcode_custom_fields():
 		],
 	}
 	create_custom_fields(custom_fields, update=True)
+
+
+def create_dsr_custom_fields():
+	create_custom_fields(
+		{
+			"Sales Person": [
+				{
+					"default": "9",
+					"description": "Reimbursement rate per kilometer used when calculating DSR travel expense.",
+					"fieldname": "travel_rate",
+					"fieldtype": "Currency",
+					"insert_after": "employee",
+					"label": "Travel Rate",
+					"non_negative": 1,
+				},
+			],
+		},
+		update=True,
+	)
+
+
+def ensure_dsr_roles():
+	for role_name in ("Sales Rapl", "Auditor", "Payment Auditor"):
+		if not frappe.db.exists("Role", role_name):
+			frappe.get_doc(
+				{
+					"doctype": "Role",
+					"role_name": role_name,
+					"desk_access": 1,
+				}
+			).insert(ignore_permissions=True)
+
+
+def migrate_legacy_dsr_configuration():
+	"""Copy reusable DSRA masters and submission settings when the legacy app exists."""
+	if frappe.db.exists("DocType", "Expense Type"):
+		for expense_type in frappe.get_all(
+			"Expense Type",
+			fields=["name", "expense_name", "unit_of_expense", "rates"],
+		):
+			expense_name = expense_type.expense_name or expense_type.name
+			if frappe.db.exists("DSR Expense Type", expense_name):
+				continue
+			frappe.get_doc(
+				{
+					"doctype": "DSR Expense Type",
+					"expense_name": expense_name,
+					"unit_of_expense": expense_type.unit_of_expense,
+					"default_rate": expense_type.rates,
+					"is_fuel": expense_name.lower() == "petrol",
+				}
+			).insert(ignore_permissions=True)
+
+	if frappe.db.exists("DocType", "POI"):
+		for poi in frappe.get_all(
+			"POI",
+			fields=["name", "po_office", "district", "state", "pincode", "latitude", "longitude"],
+		):
+			town_name = poi.po_office or poi.name
+			if frappe.db.exists("DSR Town", town_name):
+				continue
+			frappe.get_doc(
+				{
+					"doctype": "DSR Town",
+					"town_name": town_name,
+					"district": poi.district,
+					"state": poi.state,
+					"pin_code": poi.pincode,
+					"latitude": poi.latitude,
+					"longitude": poi.longitude,
+				}
+			).insert(ignore_permissions=True)
+
+	if not frappe.db.exists("DocType", "Raplbaddi Settings"):
+		return
+	if not frappe.get_meta("Raplbaddi Settings").has_field("submission_settings"):
+		return
+
+	target_settings = frappe.get_single("SRV Settings")
+	if target_settings.get("dsr_submission_rules"):
+		return
+
+	legacy_settings = frappe.get_single("Raplbaddi Settings")
+	for rule in legacy_settings.get("submission_settings") or []:
+		if rule.document_type != "Daily Sales Report By Admin":
+			continue
+		target_settings.append(
+			"dsr_submission_rules",
+			{
+				"document_type": "DSR",
+				"tolerance": rule.tolerance,
+				"unit": rule.unit,
+			},
+		)
+		target_settings.save(ignore_permissions=True)
+		break
 
 
 def create_stock_reconciliation_package_uom_custom_fields():

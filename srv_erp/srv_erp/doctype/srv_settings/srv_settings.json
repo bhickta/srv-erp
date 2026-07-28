@@ -8,7 +8,10 @@
   "brand_variant_creation_section",
   "auto_create_variants_on_brand_update",
   "variant_auto_create_attribute",
-  "variant_auto_create_use_template_image"
+  "variant_auto_create_use_template_image",
+  "dsr_settings_tab",
+  "dsr_submission_section",
+  "dsr_submission_rules"
  ],
  "fields": [
   {
@@ -43,6 +46,23 @@
    "fieldname": "variant_auto_create_use_template_image",
    "fieldtype": "Check",
    "label": "Use Template Image for Auto Created Variants"
+  },
+  {
+   "fieldname": "dsr_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "DSR"
+  },
+  {
+   "fieldname": "dsr_submission_section",
+   "fieldtype": "Section Break",
+   "label": "Submission Deadline"
+  },
+  {
+   "description": "Optional deadline applied when non-manager users submit a DSR. Leave empty to allow backdated submission.",
+   "fieldname": "dsr_submission_rules",
+   "fieldtype": "Table",
+   "label": "DSR Submission Rules",
+   "options": "DSR Submission Rule"
   }
  ],
  "grid_page_length": 50,

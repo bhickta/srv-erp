@@ -123,6 +123,7 @@ doctype_list_js = {
 
 # before_install = "srv_erp.install.before_install"
 after_install = "srv_erp.install.after_install"
+before_migrate = "srv_erp.install.before_migrate"
 after_migrate = ["srv_erp.install.after_migrate"]
 
 # Uninstallation
