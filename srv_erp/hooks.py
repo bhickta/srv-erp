@@ -185,6 +185,9 @@ doc_events = {
 	"Item Attribute": {
 		"on_update": "srv_erp.variant_auto_creation.handle_item_attribute_update",
 	},
+	"Sales Order": {
+		"validate": "srv_erp.sales_order_discount.validate_sales_order_discounts",
+	},
 	"Stock Entry": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
