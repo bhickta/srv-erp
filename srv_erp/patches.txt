@@ -14,3 +14,4 @@ srv_erp.patches.sync_srv_settings_and_brand_variants
 srv_erp.patches.set_sales_order_item_discount_grid_columns
 srv_erp.patches.fix_sales_order_item_rate_discount_fields
 srv_erp.patches.convert_marketed_by_to_small_text
+srv_erp.patches.use_srv_stock_balance_report
