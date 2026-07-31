@@ -23,4 +23,4 @@ class SRVStockBalanceReport(StockBalanceReport):
 
 
 def is_item_disabled(item_code):
-	return cint(frappe.db.get_cached_value("Item", item_code, "disabled")) if item_code else 0
+	return cint(frappe.get_cached_value("Item", item_code, "disabled")) if item_code else 0
