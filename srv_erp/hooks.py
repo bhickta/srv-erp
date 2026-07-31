@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/srv_erp/css/srv_erp.css"
-# app_include_js = "/assets/srv_erp/js/srv_erp.js"
+app_include_js = "/assets/srv_erp/js/sales_person_defaults.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/srv_erp/css/srv_erp.css"
@@ -178,6 +178,9 @@ after_migrate = ["srv_erp.install.after_migrate"]
 # Hook on document methods and events
 
 doc_events = {
+	"*": {
+		"before_validate": "srv_erp.sales_person_user_mapping.set_mapped_sales_person",
+	},
 	"Item": {
 		"validate": "srv_erp.item_group_sync.validate_item_group_sync",
 		"on_update": "srv_erp.item_group_sync.sync_template_item_group_to_variants",
@@ -187,6 +190,11 @@ doc_events = {
 	},
 	"Sales Order": {
 		"validate": "srv_erp.sales_order_discount.validate_sales_order_discounts",
+	},
+	"Sales Person": {
+		"validate": "srv_erp.sales_person_user_mapping.validate_sales_person_user_mapping",
+		"on_update": "srv_erp.sales_person_user_mapping.sync_sales_person_user_permission",
+		"on_trash": "srv_erp.sales_person_user_mapping.delete_sales_person_user_permission",
 	},
 	"Stock Entry": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
