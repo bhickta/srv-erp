@@ -10,7 +10,8 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 from srv_erp.variant_auto_creation import (
 	ensure_brand_attribute_value,
 	get_item_attribute_variant_sync_status,
-	handle_item_attribute_update,
+	handle_brand_update,
+	validate_item_attribute_brand_source,
 )
 
 
@@ -41,6 +42,10 @@ class TestVariantCoverage(ERPNextTestSuite):
 		self._delete_variant("_Test VC Template-VCA-L")
 		self._delete_variant("_Test VC Template-VCB-S")
 		self._delete_variant("_Test VC Template-VCB-L")
+		self._delete_variant("_Test VC Template-VCC-S")
+		self._delete_variant("_Test VC Template-VCC-L")
+		self._delete_variant("_Test VC Template-VCD-S")
+		self._delete_variant("_Test VC Template-VCD-L")
 
 		variant = create_variant(
 			self.template,
@@ -102,24 +107,21 @@ class TestVariantCoverage(ERPNextTestSuite):
 		self.assertEqual(repeated_result["created"], 0)
 
 	def test_brand_update_does_not_create_variants_when_setting_is_disabled(self):
-		attribute = self._add_attribute_value("_Test VC Brand C", "VCC")
-
-		handle_item_attribute_update(attribute)
+		handle_brand_update(frappe._dict({"name": "_Test VC Brand C", "brand": "_Test VC Brand C"}))
 
 		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
 		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
 
 	def test_brand_update_creates_missing_variants_when_setting_is_enabled(self):
 		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 1)
-		attribute = self._add_attribute_value("_Test VC Brand C", "VCC")
 
-		handle_item_attribute_update(attribute)
+		handle_brand_update(frappe._dict({"name": "_Test VC Brand C", "brand": "_Test VC Brand C"}))
 
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
 
 	def test_attribute_sync_status_reports_missing_variants_when_auto_is_disabled(self):
-		self._add_attribute_value("_Test VC Brand C", "VCC")
+		ensure_brand_attribute_value("_Test VC Brand C")
 
 		status = get_item_attribute_variant_sync_status(self.brand_attribute)
 
@@ -137,6 +139,13 @@ class TestVariantCoverage(ERPNextTestSuite):
 				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
 			)
 		)
+
+	def test_direct_brand_attribute_value_change_is_blocked(self):
+		attribute = frappe.get_doc("Item Attribute", self.brand_attribute)
+		attribute.append("item_attribute_values", {"attribute_value": "_Test VC Brand E", "abbr": "VCE"})
+
+		with self.assertRaises(frappe.ValidationError):
+			validate_item_attribute_brand_source(attribute)
 
 	def _ensure_template(self):
 		if frappe.db.exists("Item", self.template):

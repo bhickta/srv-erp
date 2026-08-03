@@ -22,9 +22,28 @@ def handle_item_attribute_update(doc, method=None):
 
 def handle_brand_update(doc, method=None):
 	ensure_brand_attribute_value(doc.get("brand") or doc.name)
+	sync_missing_brand_variants(enqueue=True)
+
+
+def validate_item_attribute_brand_source(doc, method=None):
+	if not is_auto_create_variant_attribute(doc.name):
+		return
+
+	if frappe.flags.syncing_brand_attribute_values:
+		return
+
+	if item_attribute_values_changed(doc):
+		frappe.throw(
+			_(
+				"Brand attribute values are synced from Brand master. Please add or update brands from Brand instead."
+			)
+		)
 
 
 def should_sync_for_item_attribute(doc) -> bool:
+	if frappe.flags.syncing_brand_attribute_values:
+		return False
+
 	if not is_auto_create_variants_enabled():
 		return False
 
@@ -53,15 +72,19 @@ def ensure_brand_attribute_value(brand):
 		return {"created": 0, "attribute": attribute}
 
 	if not frappe.db.exists("Item Attribute", attribute):
-		frappe.get_doc(
-			{
-				"doctype": "Item Attribute",
-				"attribute_name": attribute,
-				"item_attribute_values": [
-					{"attribute_value": brand, "abbr": make_attribute_abbr(brand)}
-				],
-			}
-		).insert(ignore_permissions=True)
+		frappe.flags.syncing_brand_attribute_values = True
+		try:
+			frappe.get_doc(
+				{
+					"doctype": "Item Attribute",
+					"attribute_name": attribute,
+					"item_attribute_values": [
+						{"attribute_value": brand, "abbr": make_attribute_abbr(brand)}
+					],
+				}
+			).insert(ignore_permissions=True)
+		finally:
+			frappe.flags.syncing_brand_attribute_values = False
 		return {"created": 1, "attribute": attribute}
 
 	doc = frappe.get_doc("Item Attribute", attribute)
@@ -77,8 +100,21 @@ def ensure_brand_attribute_value(brand):
 		"item_attribute_values",
 		{"attribute_value": brand, "abbr": make_attribute_abbr(brand, existing_abbrs)},
 	)
-	doc.save(ignore_permissions=True)
+	frappe.flags.syncing_brand_attribute_values = True
+	try:
+		doc.save(ignore_permissions=True)
+	finally:
+		frappe.flags.syncing_brand_attribute_values = False
 	return {"created": 1, "attribute": attribute}
+
+
+def sync_brand_master_values_to_attribute():
+	created = 0
+	for brand in frappe.get_all("Brand", pluck="name"):
+		result = ensure_brand_attribute_value(brand)
+		created += cint(result.get("created"))
+
+	return {"created": created}
 
 
 def make_attribute_abbr(value, existing_abbrs=None):
@@ -160,6 +196,26 @@ def get_item_attribute_variant_sync_status(attribute):
 
 
 @frappe.whitelist()
+def sync_item_attribute_and_get_status(attribute):
+	if not is_auto_create_variant_attribute(attribute):
+		return {"applicable": 0}
+
+	if is_auto_create_variants_enabled():
+		sync_result = sync_missing_brand_variants(enqueue=True)
+		return {
+			"applicable": 1,
+			"attribute": attribute,
+			"auto_create_enabled": 1,
+			"created": sync_result.get("created", 0),
+			"queued": sync_result.get("queued", 0),
+			"skipped": sync_result.get("skipped", 0),
+			"errors": sync_result.get("errors", 0),
+		}
+
+	return get_item_attribute_variant_sync_status(attribute)
+
+
+@frappe.whitelist()
 def create_missing_variants_for_item_attribute(attribute, use_template_image=None):
 	if not is_auto_create_variant_attribute(attribute):
 		frappe.throw(_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute()))
@@ -178,6 +234,19 @@ def create_missing_variants_for_item_attribute(attribute, use_template_image=Non
 @frappe.whitelist()
 def sync_brand_attribute_and_get_status(brand):
 	result = ensure_brand_attribute_value(brand)
+	if is_auto_create_variants_enabled():
+		sync_result = sync_missing_brand_variants(enqueue=True)
+		return {
+			"applicable": 1,
+			"attribute": result.get("attribute"),
+			"auto_create_enabled": 1,
+			"attribute_value_created": result.get("created", 0),
+			"created": sync_result.get("created", 0),
+			"queued": sync_result.get("queued", 0),
+			"skipped": sync_result.get("skipped", 0),
+			"errors": sync_result.get("errors", 0),
+		}
+
 	status = get_item_attribute_variant_sync_status(result.get("attribute"))
 	status["attribute_value_created"] = result.get("created", 0)
 	return status

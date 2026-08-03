@@ -188,6 +188,7 @@ doc_events = {
 		"on_update": "srv_erp.item_group_sync.sync_template_item_group_to_variants",
 	},
 	"Item Attribute": {
+		"validate": "srv_erp.variant_auto_creation.validate_item_attribute_brand_source",
 		"on_update": "srv_erp.variant_auto_creation.handle_item_attribute_update",
 	},
 	"Brand": {

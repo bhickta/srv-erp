@@ -7,7 +7,7 @@ srv_erp.item_attribute_variant_sync = {
 		}
 
 		frappe.call({
-			method: "srv_erp.variant_auto_creation.get_item_attribute_variant_sync_status",
+			method: "srv_erp.variant_auto_creation.sync_item_attribute_and_get_status",
 			args: {
 				attribute: frm.doc.name,
 			},
@@ -31,14 +31,14 @@ srv_erp.item_attribute_variant_sync = {
 
 	handle_status(status) {
 		if (!status.applicable || !status.missing_count) {
+			if (status.auto_create_enabled) {
+				srv_erp.item_attribute_variant_sync.show_result(status);
+			}
 			return;
 		}
 
 		if (status.auto_create_enabled) {
-			frappe.show_alert({
-				message: __("Variant sync is running for {0}.", [status.attribute]),
-				indicator: "blue",
-			});
+			srv_erp.item_attribute_variant_sync.show_result(status);
 			return;
 		}
 
@@ -75,15 +75,20 @@ srv_erp.item_attribute_variant_sync = {
 			freeze: true,
 			freeze_message: __("Creating missing variants..."),
 			callback: (r) => {
-				const result = r.message || {};
-				frappe.show_alert({
-					message: __(
-						"Created {0}, queued {1}, skipped {2}.",
-						[result.created || 0, result.queued || 0, result.skipped || 0]
-					),
-					indicator: result.errors ? "orange" : "green",
-				});
+				srv_erp.item_attribute_variant_sync.show_result(r.message || {});
 			},
+		});
+	},
+
+	show_result(result) {
+		const created = result.created || 0;
+		const queued = result.queued || 0;
+		const skipped = result.skipped || 0;
+		const errors = result.errors || 0;
+
+		frappe.show_alert({
+			message: __("Created {0}, queued {1}, skipped {2}.", [created, queued, skipped]),
+			indicator: errors ? "orange" : "green",
 		});
 	},
 };
