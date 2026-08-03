@@ -1,1 +1,1 @@
-
+"""Stock patch helpers."""

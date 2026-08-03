@@ -182,26 +182,26 @@ after_migrate = ["srv_erp.install.after_migrate"]
 
 doc_events = {
 	"*": {
-		"before_validate": "srv_erp.sales_person_user_mapping.set_mapped_sales_person",
+		"before_validate": "srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
 	},
 	"Item": {
-		"validate": "srv_erp.item_group_sync.validate_item_group_sync",
-		"on_update": "srv_erp.item_group_sync.sync_template_item_group_to_variants",
+		"validate": "srv_erp.item.variant_field_sync.validate_item_group_sync",
+		"on_update": "srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
 	},
 	"Item Attribute": {
-		"validate": "srv_erp.variant_auto_creation.validate_item_attribute_brand_source",
-		"on_update": "srv_erp.variant_auto_creation.handle_item_attribute_update",
+		"validate": "srv_erp.item.variant_auto_creation.validate_item_attribute_brand_source",
+		"on_update": "srv_erp.item.variant_auto_creation.handle_item_attribute_update",
 	},
 	"Brand": {
-		"on_update": "srv_erp.variant_auto_creation.handle_brand_update",
+		"on_update": "srv_erp.item.variant_auto_creation.handle_brand_update",
 	},
 	"Sales Order": {
-		"validate": "srv_erp.sales_order_discount.validate_sales_order_discounts",
+		"validate": "srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
 	},
 	"Sales Person": {
-		"validate": "srv_erp.sales_person_user_mapping.validate_sales_person_user_mapping",
-		"on_update": "srv_erp.sales_person_user_mapping.sync_sales_person_user_permission",
-		"on_trash": "srv_erp.sales_person_user_mapping.delete_sales_person_user_permission",
+		"validate": "srv_erp.selling.sales_person_user_mapping.validate_sales_person_user_mapping",
+		"on_update": "srv_erp.selling.sales_person_user_mapping.sync_sales_person_user_permission",
+		"on_trash": "srv_erp.selling.sales_person_user_mapping.delete_sales_person_user_permission",
 	},
 	"Stock Entry": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",

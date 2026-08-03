@@ -1,1 +1,1 @@
-
+"""Selling patch helpers."""

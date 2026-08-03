@@ -1,6 +1,6 @@
 import frappe
 
-from srv_erp.sales_order_attributes import create_sales_order_attribute_custom_fields
+from srv_erp.selling.sales_order_attributes import create_sales_order_attribute_custom_fields
 
 
 def convert_marketed_by_to_small_text():

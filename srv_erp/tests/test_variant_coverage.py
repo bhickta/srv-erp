@@ -7,7 +7,7 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants,
 	execute,
 )
-from srv_erp.variant_auto_creation import (
+from srv_erp.item.variant_auto_creation import (
 	ensure_brand_attribute_value,
 	get_item_attribute_variant_sync_status,
 	handle_brand_update,

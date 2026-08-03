@@ -1,7 +1,7 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from srv_erp.sales_order_discount import (
+from srv_erp.selling.sales_order_discount import (
 	apply_sales_order_rate_discount,
 	validate_sales_order_discounts,
 )

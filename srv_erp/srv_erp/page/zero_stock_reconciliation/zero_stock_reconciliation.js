@@ -127,7 +127,7 @@ srv_erp.stock_zeroing.ZeroStockReconciliationPage = class ZeroStockReconciliatio
 
 	load_defaults() {
 		frappe.call({
-			method: "srv_erp.stock_zeroing.get_zero_stock_defaults",
+			method: "srv_erp.stock.stock_zeroing.get_zero_stock_defaults",
 			callback: (r) => {
 				this.form.set_values(r.message || {});
 				this.preview();
@@ -146,7 +146,7 @@ srv_erp.stock_zeroing.ZeroStockReconciliationPage = class ZeroStockReconciliatio
 		}
 
 		frappe.call({
-			method: "srv_erp.stock_zeroing.preview_zero_stock_reconciliation",
+			method: "srv_erp.stock.stock_zeroing.preview_zero_stock_reconciliation",
 			args: { filters },
 			freeze: true,
 			freeze_message: __("Checking stock balances..."),
@@ -166,7 +166,7 @@ srv_erp.stock_zeroing.ZeroStockReconciliationPage = class ZeroStockReconciliatio
 			),
 			() => {
 				frappe.call({
-					method: "srv_erp.stock_zeroing.create_zero_stock_reconciliation",
+					method: "srv_erp.stock.stock_zeroing.create_zero_stock_reconciliation",
 					args: { filters },
 					freeze: true,
 					freeze_message: __("Creating Stock Reconciliation..."),

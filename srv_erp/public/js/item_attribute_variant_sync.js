@@ -7,7 +7,7 @@ srv_erp.item_attribute_variant_sync = {
 		}
 
 		frappe.call({
-			method: "srv_erp.variant_auto_creation.sync_item_attribute_and_get_status",
+			method: "srv_erp.item.variant_auto_creation.sync_item_attribute_and_get_status",
 			args: {
 				attribute: frm.doc.name,
 			},
@@ -19,7 +19,7 @@ srv_erp.item_attribute_variant_sync = {
 
 	after_brand_save(frm) {
 		frappe.call({
-			method: "srv_erp.variant_auto_creation.sync_brand_attribute_and_get_status",
+			method: "srv_erp.item.variant_auto_creation.sync_brand_attribute_and_get_status",
 			args: {
 				brand: frm.doc.brand || frm.doc.name,
 			},
@@ -37,7 +37,7 @@ srv_erp.item_attribute_variant_sync = {
 
 	sync_all_brands() {
 		frappe.call({
-			method: "srv_erp.variant_auto_creation.sync_brand_masters_and_get_status",
+			method: "srv_erp.item.variant_auto_creation.sync_brand_masters_and_get_status",
 			freeze: true,
 			freeze_message: __("Syncing brands..."),
 			callback: (r) => {
@@ -99,7 +99,7 @@ srv_erp.item_attribute_variant_sync = {
 
 	create_missing_variants(attribute) {
 		frappe.call({
-			method: "srv_erp.variant_auto_creation.create_missing_variants_for_item_attribute",
+			method: "srv_erp.item.variant_auto_creation.create_missing_variants_for_item_attribute",
 			args: {
 				attribute,
 			},

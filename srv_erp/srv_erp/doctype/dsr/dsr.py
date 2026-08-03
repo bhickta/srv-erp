@@ -7,7 +7,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, getdate
 
-from srv_erp.dsr import validate_dsr_submission_deadline
+from srv_erp.selling.dsr import validate_dsr_submission_deadline
 
 if TYPE_CHECKING:
 	from frappe.types import DF

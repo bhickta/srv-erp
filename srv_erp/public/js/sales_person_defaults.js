@@ -6,7 +6,7 @@ srv_erp.sales_person_defaults.get_mapped_sales_person = async function () {
 	}
 
 	const response = await frappe.call({
-		method: "srv_erp.sales_person_user_mapping.get_mapped_sales_person",
+		method: "srv_erp.selling.sales_person_user_mapping.get_mapped_sales_person",
 	});
 	srv_erp.sales_person_defaults.sales_person = response.message || null;
 	return srv_erp.sales_person_defaults.sales_person;

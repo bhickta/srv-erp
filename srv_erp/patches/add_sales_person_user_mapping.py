@@ -1,4 +1,4 @@
-from srv_erp.sales_person_user_mapping import sync_all_sales_person_user_permissions
+from srv_erp.selling.sales_person_user_mapping import sync_all_sales_person_user_permissions
 
 
 def execute():

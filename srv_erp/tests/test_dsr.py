@@ -4,7 +4,7 @@ from unittest.mock import patch
 import frappe
 from erpnext.tests.utils import ERPNextTestSuite
 
-from srv_erp.dsr import validate_dsr_submission_deadline
+from srv_erp.selling.dsr import validate_dsr_submission_deadline
 
 
 class TestDSR(ERPNextTestSuite):
@@ -76,18 +76,18 @@ class TestDSR(ERPNextTestSuite):
 		with self.assertRaises(frappe.ValidationError):
 			dsr.validate_audit_state()
 
-	@patch("srv_erp.dsr.now_datetime", return_value=datetime(2026, 7, 28, 12))
-	@patch("srv_erp.dsr.frappe.get_roles", return_value=["Sales User"])
+	@patch("srv_erp.selling.dsr.now_datetime", return_value=datetime(2026, 7, 28, 12))
+	@patch("srv_erp.selling.dsr.frappe.get_roles", return_value=["Sales User"])
 	def test_future_dsr_cannot_be_submitted(self, _get_roles, _now_datetime):
 		with self.assertRaises(frappe.ValidationError):
 			validate_dsr_submission_deadline(frappe._dict(date="2026-07-29"))
 
 	@patch(
-		"srv_erp.dsr.get_dsr_submission_rule",
+		"srv_erp.selling.dsr.get_dsr_submission_rule",
 		return_value=frappe._dict(unit="Days", tolerance=0),
 	)
-	@patch("srv_erp.dsr.now_datetime", return_value=datetime(2026, 7, 28, 12))
-	@patch("srv_erp.dsr.frappe.get_roles", return_value=["Sales User"])
+	@patch("srv_erp.selling.dsr.now_datetime", return_value=datetime(2026, 7, 28, 12))
+	@patch("srv_erp.selling.dsr.frappe.get_roles", return_value=["Sales User"])
 	def test_configured_backdate_deadline_is_enforced(
 		self, _get_roles, _now_datetime, _get_dsr_submission_rule
 	):
