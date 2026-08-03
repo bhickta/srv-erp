@@ -129,16 +129,15 @@ def ensure_brand_attribute_value(brand):
 	existing_abbrs = get_existing_attribute_abbrs(doc)
 	abbr = brand_abbr or make_attribute_abbr(brand, existing_abbrs)
 	if brand_abbr and brand_abbr.lower() in existing_abbrs:
-		frappe.throw(
-			_("Brand Abbreviation {0} is already used in Item Attribute {1}.").format(
-				frappe.bold(brand_abbr),
-				frappe.bold(attribute),
-			)
-		)
+		abbr = make_attribute_abbr(brand, existing_abbrs)
 
 	doc.append("item_attribute_values", {"attribute_value": brand, "abbr": abbr})
 	save_synced_brand_attribute(doc)
-	return {"created": 1, "attribute": attribute}
+	return {
+		"created": 1,
+		"attribute": attribute,
+		"conflict": cint(bool(brand_abbr and brand_abbr != abbr)),
+	}
 
 
 def sync_existing_brand_attribute_value(doc, row, brand_abbr):
@@ -147,12 +146,14 @@ def sync_existing_brand_attribute_value(doc, row, brand_abbr):
 
 	existing_abbrs = get_existing_attribute_abbrs(doc, exclude_row=row)
 	if brand_abbr.lower() in existing_abbrs:
-		frappe.throw(
-			_("Brand Abbreviation {0} is already used in Item Attribute {1}.").format(
-				frappe.bold(brand_abbr),
-				frappe.bold(doc.name),
-			)
-		)
+		return {
+			"created": 0,
+			"updated": 0,
+			"conflict": 1,
+			"attribute": doc.name,
+			"kept_abbr": row.abbr,
+			"skipped_abbr": brand_abbr,
+		}
 
 	row.abbr = brand_abbr
 	save_synced_brand_attribute(doc)
@@ -252,13 +253,33 @@ def sync_brand_master_values_to_attribute():
 	created = 0
 	updated = 0
 	disabled = 0
+	conflicts = []
 	for brand in frappe.get_all("Brand", pluck="name"):
 		result = ensure_brand_attribute_value(brand)
 		created += cint(result.get("created"))
 		updated += cint(result.get("updated"))
 		disabled += cint(result.get("disabled"))
+		if result.get("conflict"):
+			conflicts.append(
+				{
+					"brand": brand,
+					"kept_abbr": result.get("kept_abbr"),
+					"skipped_abbr": result.get("skipped_abbr"),
+				}
+			)
 
-	return {"created": created, "updated": updated, "disabled": disabled}
+	if conflicts:
+		frappe.log_error(
+			title=_("Brand Abbreviation Sync Conflicts"),
+			message=frappe.as_json(conflicts, indent=2),
+		)
+
+	return {
+		"created": created,
+		"updated": updated,
+		"disabled": disabled,
+		"conflicts": len(conflicts),
+	}
 
 
 def sync_attribute_brand_values_to_master():

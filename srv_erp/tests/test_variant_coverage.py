@@ -161,6 +161,28 @@ class TestVariantCoverage(ERPNextTestSuite):
 			"VCD",
 		)
 
+	def test_conflicting_brand_abbreviation_does_not_block_sync(self):
+		frappe.get_doc(
+			{
+				"doctype": "Brand",
+				"brand": "_Test VC Brand D",
+				"brand_abbreviation": "VCA",
+			}
+		).insert(ignore_permissions=True)
+
+		result = ensure_brand_attribute_value("_Test VC Brand D")
+
+		self.assertEqual(result["created"], 1)
+		self.assertEqual(result["conflict"], 1)
+		self.assertNotEqual(
+			frappe.db.get_value(
+				"Item Attribute Value",
+				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
+				"abbr",
+			),
+			"VCA",
+		)
+
 	def test_brand_attribute_values_create_brand_masters(self):
 		frappe.delete_doc_if_exists("Brand", "_Test VC Brand A", force=1)
 		frappe.delete_doc_if_exists("Brand", "_Test VC Brand B", force=1)
