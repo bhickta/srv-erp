@@ -139,7 +139,9 @@ srv_erp.item_attribute_variant_sync = {
 		}
 
 		frappe.show_alert({
-			message: __("Created {0}, queued {1}, skipped {2}.", [created, queued, skipped]),
+			message: queued
+				? __("Variant creation queued.")
+				: __("Created {0}, skipped {1}.", [created, skipped]),
 			indicator: errors ? "orange" : "green",
 		});
 	},

@@ -13,9 +13,6 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants_job,
 )
 
-BRAND_SYNC_CREATE_LIMIT = 100
-
-
 def handle_item_attribute_update(doc, method=None):
 	if not should_sync_for_item_attribute(doc):
 		return
@@ -414,7 +411,23 @@ def sync_missing_brand_variants(enqueue=False, attribute_value=None, limit=None)
 	if attribute_value:
 		filters["attribute_value"] = attribute_value
 
-	create_limit = limit or (BRAND_SYNC_CREATE_LIMIT if attribute_value else SYNC_CREATE_LIMIT)
+	if enqueue and attribute_value:
+		job_id = get_brand_variant_sync_job_id(attribute, attribute_value)
+		frappe.enqueue(
+			"srv_erp.item.variant_auto_creation.sync_missing_brand_variants_job",
+			queue="long",
+			timeout=1500,
+			enqueue_after_commit=True,
+			deduplicate=True,
+			job_id=job_id,
+			attribute=attribute,
+			use_template_image=use_template_image,
+			attribute_value=attribute_value,
+			limit=limit,
+		)
+		return {"created": 0, "skipped": 0, "queued": 1, "job_id": job_id}
+
+	create_limit = limit or SYNC_CREATE_LIMIT
 	missing_rows = VariantCoverageReport(filters).get_missing_rows(limit=create_limit + 1)
 
 	if not missing_rows:
@@ -429,12 +442,18 @@ def sync_missing_brand_variants(enqueue=False, attribute_value=None, limit=None)
 			"limit": create_limit,
 		}
 
-	return sync_missing_brand_variants_job(
+	result = sync_missing_brand_variants_job(
 		attribute,
 		use_template_image,
 		attribute_value=attribute_value,
 		limit=create_limit,
 	)
+	result["limit"] = create_limit
+	return result
+
+
+def get_brand_variant_sync_job_id(attribute, attribute_value):
+	return f"srv_erp:brand_variant_sync:{attribute}:{attribute_value}"
 
 
 def sync_missing_brand_variants_job(
@@ -492,6 +511,7 @@ def sync_item_attribute_and_get_status(attribute):
 			"errors": sync_result.get("errors", 0),
 			"too_many": sync_result.get("too_many", 0),
 			"limit": sync_result.get("limit", SYNC_CREATE_LIMIT),
+			"has_more": sync_result.get("has_more", 0),
 		}
 
 	return get_item_attribute_variant_sync_status(attribute)
@@ -521,6 +541,7 @@ def sync_brand_attribute_and_get_status(brand):
 		return {
 			"applicable": 1,
 			"attribute": result.get("attribute"),
+			"brand": brand,
 			"auto_create_enabled": 1,
 			"attribute_value_created": result.get("created", 0),
 			"created": sync_result.get("created", 0),
@@ -529,6 +550,7 @@ def sync_brand_attribute_and_get_status(brand):
 			"errors": sync_result.get("errors", 0),
 			"too_many": sync_result.get("too_many", 0),
 			"limit": sync_result.get("limit", SYNC_CREATE_LIMIT),
+			"has_more": sync_result.get("has_more", 0),
 		}
 
 	status = get_item_attribute_variant_sync_status(result.get("attribute"))
