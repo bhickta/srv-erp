@@ -29,8 +29,9 @@ def handle_brand_update(doc, method=None):
 		remove_brand_attribute_value(doc.get("brand") or doc.name)
 		return
 
-	ensure_brand_attribute_value(doc.get("brand") or doc.name)
-	sync_missing_brand_variants(enqueue=True)
+	brand = doc.get("brand") or doc.name
+	ensure_brand_attribute_value(brand)
+	sync_missing_brand_variants(enqueue=True, attribute_value=brand)
 
 
 def handle_brand_delete(doc, method=None):
@@ -396,7 +397,7 @@ def make_attribute_abbr(value, existing_abbrs=None):
 	return abbr
 
 
-def sync_missing_brand_variants(enqueue=False):
+def sync_missing_brand_variants(enqueue=False, attribute_value=None):
 	attribute = get_auto_create_variant_attribute()
 	if not is_auto_create_variants_enabled():
 		return {"created": 0, "skipped": 0, "queued": 0, "disabled": 1}
@@ -407,9 +408,11 @@ def sync_missing_brand_variants(enqueue=False):
 	use_template_image = cint(
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_use_template_image")
 	)
-	missing_rows = VariantCoverageReport({"variant_attribute": attribute}).get_missing_rows(
-		limit=SYNC_CREATE_LIMIT + 1
-	)
+	filters = {"variant_attribute": attribute}
+	if attribute_value:
+		filters["attribute_value"] = attribute_value
+
+	missing_rows = VariantCoverageReport(filters).get_missing_rows(limit=SYNC_CREATE_LIMIT + 1)
 
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
@@ -423,13 +426,27 @@ def sync_missing_brand_variants(enqueue=False):
 			"limit": SYNC_CREATE_LIMIT,
 		}
 
-	return sync_missing_brand_variants_job(attribute, use_template_image, limit=SYNC_CREATE_LIMIT)
+	return sync_missing_brand_variants_job(
+		attribute,
+		use_template_image,
+		attribute_value=attribute_value,
+		limit=SYNC_CREATE_LIMIT,
+	)
 
 
-def sync_missing_brand_variants_job(attribute=None, use_template_image=False, limit=SYNC_CREATE_LIMIT):
+def sync_missing_brand_variants_job(
+	attribute=None,
+	use_template_image=False,
+	attribute_value=None,
+	limit=SYNC_CREATE_LIMIT,
+):
 	attribute = attribute or get_auto_create_variant_attribute()
+	filters = {"variant_attribute": attribute}
+	if attribute_value:
+		filters["attribute_value"] = attribute_value
+
 	return create_missing_variants_job(
-		filters={"variant_attribute": attribute},
+		filters=filters,
 		use_template_image=use_template_image,
 		ignore_permissions=True,
 		limit=limit,
@@ -497,7 +514,7 @@ def create_missing_variants_for_item_attribute(attribute, use_template_image=Non
 def sync_brand_attribute_and_get_status(brand):
 	result = ensure_brand_attribute_value(brand)
 	if is_auto_create_variants_enabled():
-		sync_result = sync_missing_brand_variants(enqueue=True)
+		sync_result = sync_missing_brand_variants(enqueue=True, attribute_value=brand)
 		return {
 			"applicable": 1,
 			"attribute": result.get("attribute"),

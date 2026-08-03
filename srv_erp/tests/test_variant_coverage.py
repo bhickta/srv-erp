@@ -11,6 +11,7 @@ from srv_erp.item.variant_auto_creation import (
 	ensure_brand_attribute_value,
 	get_item_attribute_variant_sync_status,
 	handle_brand_update,
+	sync_missing_brand_variants,
 	sync_attribute_brand_values_to_master,
 	validate_item_attribute_brand_source,
 )
@@ -124,6 +125,19 @@ class TestVariantCoverage(ERPNextTestSuite):
 
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
+
+	def test_brand_filtered_sync_creates_only_selected_brand_variants(self):
+		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 1)
+		ensure_brand_attribute_value("_Test VC Brand C")
+		ensure_brand_attribute_value("_Test VC Brand D")
+
+		result = sync_missing_brand_variants(attribute_value="_Test VC Brand C")
+
+		self.assertEqual(result["created"], 2)
+		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
+		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
+		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCD-S"))
+		self.assertFalse(frappe.db.exists("Item", "_Test VC Template-VCD-L"))
 
 	def test_attribute_sync_status_reports_missing_variants_when_auto_is_disabled(self):
 		ensure_brand_attribute_value("_Test VC Brand C")
