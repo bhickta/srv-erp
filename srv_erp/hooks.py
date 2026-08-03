@@ -193,6 +193,7 @@ doc_events = {
 		"on_update": "srv_erp.item.variant_auto_creation.handle_item_attribute_update",
 	},
 	"Brand": {
+		"validate": "srv_erp.item.variant_auto_creation.validate_brand_abbreviation",
 		"on_update": "srv_erp.item.variant_auto_creation.handle_brand_update",
 	},
 	"Sales Order": {

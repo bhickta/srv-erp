@@ -25,6 +25,27 @@ def handle_brand_update(doc, method=None):
 	sync_missing_brand_variants(enqueue=True)
 
 
+def validate_brand_abbreviation(doc, method=None):
+	abbr = doc.get("brand_abbreviation")
+	if not abbr:
+		return
+	if not has_brand_abbreviation_field():
+		return
+
+	existing_brand = frappe.db.get_value(
+		"Brand",
+		{"brand_abbreviation": abbr, "name": ["!=", doc.name]},
+		"name",
+	)
+	if existing_brand:
+		frappe.throw(
+			_("Brand Abbreviation {0} is already used by Brand {1}.").format(
+				frappe.bold(abbr),
+				frappe.bold(existing_brand),
+			)
+		)
+
+
 def validate_item_attribute_brand_source(doc, method=None):
 	if not is_auto_create_variant_attribute(doc.name):
 		return
@@ -71,6 +92,7 @@ def ensure_brand_attribute_value(brand):
 	if not brand or not attribute:
 		return {"created": 0, "attribute": attribute}
 
+	brand_abbr = get_brand_abbreviation(brand)
 	if not frappe.db.exists("Item Attribute", attribute):
 		frappe.flags.syncing_brand_attribute_values = True
 		try:
@@ -79,7 +101,7 @@ def ensure_brand_attribute_value(brand):
 					"doctype": "Item Attribute",
 					"attribute_name": attribute,
 					"item_attribute_values": [
-						{"attribute_value": brand, "abbr": make_attribute_abbr(brand)}
+						{"attribute_value": brand, "abbr": brand_abbr or make_attribute_abbr(brand)}
 					],
 				}
 			).insert(ignore_permissions=True)
@@ -91,30 +113,104 @@ def ensure_brand_attribute_value(brand):
 	if cint(doc.numeric_values):
 		return {"created": 0, "attribute": attribute, "numeric": 1}
 
-	existing_values = {row.attribute_value for row in doc.item_attribute_values}
-	if brand in existing_values:
-		return {"created": 0, "attribute": attribute}
+	existing_row = get_attribute_value_row(doc, brand)
+	if existing_row:
+		return sync_existing_brand_attribute_value(doc, existing_row, brand_abbr)
 
-	existing_abbrs = {row.abbr for row in doc.item_attribute_values if row.abbr}
-	doc.append(
-		"item_attribute_values",
-		{"attribute_value": brand, "abbr": make_attribute_abbr(brand, existing_abbrs)},
-	)
+	existing_abbrs = get_existing_attribute_abbrs(doc)
+	abbr = brand_abbr or make_attribute_abbr(brand, existing_abbrs)
+	if brand_abbr and brand_abbr.lower() in existing_abbrs:
+		frappe.throw(
+			_("Brand Abbreviation {0} is already used in Item Attribute {1}.").format(
+				frappe.bold(brand_abbr),
+				frappe.bold(attribute),
+			)
+		)
+
+	doc.append("item_attribute_values", {"attribute_value": brand, "abbr": abbr})
+	save_synced_brand_attribute(doc)
+	return {"created": 1, "attribute": attribute}
+
+
+def sync_existing_brand_attribute_value(doc, row, brand_abbr):
+	if not brand_abbr or row.abbr == brand_abbr:
+		return {"created": 0, "attribute": doc.name}
+
+	existing_abbrs = get_existing_attribute_abbrs(doc, exclude_row=row)
+	if brand_abbr.lower() in existing_abbrs:
+		frappe.throw(
+			_("Brand Abbreviation {0} is already used in Item Attribute {1}.").format(
+				frappe.bold(brand_abbr),
+				frappe.bold(doc.name),
+			)
+		)
+
+	row.abbr = brand_abbr
+	save_synced_brand_attribute(doc)
+	return {"created": 0, "updated": 1, "attribute": doc.name}
+
+
+def save_synced_brand_attribute(doc):
 	frappe.flags.syncing_brand_attribute_values = True
 	try:
 		doc.save(ignore_permissions=True)
 	finally:
 		frappe.flags.syncing_brand_attribute_values = False
-	return {"created": 1, "attribute": attribute}
+
+
+def get_brand_abbreviation(brand):
+	if not has_brand_abbreviation_field():
+		return None
+
+	return frappe.db.get_value("Brand", brand, "brand_abbreviation")
+
+
+def has_brand_abbreviation_field():
+	return frappe.db.has_column("Brand", "brand_abbreviation")
+
+
+def get_attribute_value_row(doc, attribute_value):
+	for row in doc.item_attribute_values:
+		if row.attribute_value == attribute_value:
+			return row
+	return None
+
+
+def get_existing_attribute_abbrs(doc, exclude_row=None):
+	return {
+		row.abbr.lower()
+		for row in doc.item_attribute_values
+		if row.abbr and row != exclude_row
+	}
+
+
+def sync_brand_abbreviation_from_attribute(brand, abbr):
+	if not brand or not abbr:
+		return 0
+	if not has_brand_abbreviation_field():
+		return 0
+	if frappe.db.get_value("Brand", brand, "brand_abbreviation"):
+		return 0
+
+	frappe.db.set_value(
+		"Brand",
+		brand,
+		"brand_abbreviation",
+		abbr,
+		update_modified=False,
+	)
+	return 1
 
 
 def sync_brand_master_values_to_attribute():
 	created = 0
+	updated = 0
 	for brand in frappe.get_all("Brand", pluck="name"):
 		result = ensure_brand_attribute_value(brand)
 		created += cint(result.get("created"))
+		updated += cint(result.get("updated"))
 
-	return {"created": created}
+	return {"created": created, "updated": updated}
 
 
 def sync_attribute_brand_values_to_master():
@@ -123,20 +219,28 @@ def sync_attribute_brand_values_to_master():
 		return {"created": 0, "attribute": attribute, "missing_attribute": 1}
 
 	created = 0
+	updated = 0
 	for row in frappe.get_all(
 		"Item Attribute Value",
-		fields=["attribute_value"],
+		fields=["attribute_value", "abbr"],
 		filters={"parent": attribute},
 		order_by="idx",
 	):
 		brand = row.attribute_value
-		if not brand or frappe.db.exists("Brand", brand):
+		if not brand:
 			continue
 
-		frappe.get_doc({"doctype": "Brand", "brand": brand}).insert(ignore_permissions=True)
+		if frappe.db.exists("Brand", brand):
+			updated += sync_brand_abbreviation_from_attribute(brand, row.abbr)
+			continue
+
+		brand_doc = frappe.get_doc({"doctype": "Brand", "brand": brand})
+		if has_brand_abbreviation_field():
+			brand_doc.brand_abbreviation = row.abbr
+		brand_doc.insert(ignore_permissions=True)
 		created += 1
 
-	return {"created": created, "attribute": attribute}
+	return {"created": created, "updated": updated, "attribute": attribute}
 
 
 def make_attribute_abbr(value, existing_abbrs=None):

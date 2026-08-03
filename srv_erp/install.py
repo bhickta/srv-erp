@@ -19,6 +19,7 @@ def before_migrate():
 
 def after_install():
 	ensure_dsr_roles()
+	create_brand_custom_fields()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
@@ -34,6 +35,7 @@ def after_install():
 
 def after_migrate():
 	ensure_dsr_roles()
+	create_brand_custom_fields()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
@@ -46,6 +48,24 @@ def after_migrate():
 	set_srv_settings_defaults()
 	sync_attribute_brand_values_to_master()
 	sync_brand_master_values_to_attribute()
+
+
+def create_brand_custom_fields():
+	create_custom_fields(
+		{
+			"Brand": [
+				{
+					"description": "Used as the abbreviation for Brand values in Item Attribute variants. If blank, SRV ERP generates a unique abbreviation during sync.",
+					"fieldname": "brand_abbreviation",
+					"fieldtype": "Data",
+					"insert_after": "brand",
+					"in_list_view": 1,
+					"label": "Brand Abbreviation",
+				},
+			],
+		},
+		update=True,
+	)
 
 
 def create_package_barcode_custom_fields():

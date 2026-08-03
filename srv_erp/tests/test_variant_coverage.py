@@ -47,6 +47,10 @@ class TestVariantCoverage(ERPNextTestSuite):
 		self._delete_variant("_Test VC Template-VCC-L")
 		self._delete_variant("_Test VC Template-VCD-S")
 		self._delete_variant("_Test VC Template-VCD-L")
+		self._delete_brand("_Test VC Brand A")
+		self._delete_brand("_Test VC Brand B")
+		self._delete_brand("_Test VC Brand C")
+		self._delete_brand("_Test VC Brand D")
 
 		variant = create_variant(
 			self.template,
@@ -131,6 +135,14 @@ class TestVariantCoverage(ERPNextTestSuite):
 		self.assertEqual(status["missing_count"], 5)
 
 	def test_brand_master_adds_item_attribute_value(self):
+		frappe.get_doc(
+			{
+				"doctype": "Brand",
+				"brand": "_Test VC Brand D",
+				"brand_abbreviation": "VCD",
+			}
+		).insert(ignore_permissions=True)
+
 		result = ensure_brand_attribute_value("_Test VC Brand D")
 
 		self.assertEqual(result["created"], 1)
@@ -139,6 +151,14 @@ class TestVariantCoverage(ERPNextTestSuite):
 				"Item Attribute Value",
 				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
 			)
+		)
+		self.assertEqual(
+			frappe.db.get_value(
+				"Item Attribute Value",
+				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
+				"abbr",
+			),
+			"VCD",
 		)
 
 	def test_brand_attribute_values_create_brand_masters(self):
@@ -150,6 +170,14 @@ class TestVariantCoverage(ERPNextTestSuite):
 		self.assertEqual(result["created"], 2)
 		self.assertTrue(frappe.db.exists("Brand", "_Test VC Brand A"))
 		self.assertTrue(frappe.db.exists("Brand", "_Test VC Brand B"))
+		self.assertEqual(
+			frappe.db.get_value("Brand", "_Test VC Brand A", "brand_abbreviation"),
+			"VCA",
+		)
+		self.assertEqual(
+			frappe.db.get_value("Brand", "_Test VC Brand B", "brand_abbreviation"),
+			"VCB",
+		)
 
 	def test_direct_brand_attribute_value_change_is_blocked(self):
 		attribute = frappe.get_doc("Item Attribute", self.brand_attribute)
@@ -194,6 +222,10 @@ class TestVariantCoverage(ERPNextTestSuite):
 	def _delete_variant(self, item_code):
 		if frappe.db.exists("Item", item_code):
 			frappe.delete_doc("Item", item_code, force=1)
+
+	def _delete_brand(self, brand):
+		if frappe.db.exists("Brand", brand):
+			frappe.delete_doc("Brand", brand, force=1)
 
 	@staticmethod
 	def _count_status(rows, status):
