@@ -252,6 +252,28 @@ def sync_brand_attribute_and_get_status(brand):
 	return status
 
 
+@frappe.whitelist()
+def sync_brand_masters_and_get_status():
+	result = sync_brand_master_values_to_attribute()
+	attribute = get_auto_create_variant_attribute()
+	if is_auto_create_variants_enabled():
+		sync_result = sync_missing_brand_variants(enqueue=True)
+		return {
+			"applicable": 1,
+			"attribute": attribute,
+			"auto_create_enabled": 1,
+			"attribute_value_created": result.get("created", 0),
+			"created": sync_result.get("created", 0),
+			"queued": sync_result.get("queued", 0),
+			"skipped": sync_result.get("skipped", 0),
+			"errors": sync_result.get("errors", 0),
+		}
+
+	status = get_item_attribute_variant_sync_status(attribute)
+	status["attribute_value_created"] = result.get("created", 0)
+	return status
+
+
 def get_auto_create_variant_attribute() -> str:
 	return (
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")

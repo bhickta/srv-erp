@@ -6,7 +6,7 @@ from srv_erp.sales_order_discount import set_sales_order_item_discount_grid_colu
 from srv_erp.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.sales_person_user_mapping import sync_all_sales_person_user_permissions
 from srv_erp.stock_balance_report import use_srv_stock_balance_report
-from srv_erp.variant_auto_creation import set_srv_settings_defaults
+from srv_erp.variant_auto_creation import set_srv_settings_defaults, sync_brand_master_values_to_attribute
 
 
 def before_migrate():
@@ -24,6 +24,7 @@ def after_install():
 	use_srv_stock_balance_report()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()
+	sync_brand_master_values_to_attribute()
 
 
 def after_migrate():
@@ -38,6 +39,7 @@ def after_migrate():
 	migrate_legacy_dsr_configuration()
 	set_package_barcode_settings_defaults()
 	set_srv_settings_defaults()
+	sync_brand_master_values_to_attribute()
 
 
 def create_package_barcode_custom_fields():

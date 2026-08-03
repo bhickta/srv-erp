@@ -29,8 +29,32 @@ srv_erp.item_attribute_variant_sync = {
 		});
 	},
 
+	add_brand_sync_button(frm) {
+		frm.add_custom_button(__("Sync Brand Variants"), () => {
+			srv_erp.item_attribute_variant_sync.sync_all_brands();
+		});
+	},
+
+	sync_all_brands() {
+		frappe.call({
+			method: "srv_erp.variant_auto_creation.sync_brand_masters_and_get_status",
+			freeze: true,
+			freeze_message: __("Syncing brands..."),
+			callback: (r) => {
+				srv_erp.item_attribute_variant_sync.handle_status(r.message || {});
+			},
+		});
+	},
+
 	handle_status(status) {
 		if (!status.applicable || !status.missing_count) {
+			if (status.attribute_value_created) {
+				frappe.show_alert({
+					message: __("Synced {0} brand values.", [status.attribute_value_created]),
+					indicator: "green",
+				});
+			}
+
 			if (status.auto_create_enabled) {
 				srv_erp.item_attribute_variant_sync.show_result(status);
 			}
@@ -100,7 +124,19 @@ frappe.ui.form.on("Item Attribute", {
 });
 
 frappe.ui.form.on("Brand", {
+	refresh(frm) {
+		srv_erp.item_attribute_variant_sync.add_brand_sync_button(frm);
+	},
+
 	after_save(frm) {
 		srv_erp.item_attribute_variant_sync.after_brand_save(frm);
 	},
 });
+
+frappe.listview_settings["Brand"] = {
+	onload(listview) {
+		listview.page.add_actions_menu_item(__("Sync Brand Variants"), () => {
+			srv_erp.item_attribute_variant_sync.sync_all_brands();
+		});
+	},
+};

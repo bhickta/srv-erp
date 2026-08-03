@@ -83,6 +83,7 @@ doctype_js = {
 doctype_list_js = {
 	"Package Barcode": "public/js/package_barcode_list.js",
 	"Package Barcode Batch": "public/js/package_barcode_batch_list.js",
+	"Brand": "public/js/item_attribute_variant_sync.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
