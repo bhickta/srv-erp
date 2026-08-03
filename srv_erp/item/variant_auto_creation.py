@@ -13,6 +13,8 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants_job,
 )
 
+BRAND_SYNC_CREATE_LIMIT = 100
+
 
 def handle_item_attribute_update(doc, method=None):
 	if not should_sync_for_item_attribute(doc):
@@ -397,7 +399,7 @@ def make_attribute_abbr(value, existing_abbrs=None):
 	return abbr
 
 
-def sync_missing_brand_variants(enqueue=False, attribute_value=None):
+def sync_missing_brand_variants(enqueue=False, attribute_value=None, limit=None):
 	attribute = get_auto_create_variant_attribute()
 	if not is_auto_create_variants_enabled():
 		return {"created": 0, "skipped": 0, "queued": 0, "disabled": 1}
@@ -412,25 +414,26 @@ def sync_missing_brand_variants(enqueue=False, attribute_value=None):
 	if attribute_value:
 		filters["attribute_value"] = attribute_value
 
-	missing_rows = VariantCoverageReport(filters).get_missing_rows(limit=SYNC_CREATE_LIMIT + 1)
+	create_limit = limit or (BRAND_SYNC_CREATE_LIMIT if attribute_value else SYNC_CREATE_LIMIT)
+	missing_rows = VariantCoverageReport(filters).get_missing_rows(limit=create_limit + 1)
 
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
 
-	if len(missing_rows) > SYNC_CREATE_LIMIT:
+	if len(missing_rows) > create_limit:
 		return {
 			"created": 0,
 			"skipped": 0,
 			"queued": 0,
 			"too_many": len(missing_rows),
-			"limit": SYNC_CREATE_LIMIT,
+			"limit": create_limit,
 		}
 
 	return sync_missing_brand_variants_job(
 		attribute,
 		use_template_image,
 		attribute_value=attribute_value,
-		limit=SYNC_CREATE_LIMIT,
+		limit=create_limit,
 	)
 
 
