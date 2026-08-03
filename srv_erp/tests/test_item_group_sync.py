@@ -38,6 +38,33 @@ class TestItemGroupSync(ERPNextTestSuite):
 
 		self.assertEqual(frappe.db.get_value("Item", variant.name, "is_sales_item"), 0)
 
+	def test_template_item_name_syncs_to_variant(self):
+		template = self.make_template(self.item_group_a)
+		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
+		variant.save()
+
+		template = frappe.get_doc("Item", template.name)
+		template.item_name = "_Test Synced Template Name"
+		template.save()
+
+		self.assertEqual(
+			frappe.db.get_value("Item", variant.name, "item_name"),
+			"_Test Synced Template Name - _Test Variant Sync Small",
+		)
+
+	def test_new_variant_item_name_uses_template_and_attributes(self):
+		template = self.make_template(self.item_group_a)
+		template.item_name = "_Test Template Display Name"
+		template.save()
+
+		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
+		variant.save()
+
+		self.assertEqual(
+			frappe.db.get_value("Item", variant.name, "item_name"),
+			"_Test Template Display Name - _Test Variant Sync Small",
+		)
+
 	def test_variant_item_group_cannot_be_changed_directly(self):
 		template = self.make_template(self.item_group_a)
 		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
@@ -56,6 +83,17 @@ class TestItemGroupSync(ERPNextTestSuite):
 
 		variant = frappe.get_doc("Item", variant.name)
 		variant.is_sales_item = 0 if template.is_sales_item else 1
+
+		with self.assertRaises(frappe.ValidationError):
+			variant.save()
+
+	def test_variant_item_name_cannot_be_changed_directly(self):
+		template = self.make_template(self.item_group_a)
+		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
+		variant.save()
+
+		variant = frappe.get_doc("Item", variant.name)
+		variant.item_name = "_Test Direct Variant Name"
 
 		with self.assertRaises(frappe.ValidationError):
 			variant.save()

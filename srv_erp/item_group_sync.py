@@ -22,7 +22,6 @@ def sync_all_variant_item_groups() -> int:
 VARIANT_SPECIFIC_FIELDS = {
 	"naming_series",
 	"item_code",
-	"item_name",
 	"variant_of",
 	"variant_based_on",
 	"has_variants",
@@ -34,6 +33,7 @@ VARIANT_SPECIFIC_FIELDS = {
 	"default_manufacturer_part_no",
 	"total_projected_qty",
 }
+VARIANT_ITEM_NAME_FIELD = "item_name"
 
 
 def validate_template_controlled_variant_fields(doc, method=None):
@@ -47,7 +47,7 @@ def validate_template_controlled_variant_fields(doc, method=None):
 
 	blocked_fields = []
 	for fieldname in controlled_fields:
-		template_value = template.get(fieldname)
+		template_value = get_template_controlled_field_value(fieldname, template, doc)
 		if doc.get(fieldname) == template_value:
 			continue
 
@@ -81,20 +81,39 @@ def sync_template_fields_to_variants(doc, method=None):
 	if not changed_fields:
 		return
 
-	sync_variant_item_fields(doc.name, changed_fields)
+	sync_variant_item_fields(doc.name, changed_fields, template=doc)
 
 
-def sync_variant_item_fields(template_item, fieldnames=None):
-	if fieldnames is None:
+def sync_variant_item_fields(template_item, fieldnames=None, template=None):
+	if template is None:
 		template = frappe.get_cached_doc("Item", template_item)
+
+	if fieldnames is None:
 		fieldnames = get_template_controlled_variant_fields(template)
 
 	if not fieldnames:
 		return 0
 
+	if isinstance(fieldnames, str):
+		fieldnames = [fieldnames]
+
+	fieldnames = list(dict.fromkeys(fieldnames))
+	sync_item_name = VARIANT_ITEM_NAME_FIELD in fieldnames
+	template_fieldnames = [fieldname for fieldname in fieldnames if fieldname != VARIANT_ITEM_NAME_FIELD]
+
+	if template_fieldnames:
+		sync_variant_template_fields(template_item, template_fieldnames)
+
+	if sync_item_name:
+		sync_variant_item_names(template)
+
+	return 1
+
+
+def sync_variant_template_fields(template_item, fieldnames):
 	template_values = frappe.db.get_value("Item", template_item, fieldnames, as_dict=True)
 	if not template_values:
-		return 0
+		return
 
 	assignments = []
 	values = {"template_item": template_item, "user": frappe.session.user}
@@ -120,7 +139,36 @@ def sync_variant_item_fields(template_item, fieldnames=None):
 		values,
 	)
 
-	return 1
+
+def sync_variant_item_names(template):
+	for variant_name in frappe.get_all("Item", filters={"variant_of": template.name}, pluck="name"):
+		variant = frappe.get_doc("Item", variant_name)
+		item_name = get_variant_item_name(template, variant)
+		if variant.item_name == item_name:
+			continue
+
+		frappe.db.set_value("Item", variant.name, VARIANT_ITEM_NAME_FIELD, item_name)
+
+
+def get_template_controlled_field_value(fieldname, template, variant):
+	if fieldname == VARIANT_ITEM_NAME_FIELD:
+		return get_variant_item_name(template, variant)
+
+	return template.get(fieldname)
+
+
+def get_variant_item_name(template, variant):
+	parts = [template.item_name or template.item_code or template.name]
+	parts.extend(get_variant_attribute_values(variant))
+	return " - ".join(part for part in parts if part)
+
+
+def get_variant_attribute_values(variant):
+	return [
+		row.attribute_value
+		for row in variant.get("attributes") or []
+		if row.attribute_value
+	]
 
 
 def sync_all_variant_item_fields() -> int:
