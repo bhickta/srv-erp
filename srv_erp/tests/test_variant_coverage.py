@@ -11,6 +11,7 @@ from srv_erp.variant_auto_creation import (
 	ensure_brand_attribute_value,
 	get_item_attribute_variant_sync_status,
 	handle_brand_update,
+	sync_attribute_brand_values_to_master,
 	validate_item_attribute_brand_source,
 )
 
@@ -139,6 +140,16 @@ class TestVariantCoverage(ERPNextTestSuite):
 				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
 			)
 		)
+
+	def test_brand_attribute_values_create_brand_masters(self):
+		frappe.delete_doc_if_exists("Brand", "_Test VC Brand A", force=1)
+		frappe.delete_doc_if_exists("Brand", "_Test VC Brand B", force=1)
+
+		result = sync_attribute_brand_values_to_master()
+
+		self.assertEqual(result["created"], 2)
+		self.assertTrue(frappe.db.exists("Brand", "_Test VC Brand A"))
+		self.assertTrue(frappe.db.exists("Brand", "_Test VC Brand B"))
 
 	def test_direct_brand_attribute_value_change_is_blocked(self):
 		attribute = frappe.get_doc("Item Attribute", self.brand_attribute)

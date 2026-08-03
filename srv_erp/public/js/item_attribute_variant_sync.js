@@ -48,6 +48,13 @@ srv_erp.item_attribute_variant_sync = {
 
 	handle_status(status) {
 		if (!status.applicable || !status.missing_count) {
+			if (status.brand_created) {
+				frappe.show_alert({
+					message: __("Created {0} Brand records.", [status.brand_created]),
+					indicator: "green",
+				});
+			}
+
 			if (status.attribute_value_created) {
 				frappe.show_alert({
 					message: __("Synced {0} brand values.", [status.attribute_value_created]),

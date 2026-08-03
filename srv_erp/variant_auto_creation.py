@@ -117,6 +117,28 @@ def sync_brand_master_values_to_attribute():
 	return {"created": created}
 
 
+def sync_attribute_brand_values_to_master():
+	attribute = get_auto_create_variant_attribute()
+	if not frappe.db.exists("Item Attribute", attribute):
+		return {"created": 0, "attribute": attribute, "missing_attribute": 1}
+
+	created = 0
+	for row in frappe.get_all(
+		"Item Attribute Value",
+		fields=["attribute_value"],
+		filters={"parent": attribute},
+		order_by="idx",
+	):
+		brand = row.attribute_value
+		if not brand or frappe.db.exists("Brand", brand):
+			continue
+
+		frappe.get_doc({"doctype": "Brand", "brand": brand}).insert(ignore_permissions=True)
+		created += 1
+
+	return {"created": created, "attribute": attribute}
+
+
 def make_attribute_abbr(value, existing_abbrs=None):
 	existing_abbrs = existing_abbrs or set()
 	existing_abbrs = {abbr.lower() for abbr in existing_abbrs}
@@ -254,15 +276,20 @@ def sync_brand_attribute_and_get_status(brand):
 
 @frappe.whitelist()
 def sync_brand_masters_and_get_status():
+	attribute_to_master_result = sync_attribute_brand_values_to_master()
 	result = sync_brand_master_values_to_attribute()
 	attribute = get_auto_create_variant_attribute()
+	brand_values_created = cint(attribute_to_master_result.get("created"))
+	attribute_values_created = cint(result.get("created"))
+
 	if is_auto_create_variants_enabled():
 		sync_result = sync_missing_brand_variants(enqueue=True)
 		return {
 			"applicable": 1,
 			"attribute": attribute,
 			"auto_create_enabled": 1,
-			"attribute_value_created": result.get("created", 0),
+			"brand_created": brand_values_created,
+			"attribute_value_created": attribute_values_created,
 			"created": sync_result.get("created", 0),
 			"queued": sync_result.get("queued", 0),
 			"skipped": sync_result.get("skipped", 0),
@@ -270,7 +297,8 @@ def sync_brand_masters_and_get_status():
 		}
 
 	status = get_item_attribute_variant_sync_status(attribute)
-	status["attribute_value_created"] = result.get("created", 0)
+	status["brand_created"] = brand_values_created
+	status["attribute_value_created"] = attribute_values_created
 	return status
 
 

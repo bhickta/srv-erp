@@ -18,3 +18,4 @@ srv_erp.patches.use_srv_stock_balance_report
 srv_erp.patches.add_sales_person_user_mapping
 srv_erp.patches.sync_variant_item_fields
 srv_erp.patches.sync_brand_master_values_to_attribute
+srv_erp.patches.sync_brand_attribute_values_to_master
