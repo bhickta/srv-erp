@@ -30,19 +30,23 @@ def create_missing_variants(filters=None, use_template_image=False):
 		frappe.throw(_("Not permitted to create Item variants."))
 
 	report = VariantCoverageReport(filters)
-	missing_rows = report.get_missing_rows(limit=MAX_CREATE_ROWS + 1)
+	missing_rows = report.get_missing_rows(limit=SYNC_CREATE_LIMIT + 1)
 
-	if len(missing_rows) > MAX_CREATE_ROWS:
+	if len(missing_rows) > SYNC_CREATE_LIMIT:
 		frappe.throw(
-			_("Please narrow the filters. You can create up to {0} missing variants at a time.").format(
-				MAX_CREATE_ROWS
+			_("Please narrow the filters. Synchronous creation can create up to {0} variants at a time.").format(
+				SYNC_CREATE_LIMIT
 			)
 		)
 
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
 
-	return create_missing_variants_job(filters=dict(filters), use_template_image=use_template_image)
+	return create_missing_variants_job(
+		filters=dict(filters),
+		use_template_image=use_template_image,
+		limit=SYNC_CREATE_LIMIT,
+	)
 
 
 def create_missing_variants_job(filters=None, use_template_image=False, ignore_permissions=False, limit=MAX_CREATE_ROWS):

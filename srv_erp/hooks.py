@@ -195,6 +195,7 @@ doc_events = {
 	"Brand": {
 		"validate": "srv_erp.item.variant_auto_creation.validate_brand_abbreviation",
 		"on_update": "srv_erp.item.variant_auto_creation.handle_brand_update",
+		"on_trash": "srv_erp.item.variant_auto_creation.handle_brand_delete",
 	},
 	"Sales Order": {
 		"validate": "srv_erp.selling.sales_order_discount.validate_sales_order_discounts",

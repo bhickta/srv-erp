@@ -7,6 +7,7 @@ from frappe.utils import cint
 from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	DEFAULT_VARIANT_ATTRIBUTE,
 	MAX_CREATE_ROWS,
+	SYNC_CREATE_LIMIT,
 	VariantCoverageReport,
 	create_missing_variants,
 	create_missing_variants_job,
@@ -25,11 +26,15 @@ def handle_brand_update(doc, method=None):
 		return
 
 	if is_brand_disabled(doc.get("brand") or doc.name):
-		disable_brand_variants(doc.get("brand") or doc.name)
+		remove_brand_attribute_value(doc.get("brand") or doc.name)
 		return
 
 	ensure_brand_attribute_value(doc.get("brand") or doc.name)
 	sync_missing_brand_variants(enqueue=True)
+
+
+def handle_brand_delete(doc, method=None):
+	remove_brand_attribute_value(doc.get("brand") or doc.name)
 
 
 def validate_brand_abbreviation(doc, method=None):
@@ -249,16 +254,44 @@ def disable_brand_variants(brand):
 	return {"disabled": len(variant_names)}
 
 
+def remove_brand_attribute_value(brand):
+	if not brand:
+		return {"removed": 0, "disabled": 0}
+
+	attribute = get_auto_create_variant_attribute()
+	disabled_result = disable_brand_variants(brand)
+	if not frappe.db.exists("Item Attribute", attribute):
+		return {"removed": 0, "disabled": disabled_result.get("disabled", 0)}
+
+	doc = frappe.get_doc("Item Attribute", attribute)
+	original_count = len(doc.item_attribute_values)
+	doc.set(
+		"item_attribute_values",
+		[row for row in doc.item_attribute_values if row.attribute_value != brand],
+	)
+	removed = original_count - len(doc.item_attribute_values)
+	if removed:
+		save_synced_brand_attribute(doc)
+
+	return {"removed": removed, "disabled": disabled_result.get("disabled", 0)}
+
+
 def sync_brand_master_values_to_attribute():
 	created = 0
 	updated = 0
 	disabled = 0
+	removed = 0
 	conflicts = []
+	enabled_brands = []
 	for brand in frappe.get_all("Brand", pluck="name"):
 		result = ensure_brand_attribute_value(brand)
 		created += cint(result.get("created"))
 		updated += cint(result.get("updated"))
 		disabled += cint(result.get("disabled"))
+		if result.get("disabled"):
+			removed += remove_brand_attribute_value(brand).get("removed", 0)
+		else:
+			enabled_brands.append(brand)
 		if result.get("conflict"):
 			conflicts.append(
 				{
@@ -274,12 +307,40 @@ def sync_brand_master_values_to_attribute():
 			message=frappe.as_json(conflicts, indent=2),
 		)
 
+	removed += remove_stale_brand_attribute_values(set(enabled_brands))
+
 	return {
 		"created": created,
 		"updated": updated,
 		"disabled": disabled,
+		"removed": removed,
 		"conflicts": len(conflicts),
 	}
+
+
+def remove_stale_brand_attribute_values(enabled_brands):
+	attribute = get_auto_create_variant_attribute()
+	if not frappe.db.exists("Item Attribute", attribute):
+		return 0
+
+	doc = frappe.get_doc("Item Attribute", attribute)
+	stale_values = [
+		row.attribute_value
+		for row in doc.item_attribute_values
+		if row.attribute_value and row.attribute_value not in enabled_brands
+	]
+	if not stale_values:
+		return 0
+
+	for brand in stale_values:
+		disable_brand_variants(brand)
+
+	doc.set(
+		"item_attribute_values",
+		[row for row in doc.item_attribute_values if row.attribute_value not in stale_values],
+	)
+	save_synced_brand_attribute(doc)
+	return len(stale_values)
 
 
 def sync_attribute_brand_values_to_master():
@@ -347,22 +408,31 @@ def sync_missing_brand_variants(enqueue=False):
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_use_template_image")
 	)
 	missing_rows = VariantCoverageReport({"variant_attribute": attribute}).get_missing_rows(
-		limit=MAX_CREATE_ROWS + 1
+		limit=SYNC_CREATE_LIMIT + 1
 	)
 
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
 
-	return sync_missing_brand_variants_job(attribute, use_template_image)
+	if len(missing_rows) > SYNC_CREATE_LIMIT:
+		return {
+			"created": 0,
+			"skipped": 0,
+			"queued": 0,
+			"too_many": len(missing_rows),
+			"limit": SYNC_CREATE_LIMIT,
+		}
+
+	return sync_missing_brand_variants_job(attribute, use_template_image, limit=SYNC_CREATE_LIMIT)
 
 
-def sync_missing_brand_variants_job(attribute=None, use_template_image=False):
+def sync_missing_brand_variants_job(attribute=None, use_template_image=False, limit=SYNC_CREATE_LIMIT):
 	attribute = attribute or get_auto_create_variant_attribute()
 	return create_missing_variants_job(
 		filters={"variant_attribute": attribute},
 		use_template_image=use_template_image,
 		ignore_permissions=True,
-		limit=None,
+		limit=limit,
 	)
 
 
@@ -400,6 +470,8 @@ def sync_item_attribute_and_get_status(attribute):
 			"queued": sync_result.get("queued", 0),
 			"skipped": sync_result.get("skipped", 0),
 			"errors": sync_result.get("errors", 0),
+			"too_many": sync_result.get("too_many", 0),
+			"limit": sync_result.get("limit", SYNC_CREATE_LIMIT),
 		}
 
 	return get_item_attribute_variant_sync_status(attribute)
@@ -435,6 +507,8 @@ def sync_brand_attribute_and_get_status(brand):
 			"queued": sync_result.get("queued", 0),
 			"skipped": sync_result.get("skipped", 0),
 			"errors": sync_result.get("errors", 0),
+			"too_many": sync_result.get("too_many", 0),
+			"limit": sync_result.get("limit", SYNC_CREATE_LIMIT),
 		}
 
 	status = get_item_attribute_variant_sync_status(result.get("attribute"))
@@ -444,10 +518,8 @@ def sync_brand_attribute_and_get_status(brand):
 
 @frappe.whitelist()
 def sync_brand_masters_and_get_status():
-	attribute_to_master_result = sync_attribute_brand_values_to_master()
 	result = sync_brand_master_values_to_attribute()
 	attribute = get_auto_create_variant_attribute()
-	brand_values_created = cint(attribute_to_master_result.get("created"))
 	attribute_values_created = cint(result.get("created"))
 
 	if is_auto_create_variants_enabled():
@@ -456,17 +528,19 @@ def sync_brand_masters_and_get_status():
 			"applicable": 1,
 			"attribute": attribute,
 			"auto_create_enabled": 1,
-			"brand_created": brand_values_created,
 			"attribute_value_created": attribute_values_created,
+			"attribute_value_removed": result.get("removed", 0),
 			"created": sync_result.get("created", 0),
 			"queued": sync_result.get("queued", 0),
 			"skipped": sync_result.get("skipped", 0),
 			"errors": sync_result.get("errors", 0),
+			"too_many": sync_result.get("too_many", 0),
+			"limit": sync_result.get("limit", SYNC_CREATE_LIMIT),
 		}
 
 	status = get_item_attribute_variant_sync_status(attribute)
-	status["brand_created"] = brand_values_created
 	status["attribute_value_created"] = attribute_values_created
+	status["attribute_value_removed"] = result.get("removed", 0)
 	return status
 
 

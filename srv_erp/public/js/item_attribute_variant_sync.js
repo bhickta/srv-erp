@@ -62,6 +62,13 @@ srv_erp.item_attribute_variant_sync = {
 				});
 			}
 
+			if (status.attribute_value_removed) {
+				frappe.show_alert({
+					message: __("Removed {0} stale brand values.", [status.attribute_value_removed]),
+					indicator: "orange",
+				});
+			}
+
 			if (status.auto_create_enabled) {
 				srv_erp.item_attribute_variant_sync.show_result(status);
 			}
@@ -116,6 +123,20 @@ srv_erp.item_attribute_variant_sync = {
 		const queued = result.queued || 0;
 		const skipped = result.skipped || 0;
 		const errors = result.errors || 0;
+		const too_many = result.too_many || 0;
+		const limit = result.limit || 0;
+
+		if (too_many && limit) {
+			frappe.msgprint({
+				message: __(
+					"{0}+ missing variants found. Please narrow filters in Variant Coverage and create up to {1} at a time.",
+					[limit, limit]
+				),
+				indicator: "orange",
+				title: __("Variant Sync"),
+			});
+			return;
+		}
 
 		frappe.show_alert({
 			message: __("Created {0}, queued {1}, skipped {2}.", [created, queued, skipped]),
