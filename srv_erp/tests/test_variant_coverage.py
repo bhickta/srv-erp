@@ -7,7 +7,11 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants,
 	execute,
 )
-from srv_erp.variant_auto_creation import handle_item_attribute_update
+from srv_erp.variant_auto_creation import (
+	ensure_brand_attribute_value,
+	get_item_attribute_variant_sync_status,
+	handle_item_attribute_update,
+)
 
 
 class TestVariantCoverage(ERPNextTestSuite):
@@ -113,6 +117,26 @@ class TestVariantCoverage(ERPNextTestSuite):
 
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-S"))
 		self.assertTrue(frappe.db.exists("Item", "_Test VC Template-VCC-L"))
+
+	def test_attribute_sync_status_reports_missing_variants_when_auto_is_disabled(self):
+		self._add_attribute_value("_Test VC Brand C", "VCC")
+
+		status = get_item_attribute_variant_sync_status(self.brand_attribute)
+
+		self.assertEqual(status["applicable"], 1)
+		self.assertEqual(status["auto_create_enabled"], 0)
+		self.assertEqual(status["missing_count"], 5)
+
+	def test_brand_master_adds_item_attribute_value(self):
+		result = ensure_brand_attribute_value("_Test VC Brand D")
+
+		self.assertEqual(result["created"], 1)
+		self.assertTrue(
+			frappe.db.exists(
+				"Item Attribute Value",
+				{"parent": self.brand_attribute, "attribute_value": "_Test VC Brand D"},
+			)
+		)
 
 	def _ensure_template(self):
 		if frappe.db.exists("Item", self.template):

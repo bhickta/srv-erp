@@ -51,6 +51,8 @@ doctype_js = {
 		"public/js/item.js",
 		"public/js/item/variant_select_all_dialog.js",
 	],
+	"Item Attribute": "public/js/item_attribute_variant_sync.js",
+	"Brand": "public/js/item_attribute_variant_sync.js",
 	"Sales Order": "public/js/sales_order.js",
 	"Stock Entry": [
 		"public/js/package_barcode/namespace.js",
@@ -187,6 +189,9 @@ doc_events = {
 	},
 	"Item Attribute": {
 		"on_update": "srv_erp.variant_auto_creation.handle_item_attribute_update",
+	},
+	"Brand": {
+		"on_update": "srv_erp.variant_auto_creation.handle_brand_update",
 	},
 	"Sales Order": {
 		"validate": "srv_erp.sales_order_discount.validate_sales_order_discounts",
