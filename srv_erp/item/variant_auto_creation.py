@@ -21,6 +21,13 @@ def handle_item_attribute_update(doc, method=None):
 
 
 def handle_brand_update(doc, method=None):
+	if frappe.flags.syncing_brand_master_values:
+		return
+
+	if is_brand_disabled(doc.get("brand") or doc.name):
+		disable_brand_variants(doc.get("brand") or doc.name)
+		return
+
 	ensure_brand_attribute_value(doc.get("brand") or doc.name)
 	sync_missing_brand_variants(enqueue=True)
 
@@ -91,6 +98,8 @@ def ensure_brand_attribute_value(brand):
 	attribute = get_auto_create_variant_attribute()
 	if not brand or not attribute:
 		return {"created": 0, "attribute": attribute}
+	if is_brand_disabled(brand):
+		return {"created": 0, "attribute": attribute, "disabled": 1}
 
 	brand_abbr = get_brand_abbreviation(brand)
 	if not frappe.db.exists("Item Attribute", attribute):
@@ -202,15 +211,54 @@ def sync_brand_abbreviation_from_attribute(brand, abbr):
 	return 1
 
 
+def is_brand_disabled(brand):
+	if not has_brand_disabled_field():
+		return False
+
+	return cint(frappe.db.get_value("Brand", brand, "disabled"))
+
+
+def has_brand_disabled_field():
+	return frappe.db.has_column("Brand", "disabled")
+
+
+def disable_brand_variants(brand):
+	if not brand:
+		return {"disabled": 0}
+
+	attribute = get_auto_create_variant_attribute()
+	variant_names = frappe.db.sql_list(
+		"""
+		select distinct item.name
+		from `tabItem` item
+		inner join `tabItem Variant Attribute` attribute
+			on attribute.parent = item.name
+		where item.variant_of is not null
+			and item.variant_of != ''
+			and item.disabled = 0
+			and attribute.attribute = %(attribute)s
+			and attribute.attribute_value = %(brand)s
+		""",
+		{"attribute": attribute, "brand": brand},
+	)
+
+	for item in variant_names:
+		frappe.db.set_value("Item", item, "disabled", 1)
+
+	return {"disabled": len(variant_names)}
+
+
 def sync_brand_master_values_to_attribute():
 	created = 0
 	updated = 0
+	disabled = 0
 	for brand in frappe.get_all("Brand", pluck="name"):
 		result = ensure_brand_attribute_value(brand)
 		created += cint(result.get("created"))
 		updated += cint(result.get("updated"))
+		disabled += cint(result.get("disabled"))
 
-	return {"created": created, "updated": updated}
+	return {"created": created, "updated": updated, "disabled": disabled}
 
 
 def sync_attribute_brand_values_to_master():
@@ -234,10 +282,14 @@ def sync_attribute_brand_values_to_master():
 			updated += sync_brand_abbreviation_from_attribute(brand, row.abbr)
 			continue
 
-		brand_doc = frappe.get_doc({"doctype": "Brand", "brand": brand})
-		if has_brand_abbreviation_field():
-			brand_doc.brand_abbreviation = row.abbr
-		brand_doc.insert(ignore_permissions=True)
+		frappe.flags.syncing_brand_master_values = True
+		try:
+			brand_doc = frappe.get_doc({"doctype": "Brand", "brand": brand})
+			if has_brand_abbreviation_field():
+				brand_doc.brand_abbreviation = row.abbr
+			brand_doc.insert(ignore_permissions=True)
+		finally:
+			frappe.flags.syncing_brand_master_values = False
 		created += 1
 
 	return {"created": created, "updated": updated, "attribute": attribute}
@@ -279,15 +331,6 @@ def sync_missing_brand_variants(enqueue=False):
 
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
-
-	if enqueue and not frappe.flags.in_test and len(missing_rows) > MAX_CREATE_ROWS:
-		frappe.enqueue(
-			"srv_erp.item.variant_auto_creation.sync_missing_brand_variants_job",
-			queue="long",
-			attribute=attribute,
-			use_template_image=use_template_image,
-		)
-		return {"created": 0, "skipped": 0, "queued": len(missing_rows)}
 
 	return sync_missing_brand_variants_job(attribute, use_template_image)
 

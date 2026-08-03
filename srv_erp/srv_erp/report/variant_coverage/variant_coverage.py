@@ -42,15 +42,6 @@ def create_missing_variants(filters=None, use_template_image=False):
 	if not missing_rows:
 		return {"created": 0, "skipped": 0, "queued": 0}
 
-	if len(missing_rows) > SYNC_CREATE_LIMIT and not frappe.flags.in_test:
-		frappe.enqueue(
-			"srv_erp.srv_erp.report.variant_coverage.variant_coverage.create_missing_variants_job",
-			filters=dict(filters),
-			use_template_image=use_template_image,
-			queue="long",
-		)
-		return {"created": 0, "skipped": 0, "queued": len(missing_rows)}
-
 	return create_missing_variants_job(filters=dict(filters), use_template_image=use_template_image)
 
 
@@ -185,7 +176,11 @@ class VariantCoverageReport:
 		if cint(row.numeric_values):
 			return self._get_numeric_options(row)
 
-		return self._get_attribute_values().get(row.attribute, [])
+		values = self._get_attribute_values().get(row.attribute, [])
+		if row.attribute == DEFAULT_VARIANT_ATTRIBUTE:
+			values = filter_enabled_brand_values(values)
+
+		return values
 
 	def _get_numeric_options(self, row):
 		increment = flt(row.increment)
@@ -295,6 +290,19 @@ class VariantCoverageReport:
 	@staticmethod
 	def _format_attributes(attributes):
 		return ", ".join(f"{attribute}: {value}" for attribute, value in attributes.items())
+
+
+def filter_enabled_brand_values(values):
+	if not values or not frappe.db.has_column("Brand", "disabled"):
+		return values
+
+	disabled_brands = set(
+		frappe.get_all("Brand", filters={"name": ["in", values], "disabled": 1}, pluck="name")
+	)
+	if not disabled_brands:
+		return values
+
+	return [value for value in values if value not in disabled_brands]
 
 
 def get_columns():
