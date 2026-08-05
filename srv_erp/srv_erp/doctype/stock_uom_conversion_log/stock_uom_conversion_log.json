@@ -1,0 +1,110 @@
+{
+ "actions": [],
+ "autoname": "format:SUOM-LOG-{#####}",
+ "creation": "2026-08-05 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "conversion",
+  "item_code",
+  "action",
+  "column_break_details",
+  "old_value",
+  "new_value",
+  "section_break_context",
+  "details"
+ ],
+ "fields": [
+  {
+   "fieldname": "conversion",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Conversion",
+   "options": "Stock UOM Conversion",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Action",
+   "options": "UOM Changed\nItem Disabled\nItem Duplicated\nVariant Re-linked\nBin Updated\nConversion Factor Reset",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "old_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Old Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "New Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_context",
+   "fieldtype": "Section Break",
+   "label": "Context"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Long Text",
+   "label": "Details",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "links": [],
+ "modified": "2026-08-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "Stock UOM Conversion Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager"
+  },
+  {
+   "read": 1,
+   "role": "Stock User"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

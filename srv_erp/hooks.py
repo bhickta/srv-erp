@@ -50,6 +50,7 @@ doctype_js = {
 	"Item": [
 		"public/js/item.js",
 		"public/js/item/variant_select_all_dialog.js",
+		"public/js/item_uom_conversion.js",
 	],
 	"Item Attribute": "public/js/item_attribute_variant_sync.js",
 	"Brand": "public/js/item_attribute_variant_sync.js",

@@ -1,0 +1,370 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SUOM-{#####}",
+ "creation": "2026-08-05 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_selection_mode",
+  "selection_mode",
+  "section_single_item",
+  "item_code",
+  "item_name",
+  "column_break_single",
+  "item_type",
+  "variant_of",
+  "section_batch_filters",
+  "filter_item_group",
+  "filter_brand",
+  "column_break_batch_1",
+  "filter_current_stock_uom",
+  "filter_item_type",
+  "column_break_batch_2",
+  "filter_has_variants",
+  "filter_disabled",
+  "section_uom_conversion",
+  "current_stock_uom",
+  "column_break_uom",
+  "new_stock_uom",
+  "section_template_options",
+  "include_variants",
+  "section_analysis",
+  "has_transactions",
+  "has_open_quantities",
+  "column_break_analysis",
+  "conversion_strategy",
+  "total_items",
+  "section_affected_items",
+  "items",
+  "section_results",
+  "new_item_code",
+  "column_break_results",
+  "old_item_disabled",
+  "section_break_log",
+  "conversion_log",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_selection_mode",
+   "fieldtype": "Section Break",
+   "label": "Selection"
+  },
+  {
+   "default": "Single Item",
+   "description": "<b>Single Item</b> — convert one item (and optionally its variants).<br><b>Batch Filter</b> — find items by Item Group, Brand, UOM, etc.",
+   "fieldname": "selection_mode",
+   "fieldtype": "Select",
+   "label": "Selection Mode",
+   "options": "Single Item\nBatch Filter",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Single Item'",
+   "fieldname": "section_single_item",
+   "fieldtype": "Section Break",
+   "label": "Source Item"
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Single Item'",
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "mandatory_depends_on": "eval:doc.selection_mode == 'Single Item'",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1,
+   "depends_on": "eval:doc.selection_mode == 'Single Item'"
+  },
+  {
+   "fieldname": "column_break_single",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Auto-detected based on item properties",
+   "fieldname": "item_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Item Type",
+   "options": "\nStandard\nTemplate\nVariant",
+   "read_only": 1,
+   "depends_on": "eval:doc.selection_mode == 'Single Item'"
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Single Item' && doc.item_type == 'Variant'",
+   "fieldname": "variant_of",
+   "fieldtype": "Data",
+   "label": "Variant Of",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "description": "Use these filters to find items. All filters are optional and combined with AND logic. Leave a filter blank to skip it.",
+   "fieldname": "section_batch_filters",
+   "fieldtype": "Section Break",
+   "label": "Batch Filters"
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "fieldname": "filter_item_group",
+   "fieldtype": "Link",
+   "label": "Item Group",
+   "options": "Item Group",
+   "description": "Filter by Item Group (includes sub-groups)"
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "fieldname": "filter_brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand"
+  },
+  {
+   "fieldname": "column_break_batch_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "description": "Only items with this current Stock UOM will be included",
+   "fieldname": "filter_current_stock_uom",
+   "fieldtype": "Link",
+   "label": "Current Stock UOM",
+   "mandatory_depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "options": "UOM"
+  },
+  {
+   "default": "All",
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "fieldname": "filter_item_type",
+   "fieldtype": "Select",
+   "label": "Item Type",
+   "options": "All\nStandard\nTemplate\nVariant"
+  },
+  {
+   "fieldname": "column_break_batch_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "All",
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "fieldname": "filter_has_variants",
+   "fieldtype": "Select",
+   "label": "Include Variants of Templates",
+   "options": "All\nYes — Include Variants\nNo — Templates Only",
+   "description": "When templates are matched, also include their variants?"
+  },
+  {
+   "default": "Active Only",
+   "depends_on": "eval:doc.selection_mode == 'Batch Filter'",
+   "fieldname": "filter_disabled",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active Only\nDisabled Only\nAll"
+  },
+  {
+   "fieldname": "section_uom_conversion",
+   "fieldtype": "Section Break",
+   "label": "UOM Conversion"
+  },
+  {
+   "fieldname": "current_stock_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Current Stock UOM",
+   "options": "UOM",
+   "read_only": 1,
+   "description": "Auto-set from item (Single mode) or filter (Batch mode)"
+  },
+  {
+   "fieldname": "column_break_uom",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "new_stock_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "New Stock UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.selection_mode == 'Single Item' && doc.item_type == 'Template'",
+   "fieldname": "section_template_options",
+   "fieldtype": "Section Break",
+   "label": "Template Options"
+  },
+  {
+   "default": "1",
+   "description": "Also convert all variants of this template item",
+   "fieldname": "include_variants",
+   "fieldtype": "Check",
+   "label": "Include Variants"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "section_analysis",
+   "fieldtype": "Section Break",
+   "label": "Analysis Summary"
+  },
+  {
+   "default": "0",
+   "description": "At least one item has Stock Ledger Entries",
+   "fieldname": "has_transactions",
+   "fieldtype": "Check",
+   "label": "Has Stock Transactions",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "At least one item has open reserved/ordered/indented/planned quantities",
+   "fieldname": "has_open_quantities",
+   "fieldtype": "Check",
+   "label": "Has Open Quantities",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_analysis",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Overall strategy: Direct if no items have transactions, Mixed or Duplicate & Disable otherwise",
+   "fieldname": "conversion_strategy",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Conversion Strategy",
+   "options": "\nDirect\nDuplicate & Disable\nMixed",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "total_items",
+   "fieldtype": "Int",
+   "label": "Total Items",
+   "read_only": 1,
+   "description": "Number of items that will be affected"
+  },
+  {
+   "fieldname": "section_affected_items",
+   "fieldtype": "Section Break",
+   "label": "Affected Items"
+  },
+  {
+   "description": "Preview of all items that will be affected. Click <b>Analyze</b> to populate. Remove rows to exclude specific items.",
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Affected Items",
+   "options": "Stock UOM Conversion Item"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.docstatus == 1",
+   "fieldname": "section_results",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "description": "The new item code created (for Duplicate & Disable strategy)",
+   "fieldname": "new_item_code",
+   "fieldtype": "Data",
+   "label": "New Item Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_results",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "old_item_disabled",
+   "fieldtype": "Check",
+   "label": "Old Item Disabled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_log",
+   "fieldtype": "Section Break",
+   "label": "Conversion Log",
+   "depends_on": "eval:doc.docstatus == 1"
+  },
+  {
+   "fieldname": "conversion_log",
+   "fieldtype": "Long Text",
+   "label": "Conversion Log",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Stock UOM Conversion",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Audit Trail",
+   "link_doctype": "Stock UOM Conversion Log",
+   "link_fieldname": "conversion"
+  }
+ ],
+ "modified": "2026-08-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Srv Erp",
+ "name": "Stock UOM Conversion",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Stock User"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "item_code",
+ "track_changes": 1
+}
