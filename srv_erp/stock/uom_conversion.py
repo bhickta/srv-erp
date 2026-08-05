@@ -18,71 +18,6 @@ from frappe.utils import cstr, flt
 # Analysis helpers
 # ---------------------------------------------------------------------------
 
-
-def analyze_item(item_code: str) -> dict:
-    """Analyze a single item for UOM conversion feasibility.
-
-    Returns a dict with item metadata, transaction status, and the
-    recommended conversion strategy.
-    """
-    item_data = frappe.db.get_value(
-        "Item", 
-        item_code, 
-        ["item_name", "has_variants", "variant_of", "stock_uom"], 
-        as_dict=1
-    )
-    if not item_data:
-        return {}
-
-    item_type = "Standard"
-    if item_data.has_variants:
-        item_type = "Template"
-    elif item_data.variant_of:
-        item_type = "Variant"
-
-    has_transactions = bool(
-        frappe.db.exists("Stock Ledger Entry", {"item_code": item_code})
-    )
-
-    has_open_quantities = _has_open_bin_quantities(item_code)
-
-    strategy = "Duplicate & Disable" if (has_transactions or has_open_quantities) else "Direct"
-
-    result = {
-        "item_code": item_code,
-        "item_name": item_data.item_name,
-        "item_type": item_type,
-        "variant_of": item_data.variant_of or "",
-        "current_stock_uom": item_data.stock_uom,
-        "has_transactions": 1 if has_transactions else 0,
-        "has_open_quantities": 1 if has_open_quantities else 0,
-        "strategy": strategy,
-    }
-
-    if item_type == "Template":
-        result["variants"] = frappe.get_all(
-            "Item", filters={"variant_of": item_code}, pluck="name"
-        )
-
-    return result
-
-
-def _has_open_bin_quantities(item_code: str) -> bool:
-    """Check whether the item has any open (non-zero) quantities in Bin."""
-    bins = frappe.get_all(
-        "Bin",
-        filters={"item_code": item_code},
-        fields=["reserved_qty", "ordered_qty", "indented_qty", "planned_qty"],
-    )
-    for b in bins:
-        if any(
-            flt(b.get(f)) > 0
-            for f in ("reserved_qty", "ordered_qty", "indented_qty", "planned_qty")
-        ):
-            return True
-    return False
-
-
 def analyze_conversion(doc) -> list[dict]:
     """Produce the full list of items that a Stock UOM Conversion will affect.
 
@@ -91,23 +26,16 @@ def analyze_conversion(doc) -> list[dict]:
     items = []
     
     if doc.selection_mode == "Single Item":
-        primary = analyze_item(doc.item_code)
-        items = [_analysis_to_row(primary)]
-
-        if primary["item_type"] == "Template" and doc.include_variants:
-            try:
-                allow_different_uom = frappe.db.get_single_value(
-                    "Item Variant Settings", "allow_different_uom"
-                )
-            except Exception:
-                allow_different_uom = 0
-            for variant_code in primary.get("variants", []):
-                variant_uom = frappe.db.get_value("Item", variant_code, "stock_uom")
-                if allow_different_uom and variant_uom != cstr(doc.current_stock_uom):
-                    continue
-                variant = analyze_item(variant_code)
-                items.append(_analysis_to_row(variant))
-                
+        final_item_codes = {doc.item_code}
+        if doc.include_variants:
+            has_variants = frappe.db.get_value("Item", doc.item_code, "has_variants")
+            if has_variants:
+                variants = frappe.get_all("Item", filters={"variant_of": doc.item_code}, pluck="name")
+                for variant_code in variants:
+                    final_item_codes.add(variant_code)
+                    
+        items = _analyze_items_bulk(list(final_item_codes), doc.new_stock_uom)
+        
     elif doc.selection_mode == "Batch Filter":
         filters = []
         
@@ -168,12 +96,12 @@ def analyze_conversion(doc) -> list[dict]:
                             continue
                         final_item_codes.add(variant_code)
                         
-        items = _analyze_items_bulk(list(final_item_codes))
+        items = _analyze_items_bulk(list(final_item_codes), doc.new_stock_uom)
 
     return items
 
 
-def _analyze_items_bulk(item_codes: list[str]) -> list[dict]:
+def _analyze_items_bulk(item_codes: list[str], target_uom: str = None) -> list[dict]:
     if not item_codes:
         return []
 
@@ -213,6 +141,10 @@ def _analyze_items_bulk(item_codes: list[str]) -> list[dict]:
 
     results = []
     for d in items_data:
+        # Skip items that ALREADY have the target UOM
+        if target_uom and cstr(d.stock_uom) == cstr(target_uom):
+            continue
+
         item_type = "Standard"
         if d.has_variants:
             item_type = "Template"
@@ -236,21 +168,6 @@ def _analyze_items_bulk(item_codes: list[str]) -> list[dict]:
         })
 
     return results
-
-
-def _analysis_to_row(analysis: dict) -> dict:
-    """Convert an analysis dict into a child-table row dict."""
-    return {
-        "item_code": analysis["item_code"],
-        "item_name": analysis["item_name"],
-        "item_type": analysis["item_type"],
-        "variant_of": analysis.get("variant_of"),
-        "current_stock_uom": analysis["current_stock_uom"],
-        "has_transactions": analysis["has_transactions"],
-        "has_open_quantities": analysis["has_open_quantities"],
-        "strategy": analysis["strategy"],
-        "status": "Pending",
-    }
 
 
 # ---------------------------------------------------------------------------
