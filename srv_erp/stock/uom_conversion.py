@@ -88,9 +88,12 @@ def analyze_conversion(doc) -> list[dict]:
         items = [_analysis_to_row(primary)]
 
         if primary["item_type"] == "Template" and doc.include_variants:
-            allow_different_uom = frappe.db.get_single_value(
-                "Item Variant Settings", "allow_different_uom"
-            )
+            try:
+                allow_different_uom = frappe.db.get_single_value(
+                    "Item Variant Settings", "allow_different_uom"
+                )
+            except Exception:
+                allow_different_uom = 0
             for variant_code in primary.get("variants", []):
                 variant_uom = frappe.db.get_value("Item", variant_code, "stock_uom")
                 if allow_different_uom and variant_uom != cstr(doc.current_stock_uom):
@@ -136,9 +139,12 @@ def analyze_conversion(doc) -> list[dict]:
         
         # If we need to include variants of matched templates
         include_variants = doc.filter_has_variants == "Yes — Include Variants"
-        allow_different_uom = frappe.db.get_single_value(
-            "Item Variant Settings", "allow_different_uom"
-        )
+        try:
+            allow_different_uom = frappe.db.get_single_value(
+                "Item Variant Settings", "allow_different_uom"
+            )
+        except Exception:
+            allow_different_uom = 0
         
         final_item_codes = set()
         for item_code in matched_items:

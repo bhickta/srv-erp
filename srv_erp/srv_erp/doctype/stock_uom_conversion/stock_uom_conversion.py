@@ -130,9 +130,12 @@ class StockUOMConversion(Document):
         if self.item_type != "Variant":
             return
 
-        allow_different_uom = frappe.db.get_single_value(
-            "Item Variant Settings", "allow_different_uom"
-        )
+        try:
+            allow_different_uom = frappe.db.get_single_value(
+                "Item Variant Settings", "allow_different_uom"
+            )
+        except Exception:
+            allow_different_uom = 0
         if not allow_different_uom:
             frappe.throw(
                 _(
