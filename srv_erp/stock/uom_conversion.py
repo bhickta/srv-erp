@@ -199,12 +199,12 @@ def _analyze_items_bulk(item_codes: list[str]) -> list[dict]:
     for i in range(0, len(item_codes), chunk_size):
         chunk = tuple(item_codes[i : i + chunk_size])
         bin_data = frappe.db.sql(
-            \"\"\"
+            """
             SELECT item_code 
             FROM `tabBin` 
             WHERE item_code IN %s 
             AND (reserved_qty > 0 OR ordered_qty > 0 OR indented_qty > 0 OR planned_qty > 0)
-            \"\"\",
+            """,
             (chunk,),
             as_dict=True
         )
