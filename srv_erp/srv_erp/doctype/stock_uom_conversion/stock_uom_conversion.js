@@ -22,11 +22,22 @@ frappe.ui.form.on("Stock UOM Conversion", {
 				can_analyze = true;
 			}
 
-			if (can_analyze) {
+			if (can_analyze && (!frm.doc.items || frm.doc.items.length === 0)) {
 				frm.page.set_primary_action(__("Analyze"), function () {
 					frm.call("analyze").then(() => {
 						frm.dirty();
-						frm.refresh_fields();
+						frm.refresh();
+						frappe.show_alert({
+							message: __("Analysis complete — review the Affected Items table below."),
+							indicator: "green",
+						});
+					});
+				});
+			} else if (can_analyze && frm.doc.items && frm.doc.items.length > 0) {
+				frm.add_custom_button(__("Re-Analyze"), function () {
+					frm.call("analyze").then(() => {
+						frm.dirty();
+						frm.refresh();
 						frappe.show_alert({
 							message: __("Analysis complete — review the Affected Items table below."),
 							indicator: "green",
