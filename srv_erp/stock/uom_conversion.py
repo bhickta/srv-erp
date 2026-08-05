@@ -173,6 +173,7 @@ def _analysis_to_row(analysis: dict) -> dict:
         "item_code": analysis["item_code"],
         "item_name": analysis["item_name"],
         "item_type": analysis["item_type"],
+        "variant_of": analysis.get("variant_of"),
         "current_stock_uom": analysis["current_stock_uom"],
         "has_transactions": analysis["has_transactions"],
         "has_open_quantities": analysis["has_open_quantities"],
@@ -196,10 +197,21 @@ def execute_conversion(doc):
     # variants can be re-linked to the new template.
     template_mapping: dict[str, str] = {}
 
-    for row in doc.items:
+    # Sort items so that:
+    # 1. Template (Duplicate) is processed first (to populate template_mapping).
+    # 2. Variants (Duplicate or Direct) are processed next.
+    # 3. Template (Direct) is processed last (so variants can unlink before T cascades).
+    def _sort_key(r):
+        if r.item_type == "Template":
+            return 0 if r.strategy == "Duplicate & Disable" else 2
+        return 1
+
+    sorted_items = sorted(doc.items, key=_sort_key)
+
+    for row in sorted_items:
         try:
             if row.strategy == "Direct":
-                _convert_direct(doc, row, log_entries)
+                _convert_direct(doc, row, log_entries, template_mapping)
             elif row.strategy == "Duplicate & Disable":
                 _convert_duplicate(doc, row, log_entries, template_mapping)
             else:
@@ -224,9 +236,15 @@ def execute_conversion(doc):
     doc.db_set("conversion_log", (existing_log + "\n" + log_text).strip())
 
 
-def _convert_direct(doc, row, log_entries: list[dict]):
+def _convert_direct(doc, row, log_entries: list[dict], template_mapping: dict):
     """Change stock_uom in-place — only works when no SLE exists."""
     item = frappe.get_doc("Item", row.item_code)
+    
+    # If this is a variant, and its template was duplicated, we must re-link it
+    if item.variant_of and item.variant_of in template_mapping:
+        frappe.db.set_value("Item", item.item_code, "variant_of", template_mapping[item.variant_of])
+        item.variant_of = template_mapping[item.variant_of]
+
     old_uom = item.stock_uom
     item.stock_uom = doc.new_stock_uom
     # ERPNext's validate_uom / check_stock_uom_with_bin will run here.
@@ -265,8 +283,16 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
     new_item.uoms = []  # Will be re-populated by item.add_default_uom_in_conversion_factor_table on save
 
     # Handle template → variant linkage
-    if old_item.variant_of and old_item.variant_of in template_mapping:
-        new_item.variant_of = template_mapping[old_item.variant_of]
+    old_variant_of = old_item.variant_of
+    
+    # Unlink the old item if it was a variant, so if the template is processed
+    # later, frappe doesn't try to update this old variant.
+    if old_variant_of:
+        frappe.db.set_value("Item", old_item.item_code, "variant_of", "")
+        old_item.variant_of = ""
+        
+    if old_variant_of and old_variant_of in template_mapping:
+        new_item.variant_of = template_mapping[old_variant_of]
 
     new_item.flags.ignore_mandatory = False
     new_item.insert(ignore_permissions=False)
