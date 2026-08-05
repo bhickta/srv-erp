@@ -25,12 +25,19 @@ def analyze_item(item_code: str) -> dict:
     Returns a dict with item metadata, transaction status, and the
     recommended conversion strategy.
     """
-    item = frappe.get_doc("Item", item_code)
+    item_data = frappe.db.get_value(
+        "Item", 
+        item_code, 
+        ["item_name", "has_variants", "variant_of", "stock_uom"], 
+        as_dict=1
+    )
+    if not item_data:
+        return {}
 
     item_type = "Standard"
-    if item.has_variants:
+    if item_data.has_variants:
         item_type = "Template"
-    elif item.variant_of:
+    elif item_data.variant_of:
         item_type = "Variant"
 
     has_transactions = bool(
@@ -43,10 +50,10 @@ def analyze_item(item_code: str) -> dict:
 
     result = {
         "item_code": item_code,
-        "item_name": item.item_name,
+        "item_name": item_data.item_name,
         "item_type": item_type,
-        "variant_of": item.variant_of or "",
-        "current_stock_uom": item.stock_uom,
+        "variant_of": item_data.variant_of or "",
+        "current_stock_uom": item_data.stock_uom,
         "has_transactions": 1 if has_transactions else 0,
         "has_open_quantities": 1 if has_open_quantities else 0,
         "strategy": strategy,
@@ -161,10 +168,74 @@ def analyze_conversion(doc) -> list[dict]:
                             continue
                         final_item_codes.add(variant_code)
                         
-        for item_code in final_item_codes:
-            items.append(_analysis_to_row(analyze_item(item_code)))
+        items = _analyze_items_bulk(list(final_item_codes))
 
     return items
+
+
+def _analyze_items_bulk(item_codes: list[str]) -> list[dict]:
+    if not item_codes:
+        return []
+
+    # 1. Bulk fetch item metadata
+    items_data = frappe.get_all(
+        "Item",
+        filters={"name": ("in", item_codes)},
+        fields=["name", "item_name", "has_variants", "variant_of", "stock_uom"]
+    )
+
+    # 2. Bulk fetch transaction existence
+    sle_items = frappe.get_all(
+        "Stock Ledger Entry",
+        filters={"item_code": ("in", item_codes)},
+        pluck="item_code",
+        distinct=True
+    )
+    sle_set = set(sle_items)
+
+    # 3. Bulk fetch open bin quantities (chunked to avoid IN limits)
+    bin_set = set()
+    chunk_size = 2000
+    for i in range(0, len(item_codes), chunk_size):
+        chunk = tuple(item_codes[i : i + chunk_size])
+        bin_data = frappe.db.sql(
+            \"\"\"
+            SELECT item_code 
+            FROM `tabBin` 
+            WHERE item_code IN %s 
+            AND (reserved_qty > 0 OR ordered_qty > 0 OR indented_qty > 0 OR planned_qty > 0)
+            \"\"\",
+            (chunk,),
+            as_dict=True
+        )
+        for b in bin_data:
+            bin_set.add(b.item_code)
+
+    results = []
+    for d in items_data:
+        item_type = "Standard"
+        if d.has_variants:
+            item_type = "Template"
+        elif d.variant_of:
+            item_type = "Variant"
+
+        has_trans = 1 if (d.name in sle_set) else 0
+        has_open = 1 if (d.name in bin_set) else 0
+        strategy = "Duplicate & Disable" if (has_trans or has_open) else "Direct"
+
+        results.append({
+            "item_code": d.name,
+            "item_name": d.item_name,
+            "item_type": item_type,
+            "variant_of": d.variant_of or "",
+            "current_stock_uom": d.stock_uom,
+            "has_transactions": has_trans,
+            "has_open_quantities": has_open,
+            "strategy": strategy,
+            "status": "Pending",
+        })
+
+    return results
 
 
 def _analysis_to_row(analysis: dict) -> dict:
