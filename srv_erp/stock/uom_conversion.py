@@ -269,13 +269,14 @@ def execute_conversion(doc):
     template_mapping: dict[str, str] = {}
 
     # Sort items so that:
-    # 1. Template (Duplicate) is processed first (to populate template_mapping).
-    # 2. Variants (Duplicate or Direct) are processed next.
-    # 3. Template (Direct) is processed last (so variants can unlink before T cascades).
+    # 1. Template (Duplicate): Creates new template ID.
+    # 2. Variant (Duplicate): Unlinks from old template, preventing auto-cascade crash on old template.
+    # 3. Template (Direct): Changes UOM, safely auto-cascades to remaining linked direct variants.
+    # 4. Variant (Direct): Safely re-saves and matches the already-updated template UOM.
     def _sort_key(r):
         if r.item_type == "Template":
             return 0 if r.strategy == "Duplicate & Disable" else 2
-        return 1
+        return 1 if r.strategy == "Duplicate & Disable" else 3
 
     sorted_items = sorted(doc.items, key=_sort_key)
 
