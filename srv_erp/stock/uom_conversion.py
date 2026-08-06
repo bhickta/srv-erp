@@ -315,11 +315,12 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
         "details": f"Old → {new_old_item_code}",
     })
 
-    # 4. Disable the old item
-    old_item.disabled = 1
-    old_item.save(ignore_permissions=True)
+    # 4. Move Stock (1:1 Repack)
+    # Temporarily enable the old item so we can move stock out of it (Stock Entry validation requires active items)
+    if old_item.disabled:
+        old_item.disabled = 0
+        old_item.save(ignore_permissions=True)
 
-    # 5. Move Stock (1:1 Repack)
     bins = frappe.get_all(
         "Bin", 
         filters={"item_code": new_old_item_code, "actual_qty": (">", 0)}, 
@@ -370,6 +371,9 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
                 "item_code": original_item_code,
                 "details": f"Via {se.name} ({company})",
             })
+    # 5. Disable the old item
+    old_item.disabled = 1
+    old_item.save(ignore_permissions=True)
 
     # --- Update the conversion doc row ---
     row.db_set("status", "Converted")
