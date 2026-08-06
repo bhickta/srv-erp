@@ -268,7 +268,9 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
     new_old_item_code = f"{original_item_code}{old_suffix}"
 
     # 2. Rename old item in DB (this cascades to all historical docs)
-    frappe.rename_doc("Item", original_item_code, new_old_item_code, force=True, ignore_permissions=True)
+    frappe.flags.ignore_permissions = True
+    frappe.rename_doc("Item", original_item_code, new_old_item_code, force=True)
+    frappe.flags.ignore_permissions = False
     
     # Fetch the newly renamed old item
     old_item = frappe.get_doc("Item", new_old_item_code)
