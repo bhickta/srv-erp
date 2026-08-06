@@ -256,26 +256,35 @@ def _convert_direct(doc, row, log_entries: list[dict], template_mapping: dict):
 
 
 def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict):
-    """Create a new Item with the target UOM and disable the original."""
-    old_item = frappe.get_doc("Item", row.item_code)
+    """Rename the old item to -OLD, create new item with original code, and move stock."""
+    original_item_code = row.item_code
+    
+    # 1. Generate suffix for old item
+    old_suffix = "-OLD"
+    counter = 1
+    while frappe.db.exists("Item", f"{original_item_code}{old_suffix}"):
+        old_suffix = f"-OLD-{counter}"
+        counter += 1
+    new_old_item_code = f"{original_item_code}{old_suffix}"
 
-    # --- Build the new item ------------------------------------------------
+    # 2. Rename old item in DB (this cascades to all historical docs)
+    frappe.rename_doc("Item", original_item_code, new_old_item_code, force=True, ignore_permissions=True)
+    
+    # Fetch the newly renamed old item
+    old_item = frappe.get_doc("Item", new_old_item_code)
+
+    # 3. Build the new item (using the original item_code)
     new_item = frappe.copy_doc(old_item)
-
-    # Reset identity / audit fields that copy_doc retains
-    new_item.item_code = _generate_unique_item_code(
-        old_item.item_code, doc.new_stock_uom
-    )
+    new_item.item_code = original_item_code
     new_item.item_name = old_item.item_name  # keep original name
     new_item.stock_uom = doc.new_stock_uom
     new_item.disabled = 0
-    new_item.uoms = []  # Will be re-populated by item.add_default_uom_in_conversion_factor_table on save
+    new_item.uoms = []  # Re-populated automatically on save
 
     # Handle template → variant linkage
     old_variant_of = old_item.variant_of
     
-    # Unlink the old item if it was a variant, so if the template is processed
-    # later, frappe doesn't try to update this old variant.
+    # Unlink the old item if it was a variant (prevents auto-cascade from old template)
     if old_variant_of:
         frappe.db.set_value("Item", old_item.item_code, "variant_of", "")
         old_item.variant_of = ""
@@ -284,45 +293,83 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
         new_item.variant_of = template_mapping[old_variant_of]
 
     new_item.flags.ignore_mandatory = False
-    new_item.insert(ignore_permissions=False)
+    new_item.insert(ignore_permissions=True)
 
     # If this was a template item, remember the mapping for its variants
     if old_item.has_variants:
-        template_mapping[old_item.item_code] = new_item.name
+        template_mapping[new_old_item_code] = new_item.name
 
     _log_action(
         doc.name,
-        row.item_code,
-        "Item Duplicated",
-        old_item.item_code,
+        original_item_code,
+        "Item Duplicated & Renamed",
+        new_old_item_code,
         new_item.name,
-        f"New item {new_item.name} created with stock_uom={doc.new_stock_uom}.",
+        f"Original renamed to {new_old_item_code}. New created as {new_item.name} ({doc.new_stock_uom}).",
     )
     log_entries.append({
-        "action": "Item Duplicated",
-        "item_code": row.item_code,
-        "details": f"→ {new_item.name}",
+        "action": "Renamed & Duplicated",
+        "item_code": original_item_code,
+        "details": f"Old → {new_old_item_code}",
     })
 
-    # --- Disable the old item -----------------------------------------------
+    # 4. Disable the old item
     old_item.disabled = 1
-    old_item.save()
+    old_item.save(ignore_permissions=True)
 
-    _log_action(
-        doc.name,
-        row.item_code,
-        "Item Disabled",
-        "Enabled",
-        "Disabled",
-        f"Original item {old_item.item_code} disabled after duplication.",
+    # 5. Move Stock (1:1 Repack)
+    bins = frappe.get_all(
+        "Bin", 
+        filters={"item_code": new_old_item_code, "actual_qty": (">", 0)}, 
+        fields=["warehouse", "actual_qty"]
     )
-    log_entries.append({
-        "action": "Item Disabled",
-        "item_code": row.item_code,
-        "details": f"{old_item.item_code} disabled",
-    })
+    if bins:
+        # Group bins by company because Stock Entry is company-specific
+        company_bins = {}
+        for b in bins:
+            company = frappe.db.get_value("Warehouse", b.warehouse, "company")
+            if not company:
+                company = frappe.defaults.get_user_default("company")
+            company_bins.setdefault(company, []).append(b)
 
-    # --- Update the conversion doc row --------------------------------------
+        for company, c_bins in company_bins.items():
+            se = frappe.new_doc("Stock Entry")
+            se.purpose = "Repack"
+            se.stock_entry_type = "Repack"
+            se.company = company
+            se.set_posting_time = 1
+            se.posting_date = frappe.utils.today()
+            
+            for b in c_bins:
+                qty = flt(b.actual_qty)
+                # Source row (consume old item)
+                se.append("items", {
+                    "item_code": new_old_item_code,
+                    "s_warehouse": b.warehouse,
+                    "qty": qty,
+                    "uom": old_item.stock_uom,
+                    "conversion_factor": 1.0,
+                })
+                # Target row (produce new item)
+                se.append("items", {
+                    "item_code": original_item_code,
+                    "t_warehouse": b.warehouse,
+                    "qty": qty,
+                    "uom": doc.new_stock_uom,
+                    "conversion_factor": 1.0,
+                })
+                
+            se.set_stock_entry_type()
+            se.insert(ignore_permissions=True)
+            se.submit()
+            
+            log_entries.append({
+                "action": "Stock Moved",
+                "item_code": original_item_code,
+                "details": f"Via {se.name} ({company})",
+            })
+
+    # --- Update the conversion doc row ---
     row.db_set("status", "Converted")
     row.db_set("new_item_code", new_item.name)
 
@@ -368,26 +415,3 @@ def _build_log_text(entries: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Item-code generation
-# ---------------------------------------------------------------------------
-
-
-def _generate_unique_item_code(base_code: str, new_uom: str) -> str:
-    """Generate a unique item code by appending a UOM-based suffix.
-
-    Examples:
-        ITEM-001 + Mtr  → ITEM-001-MTR
-        ITEM-001 + Mtr  → ITEM-001-MTR-1  (if -MTR already exists)
-    """
-    # Clean up the UOM name for use as suffix
-    suffix = new_uom.strip().upper().replace(" ", "-")[:6]
-    candidate = f"{base_code}-{suffix}"
-
-    if not frappe.db.exists("Item", candidate):
-        return candidate
-
-    counter = 1
-    while frappe.db.exists("Item", f"{candidate}-{counter}"):
-        counter += 1
-    return f"{candidate}-{counter}"
