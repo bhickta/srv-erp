@@ -304,13 +304,13 @@ def _convert_duplicate(doc, row, log_entries: list[dict], template_mapping: dict
     _log_action(
         doc.name,
         original_item_code,
-        "Item Duplicated & Renamed",
+        "Item Duplicated",
         new_old_item_code,
         new_item.name,
         f"Original renamed to {new_old_item_code}. New created as {new_item.name} ({doc.new_stock_uom}).",
     )
     log_entries.append({
-        "action": "Renamed & Duplicated",
+        "action": "Item Duplicated",
         "item_code": original_item_code,
         "details": f"Old → {new_old_item_code}",
     })
