@@ -23,6 +23,7 @@ def after_install():
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
 	create_sales_order_attribute_custom_fields()
+	create_stock_entry_detail_custom_fields()
 	set_sales_order_item_discount_grid_columns()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
@@ -38,6 +39,7 @@ def after_migrate():
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
 	create_sales_order_attribute_custom_fields()
+	create_stock_entry_detail_custom_fields()
 	set_sales_order_item_discount_grid_columns()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
@@ -115,6 +117,23 @@ def create_package_barcode_custom_fields():
 		],
 	}
 	create_custom_fields(custom_fields, update=True)
+
+
+def create_stock_entry_detail_custom_fields():
+	create_custom_fields(
+		{
+			"Stock Entry Detail": [
+				{
+					"fieldname": "remarks",
+					"fieldtype": "Small Text",
+					"insert_after": "description",
+					"label": "Remarks",
+					"in_list_view": 1,
+				}
+			],
+		},
+		update=True,
+	)
 
 
 def create_dsr_custom_fields():
