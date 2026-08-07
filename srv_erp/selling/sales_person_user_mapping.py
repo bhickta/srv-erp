@@ -31,6 +31,15 @@ def create_sales_person_user_mapping_fields():
 					"options": "Sales Person",
 				},
 			],
+			"Sales Order": [
+				{
+					"fieldname": "sales_person",
+					"fieldtype": "Link",
+					"insert_after": "customer",
+					"label": "Sales Person",
+					"options": "Sales Person",
+				},
+			],
 			"User Permission": [
 				{
 					"default": "0",
