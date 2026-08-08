@@ -13,11 +13,11 @@
  "modified": "2026-08-08 08:52:56.126024",
  "modified_by": "Administrator",
  "module": "Srv Erp",
- "name": "Items Sold in Date Range",
+ "name": "Items Delivered in Date Range",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Sales Invoice",
- "report_name": "Items Sold in Date Range",
+ "report_name": "Items Delivered in Date Range",
  "report_type": "Script Report",
  "roles": [],
  "timeout": 0

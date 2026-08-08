@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:town_name",
- "creation": "2026-07-28 00:00:00.000000",
+ "creation": "2026-07-28 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -12,7 +12,12 @@
   "pin_code",
   "location_section",
   "latitude",
-  "longitude"
+  "longitude",
+  "po_circle",
+  "region",
+  "divions",
+  "office_type",
+  "po_office"
  ],
  "fields": [
   {
@@ -56,12 +61,37 @@
    "fieldtype": "Float",
    "label": "Longitude",
    "precision": "6"
+  },
+  {
+   "fieldname": "po_circle",
+   "fieldtype": "Data",
+   "label": "PO Circle"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "divions",
+   "fieldtype": "Data",
+   "label": "Divisions"
+  },
+  {
+   "fieldname": "office_type",
+   "fieldtype": "Data",
+   "label": "Office Type"
+  },
+  {
+   "fieldname": "po_office",
+   "fieldtype": "Data",
+   "label": "PO Office"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-28 00:00:00.000000",
+ "modified": "2026-08-08 09:12:17.568000",
  "modified_by": "Administrator",
  "module": "Srv Erp",
  "name": "DSR Town",

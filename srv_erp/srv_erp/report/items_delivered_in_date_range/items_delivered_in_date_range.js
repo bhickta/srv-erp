@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["Items Sold in Date Range"] = {
+frappe.query_reports["Items Delivered in Date Range"] = {
 	filters: [
 		{
 			fieldname: "from_date",
@@ -24,6 +24,24 @@ frappe.query_reports["Items Sold in Date Range"] = {
 			options: ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"],
 			default: "Daily",
 			reqd: 1,
+			on_change: function() {
+				let range = frappe.query_report.get_filter_value('range');
+				let today = frappe.datetime.get_today();
+				let from_date = today;
+				
+				if (range === 'Weekly') {
+					from_date = frappe.datetime.add_days(today, -7);
+				} else if (range === 'Monthly') {
+					from_date = frappe.datetime.add_months(today, -1);
+				} else if (range === 'Quarterly') {
+					from_date = frappe.datetime.add_months(today, -3);
+				} else if (range === 'Yearly') {
+					from_date = frappe.datetime.add_months(today, -12);
+				}
+				
+				frappe.query_report.set_filter_value('from_date', from_date);
+				frappe.query_report.set_filter_value('to_date', today);
+			}
 		},
 		{
 			fieldname: "customer",
