@@ -1,0 +1,53 @@
+{
+ "app": "srv_erp",
+ "charts": [],
+ "content": "[{\"id\":\"tally-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Tally Integration</b></span>\",\"col\":12}},{\"id\":\"tally-export-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Export\",\"col\":4}}]",
+ "creation": "2026-08-10 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "download",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Tally Integration",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Export",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tally Export",
+   "link_count": 0,
+   "link_to": "tally-export",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-08-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Tally Integration",
+ "name": "Tally Integration",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Accounting",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  { "role": "Accounts Manager" },
+  { "role": "System Manager" }
+ ],
+ "sequence_id": 30.0,
+ "shortcuts": [],
+ "title": "Tally Integration",
+ "type": "Workspace"
+}
