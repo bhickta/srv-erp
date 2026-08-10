@@ -5,6 +5,10 @@ import frappe
 from frappe import _
 
 
+DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
+RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF(item.brand, ''), template.brand)"
+
+
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	return get_columns(), get_data(filters)
@@ -39,6 +43,10 @@ def get_columns():
 
 
 def get_data(filters):
+	filters["brand_variant_attribute"] = (
+		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")
+		or DEFAULT_BRAND_VARIANT_ATTRIBUTE
+	)
 	conditions = get_conditions(filters)
 	return frappe.db.sql(
 		f"""
@@ -46,7 +54,7 @@ def get_data(filters):
 				soi.item_code,
 				soi.item_name,
 				soi.item_group,
-				soi.brand,
+				{RESOLVED_BRAND_SQL} AS brand,
 				so.customer,
 				so.customer_name,
 				so.customer_group,
@@ -72,6 +80,11 @@ def get_data(filters):
 				so.company
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
+			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabItem` template ON template.name = item.variant_of
+			LEFT JOIN `tabItem Variant Attribute` variant_brand
+				ON variant_brand.parent = item.name
+				AND variant_brand.attribute = %(brand_variant_attribute)s
 			WHERE so.docstatus = 1 {conditions}
 			ORDER BY soi.item_code, so.transaction_date DESC, so.name, soi.idx
 		""",
@@ -90,7 +103,6 @@ def get_conditions(filters):
 		"project": "so.project",
 		"item_code": "soi.item_code",
 		"item_group": "soi.item_group",
-		"brand": "soi.brand",
 	}
 
 	if filters.get("from_date"):
@@ -100,6 +112,8 @@ def get_conditions(filters):
 	for fieldname, column in field_map.items():
 		if filters.get(fieldname):
 			conditions.append(f"{column} = %({fieldname})s")
+	if filters.get("brand"):
+		conditions.append(f"{RESOLVED_BRAND_SQL} = %(brand)s")
 	if filters.get("sales_person"):
 		conditions.append(
 			"EXISTS (SELECT 1 FROM `tabSales Team` st_filter "
