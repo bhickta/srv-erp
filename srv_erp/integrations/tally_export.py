@@ -5,7 +5,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, flt, formatdate, getdate
 
 
 SUPPORTED_MASTER_DOCTYPES = (
@@ -38,6 +38,17 @@ DEFAULT_ACCOUNT_GROUPS = {
 
 def _metadata(object_type, name):
 	return {"type": object_type, "name": name, "reservedname": ""}
+
+
+def _voucher_metadata(name):
+	return {
+		"type": "Voucher",
+		"name": name,
+		"vchtype": "Sales Order",
+		"action": "Create",
+		"objview": "Invoice Voucher View",
+		"remoteid": f"ERPNext-Sales-Order-{name}",
+	}
 
 
 def _clean_name(value, company_abbr=None):
@@ -288,6 +299,142 @@ def _parse_doctypes(doctypes):
 	return doctypes
 
 
+def _amount(value):
+	return f"{flt(value):.2f}"
+
+
+def _quantity(value, uom):
+	value = flt(value)
+	number = f"{value:.6f}".rstrip("0").rstrip(".")
+	return f"{number} {uom}".strip()
+
+
+def _tally_date(value):
+	return getdate(value).strftime("%Y%m%d")
+
+
+def _tally_due_date(value):
+	return formatdate(value, "d-MMM-yyyy")
+
+
+def _sales_order_inventory_entry(item, order_name, company_abbr, income_account):
+	uom = item.uom or item.stock_uom
+	qty = _quantity(item.qty, uom)
+	amount = _amount(item.base_net_amount)
+	warehouse = _clean_name(item.warehouse, company_abbr)
+	batch_allocation = {
+		"orderno": order_name,
+		"trackingnumber": "",
+		"amount": amount,
+		"actualqty": qty,
+		"billedqty": qty,
+		"orderduedate": _tally_due_date(item.delivery_date),
+	}
+	if warehouse:
+		batch_allocation["godownname"] = warehouse
+		batch_allocation["batchname"] = "Primary Batch"
+
+	return {
+		"stockitemname": item.item_code,
+		"isdeemedpositive": False,
+		"rate": f"{_amount(item.base_net_rate)}/{uom}",
+		"amount": amount,
+		"actualqty": qty,
+		"billedqty": qty,
+		"batchallocations": [batch_allocation],
+		"accountingallocations": [
+			{
+				"ledgername": income_account,
+				"isdeemedpositive": False,
+				"amount": amount,
+			}
+		],
+	}
+
+
+def _sales_order_voucher(order, company_abbr, income_account):
+	party = order.customer_name or order.customer
+	party_amount = -flt(order.base_grand_total)
+	ledger_entries = [
+		{
+			"ledgername": party,
+			"isdeemedpositive": True,
+			"ispartyledger": True,
+			"islastdeemedpositive": True,
+			"amount": _amount(party_amount),
+		}
+	]
+	for tax in order.taxes:
+		if not tax.account_head or not flt(tax.base_tax_amount_after_discount_amount):
+			continue
+		ledger_entries.append(
+			{
+				"ledgername": _clean_name(tax.account_head, company_abbr),
+				"isdeemedpositive": False,
+				"amount": _amount(tax.base_tax_amount_after_discount_amount),
+			}
+		)
+
+	return {
+		"metadata": _voucher_metadata(order.name),
+		"date": _tally_date(order.transaction_date),
+		"partyname": party,
+		"partyledgername": party,
+		"vouchertypename": "Sales Order",
+		"vouchernumber": order.name,
+		"reference": order.po_no or order.name,
+		"narration": order.get("terms") or "",
+		"persistedview": "Invoice Voucher View",
+		"isoptional": True,
+		"isorder": True,
+		"ledgerentries": ledger_entries,
+		"allinventoryentries": [
+			_sales_order_inventory_entry(item, order.name, company_abbr, income_account)
+			for item in order.items
+		],
+	}
+
+
+def _validate_sales_order_filters(company, from_date, to_date):
+	if not frappe.db.exists("Company", company):
+		frappe.throw(_("Company {0} does not exist").format(frappe.bold(company)))
+	if not from_date or not to_date:
+		frappe.throw(_("From Date and To Date are required"))
+	if getdate(from_date) > getdate(to_date):
+		frappe.throw(_("From Date cannot be after To Date"))
+
+
+def build_sales_order_payload(company, from_date, to_date, customer=None, sales_order=None):
+	"""Return submitted ERPNext Sales Orders as TallyPrime Sales Order vouchers."""
+	_validate_sales_order_filters(company, from_date, to_date)
+
+	filters = {
+		"company": company,
+		"docstatus": 1,
+		"transaction_date": ["between", [from_date, to_date]],
+	}
+	if customer:
+		filters["customer"] = customer
+	if sales_order:
+		filters["name"] = sales_order
+
+	order_names = frappe.get_all(
+		"Sales Order",
+		filters=filters,
+		pluck="name",
+		order_by="transaction_date, name",
+	)
+	abbr, default_income_account = frappe.db.get_value(
+		"Company", company, ["abbr", "default_income_account"]
+	)
+	income_account = _clean_name(default_income_account, abbr) or "Sales"
+	messages = [
+		_sales_order_voucher(frappe.get_doc("Sales Order", name), abbr, income_account)
+		for name in order_names
+	]
+	return {"tallymessage": messages}
+
+
 @frappe.whitelist()
 def get_supported_doctypes():
 	return {"masters": SUPPORTED_MASTER_DOCTYPES}
@@ -308,6 +455,35 @@ def get_export_summary(company):
 		"Warehouse": frappe.db.count("Warehouse", {"company": company, "disabled": 0}),
 		"Item": frappe.db.count("Item", {"disabled": 0, "is_stock_item": 1}),
 	}
+
+
+@frappe.whitelist()
+def get_sales_order_count(company, from_date, to_date, customer=None, sales_order=None):
+	frappe.only_for(("Accounts Manager", "System Manager"))
+	_validate_sales_order_filters(company, from_date, to_date)
+	filters = {
+		"company": company,
+		"docstatus": 1,
+		"transaction_date": ["between", [from_date, to_date]],
+	}
+	if customer:
+		filters["customer"] = customer
+	if sales_order:
+		filters["name"] = sales_order
+	return frappe.db.count("Sales Order", filters)
+
+
+@frappe.whitelist()
+def download_sales_order_json(company, from_date, to_date, customer=None, sales_order=None):
+	"""Download submitted Sales Orders for TallyPrime 7.0+ as UTF-16 JSON."""
+	frappe.only_for(("Accounts Manager", "System Manager"))
+	payload = build_sales_order_payload(company, from_date, to_date, customer, sales_order)
+	content = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+	filename = f"tally-sales-orders-{getdate(from_date)}-to-{getdate(to_date)}.json"
+	frappe.local.response.filename = filename
+	frappe.local.response.filecontent = content
+	frappe.local.response.type = "download"
+	frappe.local.response.display_content_as = "attachment"
 
 
 @frappe.whitelist()

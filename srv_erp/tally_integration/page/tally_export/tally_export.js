@@ -8,19 +8,9 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 	constructor(wrapper) {
 		this.page = frappe.ui.make_app_page({
 			parent: wrapper,
-			title: __("Tally Export"),
+			title: __("Tally Sales Order Export"),
 			single_column: true,
 		});
-		this.doctypes = [
-			"Account",
-			"Customer",
-			"Supplier",
-			"Cost Center",
-			"UOM",
-			"Item Group",
-			"Warehouse",
-			"Item",
-		];
 		this.make();
 	}
 
@@ -29,23 +19,19 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 			`<div class="tally-export-page">
 				<div class="row">
 					<div class="col-lg-8">
-						<div class="frappe-card tally-export-card">
-							<div class="tally-export-form"></div>
-						</div>
+						<div class="frappe-card tally-export-card"><div class="tally-export-form"></div></div>
 					</div>
 					<div class="col-lg-4">
 						<div class="frappe-card tally-export-help">
-							<h4>${__("TallyPrime Masters")}</h4>
-							<p>${__("Creates native UTF-16 JSON for TallyPrime 7.0 or later.")}</p>
+							<h4>${__("Sales Order Vouchers")}</h4>
+							<p>${__("Exports submitted ERPNext Sales Orders as native UTF-16 JSON for TallyPrime 7.0 or later.")}</p>
 							<ol>
-								<li>${__("Back up the target Tally company.")}</li>
-								<li>${__("Open Alt+O > Import > Masters.")}</li>
-								<li>${__("Select JSON and import this file.")}</li>
-								<li>${__("Review Tally's Exceptions report.")}</li>
+								<li>${__("Ensure customers, items, UOMs, warehouses, and ledgers already exist in Tally.")}</li>
+								<li>${__("Enable Sales Order processing in TallyPrime.")}</li>
+								<li>${__("Open Alt+O > Import > Transactions.")}</li>
+								<li>${__("Select JSON, import the file, and review Exceptions.")}</li>
 							</ol>
-							<div class="alert alert-warning">
-								${__("This version exports masters only. It does not export invoices or vouchers.")}
-							</div>
+							<div class="alert alert-warning">${__("Other master and transaction exports are temporarily hidden.")}</div>
 						</div>
 					</div>
 				</div>
@@ -61,80 +47,93 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 					options: "Company",
 					default: frappe.defaults.get_user_default("Company"),
 					reqd: 1,
-					onchange: () => this.load_summary(),
+					onchange: () => this.load_count(),
 				},
-				{ fieldtype: "Section Break", label: __("Masters to Export") },
-				...this.doctypes.flatMap((doctype, index) => {
-					const fields = [];
-					if (index && index % 2 === 0) {
-						fields.push({ fieldtype: "Section Break" });
-					} else if (index % 2 === 1) {
-						fields.push({ fieldtype: "Column Break" });
-					}
-					fields.push({
-						fieldtype: "Check",
-						fieldname: frappe.scrub(doctype),
-						label: __(doctype),
-						default: 1,
-					});
-					return fields;
-				}),
+				{ fieldtype: "Column Break" },
+				{
+					fieldtype: "Link",
+					fieldname: "customer",
+					label: __("Customer"),
+					options: "Customer",
+					onchange: () => this.load_count(),
+				},
+				{ fieldtype: "Section Break" },
+				{
+					fieldtype: "Date",
+					fieldname: "from_date",
+					label: __("From Date"),
+					default: frappe.datetime.add_months(frappe.datetime.get_today(), -1),
+					reqd: 1,
+					onchange: () => this.load_count(),
+				},
+				{ fieldtype: "Column Break" },
+				{
+					fieldtype: "Date",
+					fieldname: "to_date",
+					label: __("To Date"),
+					default: frappe.datetime.get_today(),
+					reqd: 1,
+					onchange: () => this.load_count(),
+				},
+				{ fieldtype: "Section Break" },
+				{
+					fieldtype: "Link",
+					fieldname: "sales_order",
+					label: __("Sales Order"),
+					options: "Sales Order",
+					get_query: () => ({
+						filters: {
+							company: this.form.get_value("company"),
+							docstatus: 1,
+						},
+					}),
+					onchange: () => this.load_count(),
+				},
 				{ fieldtype: "Section Break" },
 				{ fieldtype: "HTML", fieldname: "summary" },
 			],
 			body: this.$body.find(".tally-export-form"),
 		});
 		this.form.make();
-		this.page.set_primary_action(__("Download Masters JSON"), () => this.download(), "download");
-		this.load_summary();
+		this.page.set_primary_action(__("Download Sales Orders JSON"), () => this.download(), "download");
+		this.load_count();
 	}
 
-	get_selected_doctypes() {
-		return this.doctypes.filter((doctype) => this.form.get_value(frappe.scrub(doctype)));
+	get_values() {
+		return this.form.get_values();
 	}
 
-	load_summary() {
-		const company = this.form?.get_value("company");
-		if (!company) {
-			this.render_summary({});
-			return;
-		}
-		frappe.call({
-			method: "srv_erp.integrations.tally_export.get_export_summary",
-			args: { company },
-			callback: (r) => this.render_summary(r.message || {}),
-		});
-	}
-
-	render_summary(summary) {
-		const rows = this.doctypes
-			.map(
-				(doctype) => `<tr><td>${__(doctype)}</td><td class="text-right">${format_number(
-					summary[doctype] || 0,
-				)}</td></tr>`,
-			)
-			.join("");
-		this.form.get_field("summary").$wrapper.html(`
-			<h5>${__("Available records")}</h5>
-			<table class="table table-bordered table-sm"><tbody>${rows}</tbody></table>
-		`);
-	}
-
-	download() {
-		const values = this.form.get_values();
+	load_count() {
+		const values = this.get_values();
 		if (!values) {
 			return;
 		}
-		const doctypes = this.get_selected_doctypes();
-		if (!doctypes.length) {
-			frappe.msgprint(__("Select at least one master type."));
+		frappe.call({
+			method: "srv_erp.integrations.tally_export.get_sales_order_count",
+			args: values,
+			callback: (r) => {
+				const count = r.message || 0;
+				this.form.get_field("summary").$wrapper.html(
+					`<div class="alert alert-info">${__("{0} submitted Sales Order(s) will be exported.", [
+						format_number(count),
+					])}</div>`,
+				);
+			},
+		});
+	}
+
+	download() {
+		const values = this.get_values();
+		if (!values) {
 			return;
 		}
-		const params = new URLSearchParams({
-			company: values.company,
-			doctypes: JSON.stringify(doctypes),
+		const params = new URLSearchParams();
+		Object.entries(values).forEach(([key, value]) => {
+			if (value) {
+				params.set(key, value);
+			}
 		});
-		window.open(`/api/method/srv_erp.integrations.tally_export.download_master_json?${params}`, "_blank");
+		window.open(`/api/method/srv_erp.integrations.tally_export.download_sales_order_json?${params}`, "_blank");
 	}
 };
 
