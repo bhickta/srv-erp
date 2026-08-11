@@ -32,6 +32,8 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Never sum quantities expressed in different UOMs.
 - Preserve the transaction and Stock UOM quantities. When `include_uom` is selected, add adjacent converted quantity columns using the Item's `UOM Conversion Detail`; use ERPNext's `add_additional_uom_columns` helper where possible.
 - Mark only Stock UOM quantity fields as `convertible: "qty"`. Do not convert transaction-UOM totals as though they were Stock UOM totals.
+- Treat Include UOM like Stock Balance: it adds converted quantity columns and never changes the Item's actual Stock UOM. Keep the selected UOM visible in each converted column label.
+- Order each native quantity before its related UOM and keep the pair adjacent, for example `Qty, UOM, Stock Qty, Stock UOM`.
 - Calculate a grouped rate as `SUM(amount) / NULLIF(SUM(qty), 0)` at a compatible grain; do not use a simple average of line rates.
 - Decide whether pending quantity is the sum of line-level pending quantities or the difference of aggregate ordered and delivered quantities, then test over-delivery and return cases.
 
@@ -41,6 +43,7 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Omit order-level dimensions such as document number, date, or customer from grouped output unless they are part of the grouping grain.
 - Apply the same permission, status, date, and dimension filters to both query paths.
 - Use deterministic ordering with stable tie-breakers. When sorting by a resolved field, use the same unambiguous expression rather than a conflicting alias.
+- Wrap long query-report header labels and increase the header-row height so full column names remain readable. Prefer a shared app-level style scoped to `.report-wrapper` for consistent behavior across reports.
 
 ### Protect row cardinality
 

@@ -1,0 +1,12 @@
+/* Keep long report column labels readable across Desk query reports. */
+.report-wrapper .datatable .dt-row-header,
+.report-wrapper .datatable .dt-cell--header {
+	height: 54px !important;
+}
+
+.report-wrapper .datatable .dt-row-header .dt-cell__content {
+	white-space: normal !important;
+	line-height: 1.2;
+	padding-top: 7px;
+	padding-bottom: 7px;
+}

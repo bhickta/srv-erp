@@ -86,21 +86,14 @@ def get_columns():
 			"width": 100,
 		},
 		{
-			"label": _("UOM"),
-			"fieldname": "uom",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 90,
-		},
-		{
 			"label": _("Qty Delivered"),
 			"fieldname": "qty",
 			"fieldtype": "Float",
 			"width": 100,
 		},
 		{
-			"label": _("Stock UOM"),
-			"fieldname": "stock_uom",
+			"label": _("UOM"),
+			"fieldname": "uom",
 			"fieldtype": "Link",
 			"options": "UOM",
 			"width": 90,
@@ -113,18 +106,11 @@ def get_columns():
 			"convertible": "qty",
 		},
 		{
-			"label": _("Rate"),
-			"fieldname": "rate",
-			"fieldtype": "Currency",
-			"options": "Company:company:default_currency",
-			"width": 100,
-		},
-		{
-			"label": _("Amount (Net)"),
-			"fieldname": "amount",
-			"fieldtype": "Currency",
-			"options": "Company:company:default_currency",
-			"width": 120,
+			"label": _("Stock UOM"),
+			"fieldname": "stock_uom",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 90,
 		},
 		{
 			"label": _("Delivery Note"),
@@ -170,8 +156,6 @@ def get_data(filters):
 			dni.qty,
 			dni.stock_uom,
 			dni.stock_qty,
-			dni.base_rate as rate,
-			dni.base_net_amount as amount,
 			dn.name as delivery_note,
 			dn.company
 		FROM

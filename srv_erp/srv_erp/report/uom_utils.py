@@ -23,3 +23,13 @@ def add_selected_uom_columns(columns, data, include_uom):
 	)
 
 	add_additional_uom_columns(columns, data, include_uom, conversion_factors)
+
+	# ERPNext inserts the alternate quantity immediately after Stock Qty. Keep the
+	# native Qty/Stock UOM pair together, then show the selected-UOM quantity.
+	fieldnames = [column.get("fieldname") for column in columns]
+	if "stock_qty" in fieldnames and "stock_uom" in fieldnames:
+		stock_uom_column = columns.pop(fieldnames.index("stock_uom"))
+		stock_qty_index = next(
+			index for index, column in enumerate(columns) if column.get("fieldname") == "stock_qty"
+		)
+		columns.insert(stock_qty_index + 1, stock_uom_column)
