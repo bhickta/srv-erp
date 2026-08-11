@@ -33,7 +33,7 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Preserve the transaction and Stock UOM quantities. When `include_uom` is selected, add adjacent converted quantity columns using the Item's `UOM Conversion Detail`; use ERPNext's `add_additional_uom_columns` helper where possible.
 - Mark only Stock UOM quantity fields as `convertible: "qty"`. Do not convert transaction-UOM totals as though they were Stock UOM totals.
 - Treat Include UOM like Stock Balance: it adds converted quantity columns and never changes the Item's actual Stock UOM. Keep the selected UOM visible in each converted column label.
-- Order each native quantity before its related UOM and keep the pair adjacent, for example `Qty, UOM, Stock Qty, Stock UOM`.
+- Put every related UOM column immediately to the right of its quantity column. Name the pair `<quantity>` and `uom_<quantity>`: for example, `qty, uom_qty`, `stock_qty, uom_stock_qty`, and `delivered_qty, uom_delivered_qty`. Apply the same pattern consistently to all other quantity fields.
 - Calculate a grouped rate as `SUM(amount) / NULLIF(SUM(qty), 0)` at a compatible grain; do not use a simple average of line rates.
 - Decide whether pending quantity is the sum of line-level pending quantities or the difference of aggregate ordered and delivered quantities, then test over-delivery and return cases.
 
@@ -111,6 +111,7 @@ Use the equivalent `Customer Group` subtree for customer-group filters. A leaf s
 - Confirm parent-group totals equal the selected group plus all descendants without duplicate rows.
 - Test repeated child rows do not multiply quantities or amounts.
 - Test one Item used with multiple UOMs and verify grouped totals and weighted rates.
+- Verify every quantity column is immediately followed by its `uom_<quantity>` column in both the definition and rendered output.
 - Select an Include UOM and verify its columns and conversion factors match Stock Balance for the same Items.
 - Verify derived dimensions return the same records when displayed, filtered, grouped, and sorted.
 - Run Python and JavaScript syntax checks, `git diff --check`, and relevant report tests or live read-only queries.
