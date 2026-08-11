@@ -12,6 +12,8 @@ from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
+	set_default_warehouse(filters)
+	validate_warehouse(filters)
 	columns = get_columns()
 	data = get_data(filters)
 	add_selected_uom_columns(columns, data, filters.get("include_uom"))
@@ -99,6 +101,20 @@ def get_columns():
 			"width": 115,
 		},
 		{
+			"label": _("Stock Available"),
+			"fieldname": "stock_available_qty",
+			"fieldtype": "Float",
+			"width": 115,
+			"convertible": "qty",
+		},
+		{
+			"label": _("Stock Available UOM"),
+			"fieldname": "uom_stock_available_qty",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 125,
+		},
+		{
 			"label": _("Stock Qty Delivered"),
 			"fieldname": "stock_qty",
 			"fieldtype": "Float",
@@ -111,6 +127,19 @@ def get_columns():
 			"fieldtype": "Link",
 			"options": "UOM",
 			"width": 130,
+		},
+		{
+			"label": _("Difference (Stock - Delivered)"),
+			"fieldname": "difference_qty",
+			"fieldtype": "Float",
+			"width": 160,
+		},
+		{
+			"label": _("Difference Stock UOM"),
+			"fieldname": "uom_difference_qty",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 110,
 		},
 		{
 			"label": _("Delivery Note"),
@@ -154,14 +183,22 @@ def get_data(filters):
 			(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
 			dn.posting_date,
 			dni.qty,
+			COALESCE(bin.actual_qty, 0) AS stock_available_qty,
+			item.stock_uom AS uom_stock_available_qty,
 			dni.stock_uom AS uom_stock_qty,
 			dni.stock_qty,
+			COALESCE(bin.actual_qty, 0) - dni.stock_qty AS difference_qty,
+			item.stock_uom AS uom_difference_qty,
 			dn.name as delivery_note,
 			dn.company
 		FROM
 			`tabDelivery Note Item` dni
 		INNER JOIN
 			`tabDelivery Note` dn ON dni.parent = dn.name
+		INNER JOIN
+			`tabItem` item ON item.name = dni.item_code
+		LEFT JOIN
+			`tabBin` bin ON bin.item_code = dni.item_code AND bin.warehouse = %(warehouse)s
 		WHERE
 			dn.docstatus = 1
 			{conditions}
@@ -198,3 +235,39 @@ def get_conditions(filters):
 	if filters.get("sales_person"):
 		conditions += " AND EXISTS (SELECT name FROM `tabSales Team` WHERE parent = dn.name AND sales_person = %(sales_person)s)"
 	return conditions
+
+
+def set_default_warehouse(filters):
+	if filters.get("warehouse") or not filters.get("company"):
+		return
+
+	filters["warehouse"] = frappe.db.get_value(
+		"Warehouse",
+		{
+			"company": filters.company,
+			"warehouse_name": "Finished Goods",
+			"is_group": 0,
+			"disabled": 0,
+		},
+		"name",
+	)
+
+
+def validate_warehouse(filters):
+	if not filters.get("warehouse"):
+		frappe.throw(
+			_("Please select a Warehouse. No enabled Finished Goods warehouse was found for {0}.").format(
+				filters.company
+			)
+		)
+
+	warehouse = frappe.db.get_value(
+		"Warehouse",
+		filters.warehouse,
+		["company", "is_group", "disabled"],
+		as_dict=True,
+	)
+	if not warehouse or warehouse.disabled or warehouse.is_group:
+		frappe.throw(_("Please select an enabled, non-group Warehouse."))
+	if warehouse.company != filters.company:
+		frappe.throw(_("Warehouse {0} does not belong to company {1}.").format(filters.warehouse, filters.company))

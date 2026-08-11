@@ -1,4 +1,0 @@
-interface:
-  display_name: "Frappe Report Making"
-  short_description: "Build safe Frappe and ERPNext reports"
-  default_prompt: "Create or update a Frappe report with safe status filters and hierarchical group handling."
