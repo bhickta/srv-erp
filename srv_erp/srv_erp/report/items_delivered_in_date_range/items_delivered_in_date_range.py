@@ -92,11 +92,11 @@ def get_columns():
 			"width": 100,
 		},
 		{
-			"label": _("UOM"),
+			"label": _("Qty Delivered UOM"),
 			"fieldname": "uom_qty",
 			"fieldtype": "Link",
 			"options": "UOM",
-			"width": 90,
+			"width": 115,
 		},
 		{
 			"label": _("Stock Qty Delivered"),
@@ -106,11 +106,11 @@ def get_columns():
 			"convertible": "qty",
 		},
 		{
-			"label": _("Stock UOM"),
+			"label": _("Stock Qty Delivered UOM"),
 			"fieldname": "uom_stock_qty",
 			"fieldtype": "Link",
 			"options": "UOM",
-			"width": 90,
+			"width": 130,
 		},
 		{
 			"label": _("Delivery Note"),

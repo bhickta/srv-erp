@@ -34,6 +34,7 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Mark only Stock UOM quantity fields as `convertible: "qty"`. Do not convert transaction-UOM totals as though they were Stock UOM totals.
 - Treat Include UOM like Stock Balance: it adds converted quantity columns and never changes the Item's actual Stock UOM. Keep the selected UOM visible in each converted column label.
 - Put every related UOM column immediately to the right of its quantity column. Name the pair `<quantity>` and `uom_<quantity>`: for example, `qty, uom_qty`, `stock_qty, uom_stock_qty`, and `delivered_qty, uom_delivered_qty`. Apply the same pattern consistently to all other quantity fields.
+- Name each UOM label after its quantity label rather than using an ambiguous `UOM` or `Stock UOM`: for example, `Qty Ordered, Qty Ordered UOM` and `Stock Qty Delivered, Stock Qty Delivered UOM`.
 - Keep each quantity and UOM semantically synchronized. Transaction quantities use the transaction UOM; stock quantities use Stock UOM; pending, delivered, deficit, returned, and other derived quantities must use the UOM of the source quantities used in their calculation.
 - When showing the same quantity in an alternate UOM, convert from its Stock UOM quantity with the Item conversion factor and emit another complete adjacent pair, such as `stock_pending_qty_alt, uom_stock_pending_qty_alt`. Never relabel a quantity without converting its value.
 - Calculate a grouped rate as `SUM(amount) / NULLIF(SUM(qty), 0)` at a compatible grain; do not use a simple average of line rates.

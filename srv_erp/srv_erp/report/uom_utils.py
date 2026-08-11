@@ -45,11 +45,11 @@ def add_selected_uom_columns(columns, data, include_uom):
 		columns[uom_index + 1 : uom_index + 1] = [
 			alternate_column,
 			{
-				"label": "UOM",
+				"label": f"{alternate_column.get('label')} UOM",
 				"fieldname": alternate_uom_fieldname,
 				"fieldtype": "Link",
 				"options": "UOM",
-				"width": 90,
+				"width": alternate_column.get("width", 120),
 			},
 		]
 		for row in data:
