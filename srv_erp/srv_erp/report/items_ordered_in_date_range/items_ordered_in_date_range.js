@@ -2,6 +2,9 @@
 // For license information, please see license.txt
 
 frappe.query_reports["Items Ordered in Date Range"] = {
+	onload: async function(report) {
+		await set_finished_warehouse(report);
+	},
 	filters: [
 		{
 			fieldname: "group_by_item",
@@ -56,6 +59,50 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			options: "Company",
 			default: frappe.defaults.get_user_default("Company"),
 			reqd: 1,
+			on_change: async function() {
+				await set_finished_warehouse(frappe.query_report, true);
+			},
+		},
+		{
+			fieldname: "warehouse",
+			label: __("Warehouse"),
+			fieldtype: "Link",
+			options: "Warehouse",
+			reqd: 1,
+			get_query() {
+				return {
+					filters: {
+						company: frappe.query_report.get_filter_value("company"),
+						is_group: 0,
+						disabled: 0,
+					},
+				};
+			},
 		},
 	],
 };
+
+async function set_finished_warehouse(report, replace_existing = false) {
+	const warehouse_filter = report.get_filter("warehouse");
+	if (!warehouse_filter || (!replace_existing && warehouse_filter.get_value())) {
+		return;
+	}
+
+	const company = report.get_filter_value("company");
+	if (!company) {
+		return;
+	}
+
+	const warehouses = await frappe.db.get_list("Warehouse", {
+		filters: {
+			company,
+			warehouse_name: "Finished Goods",
+			is_group: 0,
+			disabled: 0,
+		},
+		fields: ["name", "warehouse_name"],
+		limit: 1,
+	});
+	const warehouse = warehouses[0];
+	await warehouse_filter.set_value(warehouse ? warehouse.name : "");
+}

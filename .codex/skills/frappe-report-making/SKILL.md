@@ -60,6 +60,15 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Choose the business date belonging to the report subject: transaction date for orders, posting date for submitted stock/accounting transactions, or delivery date only when the report explicitly concerns scheduled delivery.
 - Label filters and date columns accordingly; do not silently mix order-date and fulfillment-date ranges.
 
+### Keep warehouse availability distinct from transaction quantities
+
+- Do not label a transaction line's `stock_qty` as stock available. It is the transaction quantity converted into Stock UOM, not warehouse inventory.
+- For current on-hand stock in one warehouse, read `Bin.actual_qty` by Item and Warehouse and display the Item's `stock_uom` beside it. State explicitly that this is current stock, not stock as of the report's transaction date.
+- If “available” means stock remaining after reservations, define the business formula explicitly; `Bin.actual_qty`, projected quantity, and actual quantity minus reservations are different measures.
+- Add a Warehouse Link filter whenever availability is warehouse-specific. Restrict it to enabled, non-group Warehouses belonging to the selected Company, and repeat that validation on the server.
+- Remember that Frappe's Warehouse document `name` normally includes the company abbreviation, while `warehouse_name` does not. For example, look up `warehouse_name = "Finished Goods"` for the Company to resolve a document name such as `Finished Goods - SE`; do not hardcode the abbreviation-bearing document name.
+- A `Bin` join must not multiply grouped availability by the number of order or invoice rows. At an Item/Warehouse grain use the one Bin value (for example `MAX(COALESCE(bin.actual_qty, 0))` after a safe join), rather than `SUM(bin.actual_qty)`.
+
 ## Mandatory defaults
 
 ### Disabled records
@@ -85,6 +94,13 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Never include Draft (`docstatus = 0`) or Cancelled (`docstatus = 2`) records in default results.
 - If alternate states are a genuine requirement, add a Document Status filter whose default is `Submitted`; make `Draft`, `Cancelled`, or `All` explicit user choices.
 - Apply status conditions to the parent transaction, not merely its child table.
+
+### Warehouse defaults
+
+- When a report is intended to show finished-goods availability, default the Warehouse by resolving the enabled, non-group `Warehouse` whose `warehouse_name` is `Finished Goods` and whose `company` matches the selected Company.
+- Keep the Warehouse filter visible and required so users know which inventory location the quantity represents and can select another location.
+- Refresh or re-resolve the default Warehouse when Company changes, and validate the submitted filter server-side instead of trusting the client default.
+- If the expected Finished Goods Warehouse does not exist, require an explicit Warehouse selection or show a clear error. Never silently fall back to an unrelated warehouse.
 
 ### Hierarchical groups
 
@@ -118,4 +134,6 @@ Use the equivalent `Customer Group` subtree for customer-group filters. A leaf s
 - Reconcile ordered, delivered, pending/deficit, and alternate-UOM quantities through the conversion factor; verify `alternate quantity × conversion factor = stock quantity` for representative rows.
 - Select an Include UOM and verify its columns and conversion factors match Stock Balance for the same Items.
 - Verify derived dimensions return the same records when displayed, filtered, grouped, and sorted.
+- Verify warehouse availability matches `Bin.actual_qty` for the selected Item/Warehouse, remains unchanged when the same Item appears on additional transaction rows, and uses the Item's Stock UOM.
+- Verify the default `Finished Goods` warehouse resolves to the Company-suffixed Warehouse document name and changes correctly when Company changes.
 - Run Python and JavaScript syntax checks, `git diff --check`, and relevant report tests or live read-only queries.

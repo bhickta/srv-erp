@@ -15,6 +15,8 @@ RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
+	set_default_warehouse(filters)
+	validate_warehouse(filters)
 	group_by_item = cint(filters.get("group_by_item", 1))
 	columns = get_columns(group_by_item)
 	data = get_data(filters, group_by_item)
@@ -40,8 +42,8 @@ def get_columns(group_by_item=False):
 		{"label": _("Delivery Date"), "fieldname": "delivery_date", "fieldtype": "Date", "width": 100},
 		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
 		{"label": _("Qty Ordered UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 105},
-		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125, "convertible": "qty"},
-		{"label": _("Stock Qty Ordered UOM"), "fieldname": "uom_stock_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
+		{"label": _("Stock Available"), "fieldname": "stock_available_qty", "fieldtype": "Float", "width": 115, "convertible": "qty"},
+		{"label": _("Stock Available UOM"), "fieldname": "uom_stock_available_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
 		{"label": _("Stock Qty Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
 		{"label": _("Stock Qty Delivered UOM"), "fieldname": "uom_stock_delivered_qty", "fieldtype": "Link", "options": "UOM", "width": 130},
 		{"label": _("Stock Qty Pending"), "fieldname": "stock_pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
@@ -61,8 +63,8 @@ def get_grouped_columns():
 		{"label": _("Item Group"), "fieldname": "item_group", "fieldtype": "Link", "options": "Item Group", "width": 120},
 		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
 		{"label": _("Qty Ordered UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 105},
-		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125, "convertible": "qty"},
-		{"label": _("Stock Qty Ordered UOM"), "fieldname": "uom_stock_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
+		{"label": _("Stock Available"), "fieldname": "stock_available_qty", "fieldtype": "Float", "width": 115, "convertible": "qty"},
+		{"label": _("Stock Available UOM"), "fieldname": "uom_stock_available_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
 		{"label": _("Stock Qty Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
 		{"label": _("Stock Qty Delivered UOM"), "fieldname": "uom_stock_delivered_qty", "fieldtype": "Link", "options": "UOM", "width": 130},
 		{"label": _("Stock Qty Pending"), "fieldname": "stock_pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
@@ -101,8 +103,8 @@ def get_data(filters, group_by_item=False):
 				soi.delivery_date,
 				soi.uom AS uom_qty,
 				soi.qty,
-				soi.stock_uom AS uom_stock_qty,
-				soi.stock_qty,
+				COALESCE(bin.actual_qty, 0) AS stock_available_qty,
+				item.stock_uom AS uom_stock_available_qty,
 				soi.delivered_qty AS stock_delivered_qty,
 				soi.stock_uom AS uom_stock_delivered_qty,
 				GREATEST(soi.stock_qty - soi.delivered_qty, 0) AS stock_pending_qty,
@@ -114,6 +116,8 @@ def get_data(filters, group_by_item=False):
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
 			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabBin` bin
+				ON bin.item_code = soi.item_code AND bin.warehouse = %(warehouse)s
 			LEFT JOIN `tabItem` template ON template.name = item.variant_of
 			LEFT JOIN `tabItem Variant Attribute` variant_brand
 				ON variant_brand.parent = item.name
@@ -138,8 +142,8 @@ def get_grouped_data(filters, conditions):
 				soi.item_group,
 				soi.uom AS uom_qty,
 				SUM(soi.qty) AS qty,
-				soi.stock_uom AS uom_stock_qty,
-				SUM(soi.stock_qty) AS stock_qty,
+				MAX(COALESCE(bin.actual_qty, 0)) AS stock_available_qty,
+				item.stock_uom AS uom_stock_available_qty,
 				SUM(soi.delivered_qty) AS stock_delivered_qty,
 				soi.stock_uom AS uom_stock_delivered_qty,
 				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
@@ -149,6 +153,8 @@ def get_grouped_data(filters, conditions):
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
 			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabBin` bin
+				ON bin.item_code = soi.item_code AND bin.warehouse = %(warehouse)s
 			LEFT JOIN `tabItem` template ON template.name = item.variant_of
 			LEFT JOIN `tabItem Variant Attribute` variant_brand
 				ON variant_brand.parent = item.name
@@ -156,7 +162,7 @@ def get_grouped_data(filters, conditions):
 			WHERE so.docstatus = 1 {conditions}
 			GROUP BY
 				{RESOLVED_BRAND_SQL}, soi.item_code, soi.item_name, soi.item_group,
-				soi.uom, soi.stock_uom, so.company
+				soi.uom, soi.stock_uom, item.stock_uom, so.company
 			ORDER BY
 				({RESOLVED_BRAND_SQL}) IS NULL, {RESOLVED_BRAND_SQL},
 				soi.item_name, soi.item_code, soi.uom
@@ -199,3 +205,38 @@ def get_conditions(filters):
 		)
 
 	return " AND " + " AND ".join(conditions) if conditions else ""
+
+
+def set_default_warehouse(filters):
+	if filters.get("warehouse") or not filters.get("company"):
+		return
+
+	filters["warehouse"] = frappe.db.get_value(
+		"Warehouse",
+		{
+			"company": filters.company,
+			"warehouse_name": "Finished Goods",
+			"is_group": 0,
+			"disabled": 0,
+		},
+		"name",
+	)
+
+def validate_warehouse(filters):
+	if not filters.get("warehouse"):
+		frappe.throw(
+			_("Please select a Warehouse. No enabled Finished Goods warehouse was found for {0}.").format(
+				filters.company
+			)
+		)
+
+	warehouse = frappe.db.get_value(
+		"Warehouse",
+		filters.warehouse,
+		["company", "is_group", "disabled"],
+		as_dict=True,
+	)
+	if not warehouse or warehouse.disabled or warehouse.is_group:
+		frappe.throw(_("Please select an enabled, non-group Warehouse."))
+	if warehouse.company != filters.company:
+		frappe.throw(_("Warehouse {0} does not belong to company {1}.").format(filters.warehouse, filters.company))
