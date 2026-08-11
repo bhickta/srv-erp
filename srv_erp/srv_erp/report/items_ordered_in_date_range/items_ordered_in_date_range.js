@@ -47,6 +47,7 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		{ fieldname: "item_code", label: __("Item"), fieldtype: "Link", options: "Item" },
 		{ fieldname: "item_group", label: __("Item Group"), fieldtype: "Link", options: "Item Group" },
 		{ fieldname: "brand", label: __("Brand"), fieldtype: "Link", options: "Brand" },
+		{ fieldname: "include_uom", label: __("Include UOM"), fieldtype: "Link", options: "UOM" },
 		{ fieldname: "project", label: __("Project"), fieldtype: "Link", options: "Project" },
 		{
 			fieldname: "company",

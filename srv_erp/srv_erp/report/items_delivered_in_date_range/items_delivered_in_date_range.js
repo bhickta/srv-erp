@@ -86,6 +86,12 @@ frappe.query_reports["Items Delivered in Date Range"] = {
 			options: "Brand",
 		},
 		{
+			fieldname: "include_uom",
+			label: __("Include UOM"),
+			fieldtype: "Link",
+			options: "UOM",
+		},
+		{
 			fieldname: "project",
 			label: __("Project"),
 			fieldtype: "Link",

@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import cint
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
+from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 
 DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
@@ -15,7 +16,10 @@ RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	group_by_item = cint(filters.get("group_by_item", 1))
-	return get_columns(group_by_item), get_data(filters, group_by_item)
+	columns = get_columns(group_by_item)
+	data = get_data(filters, group_by_item)
+	add_selected_uom_columns(columns, data, filters.get("include_uom"))
+	return columns, data
 
 
 def get_columns(group_by_item=False):
@@ -37,9 +41,9 @@ def get_columns(group_by_item=False):
 		{"label": _("UOM"), "fieldname": "uom", "fieldtype": "Link", "options": "UOM", "width": 90},
 		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
 		{"label": _("Stock UOM"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
-		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125},
-		{"label": _("Stock Qty Delivered"), "fieldname": "delivered_qty", "fieldtype": "Float", "width": 130},
-		{"label": _("Stock Qty Pending"), "fieldname": "pending_qty", "fieldtype": "Float", "width": 120},
+		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125, "convertible": "qty"},
+		{"label": _("Stock Qty Delivered"), "fieldname": "delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
+		{"label": _("Stock Qty Pending"), "fieldname": "pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
 		{"label": _("Rate"), "fieldname": "rate", "fieldtype": "Currency", "options": "Company:company:default_currency", "width": 100},
 		{"label": _("Amount (Net)"), "fieldname": "amount", "fieldtype": "Currency", "options": "Company:company:default_currency", "width": 120},
 		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 130},
@@ -58,9 +62,9 @@ def get_grouped_columns():
 		{"label": _("UOM"), "fieldname": "uom", "fieldtype": "Link", "options": "UOM", "width": 90},
 		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
 		{"label": _("Stock UOM"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
-		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125},
-		{"label": _("Stock Qty Delivered"), "fieldname": "delivered_qty", "fieldtype": "Float", "width": 130},
-		{"label": _("Stock Qty Pending"), "fieldname": "pending_qty", "fieldtype": "Float", "width": 120},
+		{"label": _("Stock Qty Ordered"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 125, "convertible": "qty"},
+		{"label": _("Stock Qty Delivered"), "fieldname": "delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
+		{"label": _("Stock Qty Pending"), "fieldname": "pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
 		{"label": _("Average Rate"), "fieldname": "rate", "fieldtype": "Currency", "options": "Company:company:default_currency", "width": 105},
 		{"label": _("Amount (Net)"), "fieldname": "amount", "fieldtype": "Currency", "options": "Company:company:default_currency", "width": 120},
 		{"label": _("Order Count"), "fieldname": "order_count", "fieldtype": "Int", "width": 95},

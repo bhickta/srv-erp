@@ -7,11 +7,14 @@ from frappe.utils import getdate
 from dateutil.relativedelta import relativedelta
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
+from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 
 def execute(filters=None):
+	filters = frappe._dict(filters or {})
 	columns = get_columns()
 	data = get_data(filters)
+	add_selected_uom_columns(columns, data, filters.get("include_uom"))
 	return columns, data
 
 def get_columns():
@@ -96,6 +99,20 @@ def get_columns():
 			"width": 100,
 		},
 		{
+			"label": _("Stock UOM"),
+			"fieldname": "stock_uom",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 90,
+		},
+		{
+			"label": _("Stock Qty Delivered"),
+			"fieldname": "stock_qty",
+			"fieldtype": "Float",
+			"width": 130,
+			"convertible": "qty",
+		},
+		{
 			"label": _("Rate"),
 			"fieldname": "rate",
 			"fieldtype": "Currency",
@@ -151,6 +168,8 @@ def get_data(filters):
 			(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
 			dn.posting_date,
 			dni.qty,
+			dni.stock_uom,
+			dni.stock_qty,
 			dni.base_rate as rate,
 			dni.base_net_amount as amount,
 			dn.name as delivery_note,
