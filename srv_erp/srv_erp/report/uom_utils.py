@@ -21,15 +21,36 @@ def add_selected_uom_columns(columns, data, include_uom):
 		)
 		.run()
 	)
+	if not conversion_factors:
+		return
 
+	convertible_fields = [
+		column.get("fieldname") for column in columns if column.get("convertible") == "qty"
+	]
 	add_additional_uom_columns(columns, data, include_uom, conversion_factors)
 
-	# ERPNext inserts the alternate quantity immediately after Stock Qty. Keep the
-	# native Qty/Stock UOM pair together, then show the selected-UOM quantity.
-	fieldnames = [column.get("fieldname") for column in columns]
-	if "stock_qty" in fieldnames and "stock_uom" in fieldnames:
-		stock_uom_column = columns.pop(fieldnames.index("stock_uom"))
-		stock_qty_index = next(
-			index for index, column in enumerate(columns) if column.get("fieldname") == "stock_qty"
+	for fieldname in convertible_fields:
+		alternate_fieldname = f"{fieldname}_alt"
+		uom_fieldname = f"uom_{fieldname}"
+		alternate_uom_fieldname = f"uom_{alternate_fieldname}"
+		alternate_index = next(
+			index
+			for index, column in enumerate(columns)
+			if column.get("fieldname") == alternate_fieldname
 		)
-		columns.insert(stock_qty_index + 1, stock_uom_column)
+		alternate_column = columns.pop(alternate_index)
+		uom_index = next(
+			index for index, column in enumerate(columns) if column.get("fieldname") == uom_fieldname
+		)
+		columns[uom_index + 1 : uom_index + 1] = [
+			alternate_column,
+			{
+				"label": "UOM",
+				"fieldname": alternate_uom_fieldname,
+				"fieldtype": "Link",
+				"options": "UOM",
+				"width": 90,
+			},
+		]
+		for row in data:
+			row[alternate_uom_fieldname] = include_uom

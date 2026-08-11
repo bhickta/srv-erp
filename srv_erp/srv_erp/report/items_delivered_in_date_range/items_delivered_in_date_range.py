@@ -93,7 +93,7 @@ def get_columns():
 		},
 		{
 			"label": _("UOM"),
-			"fieldname": "uom",
+			"fieldname": "uom_qty",
 			"fieldtype": "Link",
 			"options": "UOM",
 			"width": 90,
@@ -107,7 +107,7 @@ def get_columns():
 		},
 		{
 			"label": _("Stock UOM"),
-			"fieldname": "stock_uom",
+			"fieldname": "uom_stock_qty",
 			"fieldtype": "Link",
 			"options": "UOM",
 			"width": 90,
@@ -145,7 +145,7 @@ def get_data(filters):
 			dni.item_name,
 			dni.item_group,
 			dni.brand,
-			dni.uom,
+			dni.uom AS uom_qty,
 			dn.customer,
 			dn.customer_name,
 			dn.customer_group,
@@ -154,7 +154,7 @@ def get_data(filters):
 			(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
 			dn.posting_date,
 			dni.qty,
-			dni.stock_uom,
+			dni.stock_uom AS uom_stock_qty,
 			dni.stock_qty,
 			dn.name as delivery_note,
 			dn.company

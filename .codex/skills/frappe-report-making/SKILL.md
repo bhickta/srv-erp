@@ -34,6 +34,8 @@ Build reports that are safe by default, auditable, and consistent with Frappe da
 - Mark only Stock UOM quantity fields as `convertible: "qty"`. Do not convert transaction-UOM totals as though they were Stock UOM totals.
 - Treat Include UOM like Stock Balance: it adds converted quantity columns and never changes the Item's actual Stock UOM. Keep the selected UOM visible in each converted column label.
 - Put every related UOM column immediately to the right of its quantity column. Name the pair `<quantity>` and `uom_<quantity>`: for example, `qty, uom_qty`, `stock_qty, uom_stock_qty`, and `delivered_qty, uom_delivered_qty`. Apply the same pattern consistently to all other quantity fields.
+- Keep each quantity and UOM semantically synchronized. Transaction quantities use the transaction UOM; stock quantities use Stock UOM; pending, delivered, deficit, returned, and other derived quantities must use the UOM of the source quantities used in their calculation.
+- When showing the same quantity in an alternate UOM, convert from its Stock UOM quantity with the Item conversion factor and emit another complete adjacent pair, such as `stock_pending_qty_alt, uom_stock_pending_qty_alt`. Never relabel a quantity without converting its value.
 - Calculate a grouped rate as `SUM(amount) / NULLIF(SUM(qty), 0)` at a compatible grain; do not use a simple average of line rates.
 - Decide whether pending quantity is the sum of line-level pending quantities or the difference of aggregate ordered and delivered quantities, then test over-delivery and return cases.
 
@@ -112,6 +114,7 @@ Use the equivalent `Customer Group` subtree for customer-group filters. A leaf s
 - Test repeated child rows do not multiply quantities or amounts.
 - Test one Item used with multiple UOMs and verify grouped totals and weighted rates.
 - Verify every quantity column is immediately followed by its `uom_<quantity>` column in both the definition and rendered output.
+- Reconcile ordered, delivered, pending/deficit, and alternate-UOM quantities through the conversion factor; verify `alternate quantity × conversion factor = stock quantity` for representative rows.
 - Select an Include UOM and verify its columns and conversion factors match Stock Balance for the same Items.
 - Verify derived dimensions return the same records when displayed, filtered, grouped, and sorted.
 - Run Python and JavaScript syntax checks, `git diff --check`, and relevant report tests or live read-only queries.
