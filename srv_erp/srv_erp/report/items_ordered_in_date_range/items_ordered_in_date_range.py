@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
+
 
 DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
 RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF(item.brand, ''), template.brand)"
@@ -165,11 +167,9 @@ def get_conditions(filters):
 	field_map = {
 		"company": "so.company",
 		"customer": "so.customer",
-		"customer_group": "so.customer_group",
 		"territory": "so.territory",
 		"project": "so.project",
 		"item_code": "soi.item_code",
-		"item_group": "soi.item_group",
 	}
 
 	if filters.get("from_date"):
@@ -179,6 +179,12 @@ def get_conditions(filters):
 	for fieldname, column in field_map.items():
 		if filters.get(fieldname):
 			conditions.append(f"{column} = %({fieldname})s")
+	if filters.get("customer_group"):
+		conditions.append(
+			get_descendant_condition("Customer Group", "so.customer_group", "customer_group")
+		)
+	if filters.get("item_group"):
+		conditions.append(get_descendant_condition("Item Group", "soi.item_group", "item_group"))
 	if filters.get("brand"):
 		conditions.append(f"{RESOLVED_BRAND_SQL} = %(brand)s")
 	if filters.get("sales_person"):

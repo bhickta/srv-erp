@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import getdate
 from dateutil.relativedelta import relativedelta
 
+from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
+
 
 def execute(filters=None):
 	columns = get_columns()
@@ -177,7 +179,9 @@ def get_conditions(filters):
 	if filters.get("customer"):
 		conditions += " AND dn.customer = %(customer)s"
 	if filters.get("customer_group"):
-		conditions += " AND dn.customer_group = %(customer_group)s"
+		conditions += " AND " + get_descendant_condition(
+			"Customer Group", "dn.customer_group", "customer_group"
+		)
 	if filters.get("territory"):
 		conditions += " AND dn.territory = %(territory)s"
 	if filters.get("project"):
@@ -185,7 +189,7 @@ def get_conditions(filters):
 	if filters.get("item_code"):
 		conditions += " AND dni.item_code = %(item_code)s"
 	if filters.get("item_group"):
-		conditions += " AND dni.item_group = %(item_group)s"
+		conditions += " AND " + get_descendant_condition("Item Group", "dni.item_group", "item_group")
 	if filters.get("brand"):
 		conditions += " AND dni.brand = %(brand)s"
 	if filters.get("sales_person"):
