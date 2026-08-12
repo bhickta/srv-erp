@@ -7,11 +7,16 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 	},
 	filters: [
 		{
-			fieldname: "view",
-			label: __("View"),
-			fieldtype: "Select",
-			options: ["Sub-total", "Item Summary", "Detailed"],
-			default: "Sub-total",
+			fieldname: "group_by_item",
+			label: __("Group by Item"),
+			fieldtype: "Check",
+			default: 1,
+		},
+		{
+			fieldname: "subtotal_view",
+			label: __("Sub-total View"),
+			fieldtype: "Check",
+			default: 0,
 		},
 		{
 			fieldname: "from_date",
@@ -81,6 +86,21 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			},
 		},
 	],
+	formatter(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (!data) {
+			return value;
+		}
+
+		if (data.indent && column.fieldname === "item_code") {
+			value = `${"&nbsp;".repeat(data.indent * 4)}${value}`;
+		}
+		if (data.is_group || data.is_total) {
+			value = $("<span>").html(value).css("font-weight", "bold").prop("outerHTML");
+		}
+
+		return value;
+	},
 };
 
 async function set_finished_warehouse(report, replace_existing = false) {
