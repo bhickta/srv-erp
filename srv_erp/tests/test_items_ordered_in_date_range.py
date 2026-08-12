@@ -38,6 +38,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			[
 				"item_code",
 				"brand",
+				"stock_uom",
 				"qty",
 				"stock_available_qty",
 				"stock_delivered_qty",
@@ -46,7 +47,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			],
 		)
 		self.assertEqual(
-			[column["label"] for column in get_columns(subtotal_view=True)[2:]],
+			[column["label"] for column in get_columns(subtotal_view=True)[3:]],
 			[
 				"Ordered (Qty + UOM)",
 				"Stock (Qty + UOM)",

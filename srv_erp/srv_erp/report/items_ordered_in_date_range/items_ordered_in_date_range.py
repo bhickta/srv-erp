@@ -91,6 +91,7 @@ def get_subtotal_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 180},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 180},
+		{"label": _("UOM Used"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 100},
 		{"label": _("Ordered (Qty + UOM)"), "fieldname": "qty", "fieldtype": "Float", "width": 150},
 		{
 			"label": _("Stock (Qty + UOM)"),

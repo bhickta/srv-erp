@@ -52,13 +52,14 @@
 
 <table class="report-table">
 	<colgroup>
-		<col style="width: 17%;"><col style="width: 19%;">
-		<col style="width: 12%;"><col style="width: 12%;"><col style="width: 12%;"><col style="width: 14%;"><col style="width: 14%;">
+		<col style="width: 15%;"><col style="width: 17%;"><col style="width: 8%;">
+		<col style="width: 11%;"><col style="width: 11%;"><col style="width: 11%;"><col style="width: 13%;"><col style="width: 14%;">
 	</colgroup>
 	<thead>
 		<tr>
 			<th style="text-align: left;">{%= __("Item Code") %}</th>
 			<th style="text-align: left;">{%= __("Brand") %}</th>
+			<th style="text-align: left;">{%= __("UOM Used") %}</th>
 			<th class="number">{%= __("Ordered (Qty + UOM)") %}</th>
 			<th class="number">{%= __("Stock (Qty + UOM)") %}</th>
 			<th class="number">{%= __("Delivered (Qty + UOM)") %}</th>
@@ -70,13 +71,14 @@
 		{% for (let i = 0; i < data.length; i++) { %}
 			{% const row = data[i]; %}
 			{% if (!Object.keys(row).length) { %}
-				<tr class="spacer-row"><td colspan="7"></td></tr>
+				<tr class="spacer-row"><td colspan="8"></td></tr>
 			{% } else if (row.is_group) { %}
-				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="6"></td></tr>
+				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="7"></td></tr>
 			{% } else { %}
 				<tr class="{% if (row.is_total) { %}total-row{% } %}">
 					<td></td>
 					<td class="item-brand">{%= row.brand || "" %}</td>
+					<td>{%= row.stock_uom || "" %}</td>
 					<td class="number">{{ quantity(row.qty, row.stock_uom) }}</td>
 					<td class="number">{{ quantity(row.stock_available_qty, row.stock_uom) }}</td>
 					<td class="number">{{ quantity(row.stock_delivered_qty, row.stock_uom) }}</td>
