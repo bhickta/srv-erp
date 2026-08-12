@@ -62,14 +62,11 @@ def get_columns(group_by_item=False, subtotal_view=False):
 
 def get_subtotal_columns():
 	return [
-		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 140},
-		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 130},
+		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 150},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 200},
-		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 120},
+		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 160},
 		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 115},
 		{"label": _("UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 90},
-		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 150},
-		{"label": _("Order Date"), "fieldname": "transaction_date", "fieldtype": "Date", "width": 105},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
 	]
 
@@ -161,14 +158,11 @@ def get_subtotal_data(filters, conditions):
 	rows = frappe.db.sql(
 		f"""
 			SELECT
-				so.name AS sales_order,
-				soi.item_code,
-				soi.item_name,
+				COALESCE(NULLIF(item.variant_of, ''), soi.item_code) AS item_code,
+				COALESCE(template.item_name, item.item_name, soi.item_name) AS item_name,
 				{RESOLVED_BRAND_SQL} AS brand,
 				SUM(soi.qty) AS qty,
 				soi.uom AS uom_qty,
-				so.customer,
-				so.transaction_date,
 				so.company
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
@@ -179,37 +173,39 @@ def get_subtotal_data(filters, conditions):
 				AND variant_brand.attribute = %(brand_variant_attribute)s
 			WHERE so.docstatus = 1 {conditions}
 			GROUP BY
-				so.name, soi.item_code, soi.item_name, {RESOLVED_BRAND_SQL},
-				soi.uom, so.customer, so.transaction_date, so.company
-			ORDER BY so.transaction_date DESC, so.name, MIN(soi.idx)
+				COALESCE(NULLIF(item.variant_of, ''), soi.item_code),
+				COALESCE(template.item_name, item.item_name, soi.item_name),
+				{RESOLVED_BRAND_SQL}, soi.uom, so.company
+			ORDER BY item_code, brand
 		""",
 		filters,
 		as_dict=True,
 	)
 
-	return append_sales_order_subtotals(rows)
+	return append_item_code_subtotals(rows)
 
 
-def append_sales_order_subtotals(rows):
+def append_item_code_subtotals(rows):
 	data = []
-	current_order = None
+	current_item_code = None
 	uom_totals = {}
 
 	for row in rows:
-		if current_order and row.sales_order != current_order:
-			data.extend(make_subtotal_rows(current_order, uom_totals))
+		if current_item_code and row.item_code != current_item_code:
+			data.extend(make_subtotal_rows(uom_totals))
 			data.append({})
 			uom_totals = {}
-		if row.sales_order != current_order:
+		if row.item_code != current_item_code:
 			data.append(make_group_row(row))
-		current_order = row.sales_order
+		current_item_code = row.item_code
 		uom_totals[row.uom_qty] = uom_totals.get(row.uom_qty, 0) + (row.qty or 0)
-		row["sales_order"] = None
+		row["item_code"] = None
+		row["item_name"] = None
 		row["indent"] = 1
 		data.append(row)
 
-	if current_order:
-		data.extend(make_subtotal_rows(current_order, uom_totals))
+	if current_item_code:
+		data.extend(make_subtotal_rows(uom_totals))
 		data.append({})
 
 	return data
@@ -218,20 +214,19 @@ def append_sales_order_subtotals(rows):
 def make_group_row(row):
 	return frappe._dict(
 		{
-			"sales_order": row.sales_order,
-			"customer": row.customer,
-			"transaction_date": row.transaction_date,
+			"item_code": row.item_code,
+			"item_name": row.item_name,
 			"company": row.company,
 			"is_group": 1,
 		}
 	)
 
 
-def make_subtotal_rows(sales_order, uom_totals):
+def make_subtotal_rows(uom_totals):
 	return [
 		frappe._dict(
 			{
-				"item_name": _("Total {0}").format(sales_order),
+				"brand": _("Total"),
 				"qty": qty,
 				"uom_qty": uom,
 				"is_total": 1,

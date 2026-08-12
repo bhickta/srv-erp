@@ -92,7 +92,7 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			return value;
 		}
 
-		if (data.indent && column.fieldname === "item_code") {
+		if (data.indent && column.fieldname === "brand") {
 			value = `${"&nbsp;".repeat(data.indent * 4)}${value}`;
 		}
 		if (data.is_group || data.is_total) {
