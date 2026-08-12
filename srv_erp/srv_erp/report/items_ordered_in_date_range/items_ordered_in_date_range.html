@@ -29,7 +29,10 @@
 
 <div class="report-title">{%= __(report.report_name) %}</div>
 <div class="report-view">
-	{%= __("Item and Brand Sub-total View — all quantities are in each item's Stock UOM") %}
+	{%= __("Item and Brand Sub-total View — the actual UOM is shown beside every quantity") %}
+	{% if (filters.include_uom) { %}
+		<br>{%= __("Preferred UOM: {0}; items without a valid conversion remain in Stock UOM", [filters.include_uom]) %}
+	{% } %}
 </div>
 
 {% if (subtitle && subtitle.trim()) { %}
@@ -56,10 +59,10 @@
 		<tr>
 			<th style="text-align: left;">{%= __("Item Code") %}</th>
 			<th style="text-align: left;">{%= __("Brand") %}</th>
-			<th class="number">{%= __("Ordered (Stock UOM)") %}</th>
-			<th class="number">{%= __("Stock (Stock UOM)") %}</th>
-			<th class="number">{%= __("Delivered (Stock UOM)") %}</th>
-			<th class="number">{%= __("Remaining (Stock UOM)") %}</th>
+			<th class="number">{%= __("Ordered (Qty + UOM)") %}</th>
+			<th class="number">{%= __("Stock (Qty + UOM)") %}</th>
+			<th class="number">{%= __("Delivered (Qty + UOM)") %}</th>
+			<th class="number">{%= __("Remaining (Qty + UOM)") %}</th>
 		</tr>
 	</thead>
 	<tbody>

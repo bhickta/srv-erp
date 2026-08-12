@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, flt
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
@@ -71,21 +71,21 @@ def get_subtotal_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 180},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 180},
-		{"label": _("Ordered (Stock UOM)"), "fieldname": "qty", "fieldtype": "Float", "width": 150},
+		{"label": _("Ordered (Qty + UOM)"), "fieldname": "qty", "fieldtype": "Float", "width": 150},
 		{
-			"label": _("Stock (Stock UOM)"),
+			"label": _("Stock (Qty + UOM)"),
 			"fieldname": "stock_available_qty",
 			"fieldtype": "Float",
 			"width": 150,
 		},
 		{
-			"label": _("Delivered (Stock UOM)"),
+			"label": _("Delivered (Qty + UOM)"),
 			"fieldname": "stock_delivered_qty",
 			"fieldtype": "Float",
 			"width": 160,
 		},
 		{
-			"label": _("Remaining (Stock UOM)"),
+			"label": _("Remaining (Qty + UOM)"),
 			"fieldname": "stock_pending_qty",
 			"fieldtype": "Float",
 			"width": 160,
@@ -177,24 +177,58 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 
 
 def get_subtotal_data(filters, conditions):
-	rows = frappe.db.sql(
+	ordered_rows = frappe.db.sql(
 		f"""
 			SELECT
-				ordered.item_code,
-				ordered.brand,
-				ordered.qty,
-				COALESCE(stock.stock_available_qty, 0) AS stock_available_qty,
-				ordered.stock_delivered_qty,
-				ordered.stock_pending_qty,
-				ordered.stock_uom
-			FROM (
-				SELECT
-					COALESCE(NULLIF(item.variant_of, ''), soi.item_code) AS item_code,
-					{RESOLVED_BRAND_SQL} AS brand,
-					SUM(soi.stock_qty) AS qty,
-					SUM(soi.delivered_qty) AS stock_delivered_qty,
-					SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
-					soi.stock_uom
+				soi.item_code AS actual_item_code,
+				COALESCE(NULLIF(item.variant_of, ''), soi.item_code) AS item_code,
+				{RESOLVED_BRAND_SQL} AS brand,
+				SUM(soi.stock_qty) AS qty,
+				0 AS stock_available_qty,
+				SUM(soi.delivered_qty) AS stock_delivered_qty,
+				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
+				soi.stock_uom
+			FROM `tabSales Order Item` soi
+			INNER JOIN `tabSales Order` so ON so.name = soi.parent
+			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabItem` template ON template.name = item.variant_of
+			LEFT JOIN `tabItem Variant Attribute` variant_brand
+				ON variant_brand.parent = item.name
+				AND variant_brand.attribute = %(brand_variant_attribute)s
+			WHERE so.docstatus = 1 {conditions}
+			GROUP BY
+				soi.item_code, COALESCE(NULLIF(item.variant_of, ''), soi.item_code),
+				{RESOLVED_BRAND_SQL}, soi.stock_uom
+		""",
+		filters,
+		as_dict=True,
+	)
+
+	stock_rows = frappe.db.sql(
+		f"""
+			SELECT
+				stock_item.name AS actual_item_code,
+				COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name) AS item_code,
+				COALESCE(
+					NULLIF(stock_variant_brand.attribute_value, ''),
+					NULLIF(stock_item.brand, ''),
+					stock_template.brand
+				) AS brand,
+				0 AS qty,
+				SUM(COALESCE(stock_bin.actual_qty, 0)) AS stock_available_qty,
+				0 AS stock_delivered_qty,
+				0 AS stock_pending_qty,
+				stock_item.stock_uom
+			FROM `tabItem` stock_item
+			LEFT JOIN `tabItem` stock_template ON stock_template.name = stock_item.variant_of
+			LEFT JOIN `tabItem Variant Attribute` stock_variant_brand
+				ON stock_variant_brand.parent = stock_item.name
+				AND stock_variant_brand.attribute = %(brand_variant_attribute)s
+			LEFT JOIN `tabBin` stock_bin
+				ON stock_bin.item_code = stock_item.name
+				AND stock_bin.warehouse = %(warehouse)s
+			WHERE EXISTS (
+				SELECT 1
 				FROM `tabSales Order Item` soi
 				INNER JOIN `tabSales Order` so ON so.name = soi.parent
 				INNER JOIN `tabItem` item ON item.name = soi.item_code
@@ -203,47 +237,71 @@ def get_subtotal_data(filters, conditions):
 					ON variant_brand.parent = item.name
 					AND variant_brand.attribute = %(brand_variant_attribute)s
 				WHERE so.docstatus = 1 {conditions}
-				GROUP BY
-					COALESCE(NULLIF(item.variant_of, ''), soi.item_code),
-					{RESOLVED_BRAND_SQL}, soi.stock_uom
-			) ordered
-			LEFT JOIN (
-				SELECT
-					COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name) AS item_code,
-					COALESCE(
+					AND COALESCE(NULLIF(item.variant_of, ''), item.name)
+						= COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name)
+					AND ({RESOLVED_BRAND_SQL}) <=> COALESCE(
 						NULLIF(stock_variant_brand.attribute_value, ''),
 						NULLIF(stock_item.brand, ''),
 						stock_template.brand
-					) AS brand,
-					stock_item.stock_uom,
-					SUM(COALESCE(stock_bin.actual_qty, 0)) AS stock_available_qty
-				FROM `tabItem` stock_item
-				LEFT JOIN `tabItem` stock_template ON stock_template.name = stock_item.variant_of
-				LEFT JOIN `tabItem Variant Attribute` stock_variant_brand
-					ON stock_variant_brand.parent = stock_item.name
-					AND stock_variant_brand.attribute = %(brand_variant_attribute)s
-				LEFT JOIN `tabBin` stock_bin
-					ON stock_bin.item_code = stock_item.name
-					AND stock_bin.warehouse = %(warehouse)s
-				GROUP BY
-					COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name),
-					COALESCE(
-						NULLIF(stock_variant_brand.attribute_value, ''),
-						NULLIF(stock_item.brand, ''),
-						stock_template.brand
-					),
-					stock_item.stock_uom
-			) stock
-				ON stock.item_code = ordered.item_code
-				AND stock.brand <=> ordered.brand
-				AND stock.stock_uom = ordered.stock_uom
-			ORDER BY ordered.item_code, ordered.brand
+					)
+			)
+			GROUP BY
+				stock_item.name, COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name),
+				COALESCE(
+					NULLIF(stock_variant_brand.attribute_value, ''),
+					NULLIF(stock_item.brand, ''),
+					stock_template.brand
+				), stock_item.stock_uom
 		""",
 		filters,
 		as_dict=True,
 	)
 
+	rows = convert_and_group_subtotal_rows(ordered_rows + stock_rows, filters.get("include_uom"))
 	return append_item_code_subtotals(rows)
+
+
+def convert_and_group_subtotal_rows(rows, selected_uom=None, conversion_factors=None):
+	rows = [frappe._dict(row) for row in rows]
+	if conversion_factors is None:
+		conversion_factors = get_uom_conversion_factors(
+			[row.actual_item_code for row in rows], selected_uom
+		)
+
+	quantity_fields = ("qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty")
+	grouped = {}
+	for row in rows:
+		factor = 1 if selected_uom and row.stock_uom == selected_uom else conversion_factors.get(row.actual_item_code)
+		display_uom = selected_uom if factor else row.stock_uom
+		factor = flt(factor) if factor else 1
+		key = (row.item_code, row.brand, display_uom)
+		group = grouped.setdefault(
+			key,
+			frappe._dict(item_code=row.item_code, brand=row.brand, stock_uom=display_uom),
+		)
+		for fieldname in quantity_fields:
+			group[fieldname] = group.get(fieldname, 0) + flt(row.get(fieldname)) / factor
+
+	return [grouped[key] for key in sorted(grouped, key=lambda key: tuple(value or "" for value in key))]
+
+
+def get_uom_conversion_factors(item_codes, selected_uom):
+	if not selected_uom or not item_codes:
+		return {}
+
+	return {
+		row.parent: flt(row.conversion_factor)
+		for row in frappe.get_all(
+			"UOM Conversion Detail",
+			filters={
+				"parenttype": "Item",
+				"parent": ("in", list(set(item_codes))),
+				"uom": selected_uom,
+				"conversion_factor": (">", 0),
+			},
+			fields=["parent", "conversion_factor"],
+		)
+	}
 
 
 def append_item_code_subtotals(rows):

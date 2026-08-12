@@ -17,7 +17,7 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			label: __("Sub-total View"),
 			fieldtype: "Check",
 			default: 0,
-			description: __("Planning quantities are shown in each item's Stock UOM."),
+			description: __("Planning quantities show their actual UOM beside every value."),
 		},
 		{
 			fieldname: "from_date",
@@ -59,11 +59,12 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		{ fieldname: "brand", label: __("Brand"), fieldtype: "Link", options: "Brand" },
 		{
 			fieldname: "include_uom",
-			label: __("Include Alternate UOM"),
+			label: __("Preferred UOM"),
 			fieldtype: "Link",
 			options: "UOM",
-			depends_on: "eval:!doc.subtotal_view",
-			description: __("Adds converted quantity columns to the standard report views."),
+			description: __(
+				"Sub-total View converts items with a valid factor and safely keeps other items in Stock UOM."
+			),
 		},
 		{ fieldname: "project", label: __("Project"), fieldtype: "Link", options: "Project" },
 		{

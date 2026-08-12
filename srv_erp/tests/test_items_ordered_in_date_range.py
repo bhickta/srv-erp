@@ -6,6 +6,7 @@ from frappe.tests import IntegrationTestCase
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
 	add_report_uom_columns,
 	append_item_code_subtotals,
+	convert_and_group_subtotal_rows,
 	get_columns,
 )
 
@@ -39,12 +40,82 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		self.assertEqual(
 			[column["label"] for column in get_columns(subtotal_view=True)[2:]],
 			[
-				"Ordered (Stock UOM)",
-				"Stock (Stock UOM)",
-				"Delivered (Stock UOM)",
-				"Remaining (Stock UOM)",
+				"Ordered (Qty + UOM)",
+				"Stock (Qty + UOM)",
+				"Delivered (Qty + UOM)",
+				"Remaining (Qty + UOM)",
 			],
 		)
+
+	def test_preferred_uom_converts_per_item_and_falls_back_safely(self):
+		rows = [
+			{
+				"actual_item_code": "DB-473-AMBER",
+				"item_code": "DB 473",
+				"brand": "Amber",
+				"qty": 20,
+				"stock_available_qty": 10,
+				"stock_delivered_qty": 4,
+				"stock_pending_qty": 16,
+				"stock_uom": "Nos",
+			},
+			{
+				"actual_item_code": "DB-473-SRV",
+				"item_code": "DB 473",
+				"brand": "SRV",
+				"qty": 6,
+				"stock_available_qty": 8,
+				"stock_delivered_qty": 2,
+				"stock_pending_qty": 4,
+				"stock_uom": "Bag",
+			},
+		]
+
+		result = convert_and_group_subtotal_rows(
+			rows, selected_uom="Box", conversion_factors={"DB-473-AMBER": 10}
+		)
+
+		self.assertEqual(
+			[(row.brand, row.stock_uom, row.qty) for row in result],
+			[("Amber", "Box", 2), ("SRV", "Bag", 6)],
+		)
+		amber = result[0]
+		self.assertEqual(
+			(amber.stock_available_qty, amber.stock_delivered_qty, amber.stock_pending_qty),
+			(1, 0.4, 1.6),
+		)
+
+	def test_conversion_occurs_before_brand_aggregation(self):
+		rows = [
+			{
+				"actual_item_code": "ITEM-A",
+				"item_code": "DB 473",
+				"brand": "Amber",
+				"qty": 10,
+				"stock_available_qty": 0,
+				"stock_delivered_qty": 0,
+				"stock_pending_qty": 10,
+				"stock_uom": "Nos",
+			},
+			{
+				"actual_item_code": "ITEM-B",
+				"item_code": "DB 473",
+				"brand": "Amber",
+				"qty": 20,
+				"stock_available_qty": 0,
+				"stock_delivered_qty": 0,
+				"stock_pending_qty": 20,
+				"stock_uom": "Nos",
+			},
+		]
+
+		result = convert_and_group_subtotal_rows(
+			rows, selected_uom="Box", conversion_factors={"ITEM-A": 5, "ITEM-B": 10}
+		)
+
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0].qty, 4)
+		self.assertEqual(result[0].stock_uom, "Box")
 
 	def test_appends_subtotal_after_each_item_code(self):
 		rows = [
