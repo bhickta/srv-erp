@@ -21,8 +21,15 @@ def execute(filters=None):
 	subtotal_view = cint(filters.get("subtotal_view"))
 	columns = get_columns(group_by_item, subtotal_view)
 	data = get_data(filters, group_by_item, subtotal_view)
-	add_selected_uom_columns(columns, data, filters.get("include_uom"))
+	add_report_uom_columns(columns, data, filters)
 	return columns, data
+
+
+def add_report_uom_columns(columns, data, filters):
+	if cint(filters.get("subtotal_view")):
+		return
+
+	add_selected_uom_columns(columns, data, filters.get("include_uom"))
 
 
 def get_columns(group_by_item=False, subtotal_view=False):

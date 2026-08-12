@@ -1,13 +1,34 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
+	add_report_uom_columns,
 	append_item_code_subtotals,
 	get_columns,
 )
 
 
 class TestItemsOrderedInDateRange(IntegrationTestCase):
+	@patch(
+		"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range.add_selected_uom_columns"
+	)
+	def test_subtotal_view_skips_additional_uom_columns(self, add_selected_uom_columns):
+		add_report_uom_columns([], [{}], frappe._dict(subtotal_view=1, include_uom="Box"))
+
+		add_selected_uom_columns.assert_not_called()
+
+	@patch(
+		"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range.add_selected_uom_columns"
+	)
+	def test_existing_views_keep_additional_uom_columns(self, add_selected_uom_columns):
+		columns = []
+		data = []
+		add_report_uom_columns(columns, data, frappe._dict(subtotal_view=0, include_uom="Box"))
+
+		add_selected_uom_columns.assert_called_once_with(columns, data, "Box")
+
 	def test_existing_detailed_and_item_summary_columns_remain_available(self):
 		self.assertEqual(get_columns(False)[0]["fieldname"], "item_code")
 		self.assertEqual(get_columns(True)[0]["fieldname"], "brand")
