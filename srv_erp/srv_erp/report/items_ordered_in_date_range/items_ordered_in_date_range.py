@@ -17,16 +17,18 @@ def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	set_default_warehouse(filters)
 	validate_warehouse(filters)
-	group_by_item = cint(filters.get("group_by_item", 1))
-	columns = get_columns(group_by_item)
-	data = get_data(filters, group_by_item)
+	view = filters.get("view") or ("Item Summary" if cint(filters.get("group_by_item", 1)) else "Detailed")
+	columns = get_columns(view)
+	data = get_data(filters, view)
 	add_selected_uom_columns(columns, data, filters.get("include_uom"))
 	return columns, data
 
 
-def get_columns(group_by_item=False):
-	if group_by_item:
+def get_columns(view="Detailed"):
+	if view == "Item Summary":
 		return get_grouped_columns()
+	if view == "Sub-total":
+		return get_subtotal_columns()
 
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 120},
@@ -57,6 +59,20 @@ def get_columns(group_by_item=False):
 	]
 
 
+def get_subtotal_columns():
+	return [
+		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 140},
+		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 130},
+		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 200},
+		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 120},
+		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 115},
+		{"label": _("UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 90},
+		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 150},
+		{"label": _("Order Date"), "fieldname": "transaction_date", "fieldtype": "Date", "width": 105},
+		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
+	]
+
+
 def get_grouped_columns():
 	return [
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 120},
@@ -78,14 +94,16 @@ def get_grouped_columns():
 	]
 
 
-def get_data(filters, group_by_item=False):
+def get_data(filters, view="Detailed"):
 	filters["brand_variant_attribute"] = (
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")
 		or DEFAULT_BRAND_VARIANT_ATTRIBUTE
 	)
 	conditions = get_conditions(filters)
-	if group_by_item:
+	if view == "Item Summary":
 		return get_grouped_data(filters, conditions)
+	if view == "Sub-total":
+		return get_subtotal_data(filters, conditions)
 
 	return frappe.db.sql(
 		f"""
@@ -136,6 +154,73 @@ def get_data(filters, group_by_item=False):
 		filters,
 		as_dict=True,
 	)
+
+
+def get_subtotal_data(filters, conditions):
+	rows = frappe.db.sql(
+		f"""
+			SELECT
+				so.name AS sales_order,
+				soi.item_code,
+				soi.item_name,
+				{RESOLVED_BRAND_SQL} AS brand,
+				SUM(soi.qty) AS qty,
+				soi.uom AS uom_qty,
+				so.customer,
+				so.transaction_date,
+				so.company
+			FROM `tabSales Order Item` soi
+			INNER JOIN `tabSales Order` so ON so.name = soi.parent
+			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabItem` template ON template.name = item.variant_of
+			LEFT JOIN `tabItem Variant Attribute` variant_brand
+				ON variant_brand.parent = item.name
+				AND variant_brand.attribute = %(brand_variant_attribute)s
+			WHERE so.docstatus = 1 {conditions}
+			GROUP BY
+				so.name, soi.item_code, soi.item_name, {RESOLVED_BRAND_SQL},
+				soi.uom, so.customer, so.transaction_date, so.company
+			ORDER BY so.transaction_date DESC, so.name, MIN(soi.idx)
+		""",
+		filters,
+		as_dict=True,
+	)
+
+	return append_sales_order_subtotals(rows)
+
+
+def append_sales_order_subtotals(rows):
+	data = []
+	current_order = None
+	uom_totals = {}
+
+	for row in rows:
+		if current_order and row.sales_order != current_order:
+			data.extend(make_subtotal_rows(current_order, uom_totals))
+			uom_totals = {}
+		current_order = row.sales_order
+		uom_totals[row.uom_qty] = uom_totals.get(row.uom_qty, 0) + (row.qty or 0)
+		data.append(row)
+
+	if current_order:
+		data.extend(make_subtotal_rows(current_order, uom_totals))
+
+	return data
+
+
+def make_subtotal_rows(sales_order, uom_totals):
+	return [
+		frappe._dict(
+			{
+				"sales_order": sales_order,
+				"item_name": _("Sub-total"),
+				"qty": qty,
+				"uom_qty": uom,
+				"bold": 1,
+			}
+		)
+		for uom, qty in uom_totals.items()
+	]
 
 
 def get_grouped_data(filters, conditions):

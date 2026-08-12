@@ -7,10 +7,11 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 	},
 	filters: [
 		{
-			fieldname: "group_by_item",
-			label: __("Group by Item"),
-			fieldtype: "Check",
-			default: 1,
+			fieldname: "view",
+			label: __("View"),
+			fieldtype: "Select",
+			options: ["Sub-total", "Item Summary", "Detailed"],
+			default: "Sub-total",
 		},
 		{
 			fieldname: "from_date",
