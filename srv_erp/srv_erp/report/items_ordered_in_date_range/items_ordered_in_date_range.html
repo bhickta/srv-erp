@@ -28,7 +28,9 @@
 </style>
 
 <div class="report-title">{%= __(report.report_name) %}</div>
-<div class="report-view">{%= __("Item and Brand Sub-total View") %}</div>
+<div class="report-view">
+	{%= __("Item and Brand Sub-total View — all quantities are in each item's Stock UOM") %}
+</div>
 
 {% if (subtitle && subtitle.trim()) { %}
 	<div style="margin: 10px 0;">{{ subtitle }}</div>
@@ -54,10 +56,10 @@
 		<tr>
 			<th style="text-align: left;">{%= __("Item Code") %}</th>
 			<th style="text-align: left;">{%= __("Brand") %}</th>
-			<th class="number">{%= __("Ordered") %}</th>
-			<th class="number">{%= __("Stock") %}</th>
-			<th class="number">{%= __("Delivered") %}</th>
-			<th class="number">{%= __("Remaining") %}</th>
+			<th class="number">{%= __("Ordered (Stock UOM)") %}</th>
+			<th class="number">{%= __("Stock (Stock UOM)") %}</th>
+			<th class="number">{%= __("Delivered (Stock UOM)") %}</th>
+			<th class="number">{%= __("Remaining (Stock UOM)") %}</th>
 		</tr>
 	</thead>
 	<tbody>

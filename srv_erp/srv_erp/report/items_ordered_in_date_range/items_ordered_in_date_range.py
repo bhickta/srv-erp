@@ -71,10 +71,25 @@ def get_subtotal_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 180},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 180},
-		{"label": _("Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 120},
-		{"label": _("Stock"), "fieldname": "stock_available_qty", "fieldtype": "Float", "width": 120},
-		{"label": _("Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 120},
-		{"label": _("Remaining"), "fieldname": "stock_pending_qty", "fieldtype": "Float", "width": 120},
+		{"label": _("Ordered (Stock UOM)"), "fieldname": "qty", "fieldtype": "Float", "width": 150},
+		{
+			"label": _("Stock (Stock UOM)"),
+			"fieldname": "stock_available_qty",
+			"fieldtype": "Float",
+			"width": 150,
+		},
+		{
+			"label": _("Delivered (Stock UOM)"),
+			"fieldname": "stock_delivered_qty",
+			"fieldtype": "Float",
+			"width": 160,
+		},
+		{
+			"label": _("Remaining (Stock UOM)"),
+			"fieldname": "stock_pending_qty",
+			"fieldtype": "Float",
+			"width": 160,
+		},
 	]
 
 

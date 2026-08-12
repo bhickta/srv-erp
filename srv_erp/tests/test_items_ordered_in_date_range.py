@@ -36,6 +36,15 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			[column["fieldname"] for column in get_columns(subtotal_view=True)],
 			["item_code", "brand", "qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty"],
 		)
+		self.assertEqual(
+			[column["label"] for column in get_columns(subtotal_view=True)[2:]],
+			[
+				"Ordered (Stock UOM)",
+				"Stock (Stock UOM)",
+				"Delivered (Stock UOM)",
+				"Remaining (Stock UOM)",
+			],
+		)
 
 	def test_appends_subtotal_after_each_item_code(self):
 		rows = [
