@@ -82,3 +82,22 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		subtotals = [row for row in append_item_code_subtotals(rows) if row.get("is_total")]
 
 		self.assertEqual([(row.stock_uom, row.qty) for row in subtotals], [("Bag", 6), ("Kg", 2)])
+
+	def test_accepts_plain_dict_rows_returned_by_database(self):
+		rows = [
+			{
+				"item_code": "DB 473",
+				"brand": "SRV",
+				"qty": 6,
+				"stock_available_qty": 8,
+				"stock_delivered_qty": 2,
+				"stock_pending_qty": 4,
+				"stock_uom": "Bag",
+			}
+		]
+
+		result = append_item_code_subtotals(rows)
+
+		self.assertEqual(result[0].item_code, "DB 473")
+		self.assertEqual(result[1].brand, "SRV")
+		self.assertEqual(result[2].qty, 6)

@@ -231,14 +231,18 @@ def append_item_code_subtotals(rows):
 	quantity_fields = ("qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty")
 
 	for row in rows:
-		if current_item_code and row.item_code != current_item_code:
+		row = frappe._dict(row)
+		item_code = row.get("item_code")
+		stock_uom = row.get("stock_uom")
+
+		if current_item_code and item_code != current_item_code:
 			data.extend(make_subtotal_rows(uom_totals))
 			data.append({})
 			uom_totals = {}
-		if row.item_code != current_item_code:
+		if item_code != current_item_code:
 			data.append(make_group_row(row))
-		current_item_code = row.item_code
-		uom_total = uom_totals.setdefault(row.stock_uom, {fieldname: 0 for fieldname in quantity_fields})
+		current_item_code = item_code
+		uom_total = uom_totals.setdefault(stock_uom, {fieldname: 0 for fieldname in quantity_fields})
 		for fieldname in quantity_fields:
 			uom_total[fieldname] += row.get(fieldname) or 0
 		row["item_code"] = None
