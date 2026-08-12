@@ -1,0 +1,86 @@
+{%
+	const quantity = (value, uom) => {
+		if (is_null(value)) return "";
+		const formatted = frappe.format(value, { fieldtype: "Float" });
+		return `${formatted}${uom ? ` <span class="qty-uom">${frappe.utils.escape_html(uom)}</span>` : ""}`;
+	};
+%}
+
+<style>
+	@page { size: A4 portrait; margin: 12mm; }
+	body, html { margin: 0; color: #171717; font-family: Inter, sans-serif; font-size: 10.5pt; }
+	.report-title { margin-bottom: 3px; text-align: center; font-size: 16pt; font-weight: 650; }
+	.report-view { text-align: center; color: #6b7280; font-size: 9pt; }
+	.report-meta { display: flex; justify-content: space-between; margin: 14px 0 12px; padding: 8px 10px; background: #f8f8f8; border-radius: 4px; }
+	.report-meta strong { color: #6b7280; font-weight: 500; }
+	.report-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+	.report-table thead { display: table-header-group; }
+	.report-table th { padding: 7px 8px; color: #6b7280; background: #f3f4f6; border: 1px solid #dedede; font-size: 9.5pt; font-weight: 600; }
+	.report-table td { padding: 6px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
+	.report-table tr { page-break-inside: avoid; }
+	.item-group td { padding-top: 10px; background: #fafafa; border-top: 1px solid #cfcfcf; font-weight: 700; }
+	.item-brand { padding-left: 20px !important; }
+	.total-row td { border-top: 1px solid #9ca3af; border-bottom: 2px solid #6b7280; font-weight: 700; }
+	.spacer-row td { height: 8px; padding: 0; border: 0; }
+	.number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.qty-uom { color: #6b7280; font-size: 8.5pt; font-weight: 500; }
+	.printed-on { margin-top: 10px; text-align: right; color: #6b7280; font-size: 8.5pt; }
+</style>
+
+<div class="report-title">{%= __(report.report_name) %}</div>
+<div class="report-view">{%= __("Item and Brand Sub-total View") %}</div>
+
+{% if (subtitle && subtitle.trim()) { %}
+	<div style="margin: 10px 0;">{{ subtitle }}</div>
+{% } else { %}
+	<div class="report-meta">
+		<div>
+			<div><strong>{%= __("Company") %}:</strong> {%= filters.company || "" %}</div>
+			<div><strong>{%= __("Warehouse") %}:</strong> {%= filters.warehouse || "" %}</div>
+		</div>
+		<div style="text-align: right;">
+			<div><strong>{%= __("From") %}:</strong> {%= frappe.datetime.str_to_user(filters.from_date) %}</div>
+			<div><strong>{%= __("To") %}:</strong> {%= frappe.datetime.str_to_user(filters.to_date) %}</div>
+		</div>
+	</div>
+{% } %}
+
+<table class="report-table">
+	<colgroup>
+		<col style="width: 20%;"><col style="width: 24%;">
+		<col style="width: 14%;"><col style="width: 14%;"><col style="width: 14%;"><col style="width: 14%;">
+	</colgroup>
+	<thead>
+		<tr>
+			<th style="text-align: left;">{%= __("Item Code") %}</th>
+			<th style="text-align: left;">{%= __("Brand") %}</th>
+			<th class="number">{%= __("Ordered") %}</th>
+			<th class="number">{%= __("Stock") %}</th>
+			<th class="number">{%= __("Delivered") %}</th>
+			<th class="number">{%= __("Remaining") %}</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for (let i = 0; i < data.length; i++) { %}
+			{% const row = data[i]; %}
+			{% if (!Object.keys(row).length) { %}
+				<tr class="spacer-row"><td colspan="6"></td></tr>
+			{% } else if (row.is_group) { %}
+				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="5"></td></tr>
+			{% } else { %}
+				<tr class="{% if (row.is_total) { %}total-row{% } %}">
+					<td></td>
+					<td class="item-brand">{%= row.brand || "" %}</td>
+					<td class="number">{{ quantity(row.qty, row.stock_uom) }}</td>
+					<td class="number">{{ quantity(row.stock_available_qty, row.stock_uom) }}</td>
+					<td class="number">{{ quantity(row.stock_delivered_qty, row.stock_uom) }}</td>
+					<td class="number">{{ quantity(row.stock_pending_qty, row.stock_uom) }}</td>
+				</tr>
+			{% } %}
+		{% } %}
+	</tbody>
+</table>
+
+<div class="printed-on">
+	{%= __("Printed on {0}", [frappe.datetime.str_to_user(frappe.datetime.get_datetime_as_string())]) %}
+</div>

@@ -91,6 +91,15 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		if (!data) {
 			return value;
 		}
+		const quantity_fields = ["qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty"];
+		if (
+			frappe.query_report.get_filter_value("subtotal_view") &&
+			quantity_fields.includes(column.fieldname) &&
+			data[column.fieldname] != null &&
+			data.stock_uom
+		) {
+			value = `${value} <span class="text-muted">${frappe.utils.escape_html(data.stock_uom)}</span>`;
+		}
 
 		if (data.indent && column.fieldname === "brand") {
 			value = `${"&nbsp;".repeat(data.indent * 4)}${value}`;
@@ -100,6 +109,9 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		}
 
 		return value;
+	},
+	get_pdf_format(report, custom_format) {
+		return report.get_filter_value("subtotal_view") ? custom_format : null;
 	},
 };
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frappe Report Builder"
+  short_description: "Build polished Frappe and ERPNext reports"
+  default_prompt: "Use $frappe-report-builder to create a polished, tested Frappe query report with an A4 print layout."
