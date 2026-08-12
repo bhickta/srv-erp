@@ -35,7 +35,15 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		self.assertEqual(get_columns(True)[0]["fieldname"], "brand")
 		self.assertEqual(
 			[column["fieldname"] for column in get_columns(subtotal_view=True)],
-			["item_code", "brand", "qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty"],
+			[
+				"item_code",
+				"brand",
+				"qty",
+				"stock_available_qty",
+				"stock_delivered_qty",
+				"stock_pending_qty",
+				"stock_shortfall_qty",
+			],
 		)
 		self.assertEqual(
 			[column["label"] for column in get_columns(subtotal_view=True)[2:]],
@@ -43,9 +51,16 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 				"Ordered (Qty + UOM)",
 				"Stock (Qty + UOM)",
 				"Delivered (Qty + UOM)",
-				"Remaining (Qty + UOM)",
+				"Remaining to Deliver (Qty + UOM)",
+				"Shortfall After Available Stock (Qty + UOM)",
 			],
 		)
+		for grouped in (False, True):
+			columns = {column["fieldname"]: column for column in get_columns(grouped)}
+			self.assertEqual(columns["stock_pending_qty"]["label"], "Qty Remaining to Deliver")
+			self.assertEqual(
+				columns["stock_shortfall_qty"]["label"], "Shortfall After Available Stock"
+			)
 
 	def test_preferred_uom_converts_per_item_and_falls_back_safely(self):
 		rows = [
@@ -84,6 +99,8 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			(amber.stock_available_qty, amber.stock_delivered_qty, amber.stock_pending_qty),
 			(1, 0.4, 1.6),
 		)
+		self.assertAlmostEqual(amber.stock_shortfall_qty, 0.6)
+		self.assertEqual(result[1].stock_shortfall_qty, 0)
 
 	def test_conversion_occurs_before_brand_aggregation(self):
 		rows = [
@@ -115,6 +132,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 
 		self.assertEqual(len(result), 1)
 		self.assertEqual(result[0].qty, 4)
+		self.assertEqual(result[0].stock_shortfall_qty, 4)
 		self.assertEqual(result[0].stock_uom, "Box")
 
 	def test_appends_subtotal_after_each_item_code(self):

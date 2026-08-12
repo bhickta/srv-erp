@@ -100,7 +100,13 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		if (!data) {
 			return value;
 		}
-		const quantity_fields = ["qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty"];
+		const quantity_fields = [
+			"qty",
+			"stock_available_qty",
+			"stock_delivered_qty",
+			"stock_pending_qty",
+			"stock_shortfall_qty",
+		];
 		if (
 			frappe.query_report.get_filter_value("subtotal_view") &&
 			quantity_fields.includes(column.fieldname) &&

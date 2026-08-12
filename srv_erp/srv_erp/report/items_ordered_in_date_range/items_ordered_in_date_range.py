@@ -58,8 +58,28 @@ def get_columns(group_by_item=False, subtotal_view=False):
 		{"label": _("Difference Stock UOM"), "fieldname": "uom_difference_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
 		{"label": _("Stock Qty Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
 		{"label": _("Stock Qty Delivered UOM"), "fieldname": "uom_stock_delivered_qty", "fieldtype": "Link", "options": "UOM", "width": 130},
-		{"label": _("Stock Qty Pending"), "fieldname": "stock_pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
+		{
+			"label": _("Qty Remaining to Deliver"),
+			"fieldname": "stock_pending_qty",
+			"fieldtype": "Float",
+			"width": 150,
+			"convertible": "qty",
+		},
 		{"label": _("Stock Qty Pending UOM"), "fieldname": "uom_stock_pending_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
+		{
+			"label": _("Shortfall After Available Stock"),
+			"fieldname": "stock_shortfall_qty",
+			"fieldtype": "Float",
+			"width": 180,
+			"convertible": "qty",
+		},
+		{
+			"label": _("Shortfall UOM"),
+			"fieldname": "uom_stock_shortfall_qty",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 110,
+		},
 		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 130},
 		{"label": _("Status"), "fieldname": "status", "fieldtype": "Data", "width": 110},
 		{"label": _("Project"), "fieldname": "project", "fieldtype": "Link", "options": "Project", "width": 120},
@@ -85,10 +105,16 @@ def get_subtotal_columns():
 			"width": 160,
 		},
 		{
-			"label": _("Remaining (Qty + UOM)"),
+			"label": _("Remaining to Deliver (Qty + UOM)"),
 			"fieldname": "stock_pending_qty",
 			"fieldtype": "Float",
-			"width": 160,
+			"width": 190,
+		},
+		{
+			"label": _("Shortfall After Available Stock (Qty + UOM)"),
+			"fieldname": "stock_shortfall_qty",
+			"fieldtype": "Float",
+			"width": 230,
 		},
 	]
 
@@ -107,8 +133,28 @@ def get_grouped_columns():
 		{"label": _("Difference Stock UOM"), "fieldname": "uom_difference_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
 		{"label": _("Stock Qty Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 130, "convertible": "qty"},
 		{"label": _("Stock Qty Delivered UOM"), "fieldname": "uom_stock_delivered_qty", "fieldtype": "Link", "options": "UOM", "width": 130},
-		{"label": _("Stock Qty Pending"), "fieldname": "stock_pending_qty", "fieldtype": "Float", "width": 120, "convertible": "qty"},
+		{
+			"label": _("Qty Remaining to Deliver"),
+			"fieldname": "stock_pending_qty",
+			"fieldtype": "Float",
+			"width": 150,
+			"convertible": "qty",
+		},
 		{"label": _("Stock Qty Pending UOM"), "fieldname": "uom_stock_pending_qty", "fieldtype": "Link", "options": "UOM", "width": 125},
+		{
+			"label": _("Shortfall After Available Stock"),
+			"fieldname": "stock_shortfall_qty",
+			"fieldtype": "Float",
+			"width": 180,
+			"convertible": "qty",
+		},
+		{
+			"label": _("Shortfall UOM"),
+			"fieldname": "uom_stock_shortfall_qty",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 110,
+		},
 		{"label": _("Order Count"), "fieldname": "order_count", "fieldtype": "Int", "width": 95},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
 	]
@@ -153,6 +199,11 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 				soi.stock_uom AS uom_stock_delivered_qty,
 				GREATEST(soi.stock_qty - soi.delivered_qty, 0) AS stock_pending_qty,
 				soi.stock_uom AS uom_stock_pending_qty,
+				GREATEST(
+					GREATEST(soi.stock_qty - soi.delivered_qty, 0) - COALESCE(bin.actual_qty, 0),
+					0
+				) AS stock_shortfall_qty,
+				soi.stock_uom AS uom_stock_shortfall_qty,
 				so.name AS sales_order,
 				so.status,
 				so.project,
@@ -268,9 +319,26 @@ def convert_and_group_subtotal_rows(rows, selected_uom=None, conversion_factors=
 			[row.actual_item_code for row in rows], selected_uom
 		)
 
-	quantity_fields = ("qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty")
-	grouped = {}
+	base_quantity_fields = ("qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty")
+	per_item = {}
 	for row in rows:
+		key = (row.actual_item_code, row.item_code, row.brand, row.stock_uom)
+		item = per_item.setdefault(
+			key,
+			frappe._dict(
+				actual_item_code=row.actual_item_code,
+				item_code=row.item_code,
+				brand=row.brand,
+				stock_uom=row.stock_uom,
+			),
+		)
+		for fieldname in base_quantity_fields:
+			item[fieldname] = item.get(fieldname, 0) + flt(row.get(fieldname))
+
+	quantity_fields = (*base_quantity_fields, "stock_shortfall_qty")
+	grouped = {}
+	for row in per_item.values():
+		row.stock_shortfall_qty = max(row.stock_pending_qty - row.stock_available_qty, 0)
 		factor = 1 if selected_uom and row.stock_uom == selected_uom else conversion_factors.get(row.actual_item_code)
 		display_uom = selected_uom if factor else row.stock_uom
 		factor = flt(factor) if factor else 1
@@ -308,7 +376,13 @@ def append_item_code_subtotals(rows):
 	data = []
 	current_item_code = None
 	uom_totals = {}
-	quantity_fields = ("qty", "stock_available_qty", "stock_delivered_qty", "stock_pending_qty")
+	quantity_fields = (
+		"qty",
+		"stock_available_qty",
+		"stock_delivered_qty",
+		"stock_pending_qty",
+		"stock_shortfall_qty",
+	)
 
 	for row in rows:
 		row = frappe._dict(row)
@@ -377,6 +451,12 @@ def get_grouped_data(filters, conditions):
 				soi.stock_uom AS uom_stock_delivered_qty,
 				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
 				soi.stock_uom AS uom_stock_pending_qty,
+				GREATEST(
+					SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0))
+						- MAX(COALESCE(bin.actual_qty, 0)),
+					0
+				) AS stock_shortfall_qty,
+				soi.stock_uom AS uom_stock_shortfall_qty,
 				COUNT(DISTINCT so.name) AS order_count,
 				so.company
 			FROM `tabSales Order Item` soi
