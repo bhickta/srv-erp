@@ -32,6 +32,7 @@ from srv_erp.masters.dynamic_item.configuration import (
 	is_grid_enabled,
 	require_approver,
 	require_requester,
+	user_has_approver_role,
 )
 
 MAX_ATTRIBUTES = 20
@@ -381,12 +382,6 @@ def insert_request(values: dict):
 
 def resolve_or_request(payload) -> dict:
 	require_requester()
-	if not get_approver_users(exclude_user=frappe.session.user):
-		frappe.throw(
-			_("No other enabled System User has the configured approver role {0}.").format(
-				frappe.bold(get_settings().approver_role)
-			)
-		)
 	payload = parse_payload(payload)
 	source = validate_source(payload.get("source"))
 	attributes = canonicalize_known_masters(normalize_attributes(payload.get("attributes")))
@@ -410,6 +405,7 @@ def resolve_or_request(payload) -> dict:
 
 
 def create_packaging_request(item, template, attributes, uoms, source) -> dict:
+	require_available_approver()
 	signature = make_packaging_signature(item.name, uoms)
 	active_signature = f"packaging:{signature}"
 	existing = get_pending_request(active_signature)
@@ -478,6 +474,7 @@ def validate_no_overlapping_packaging_request(item_code: str, uoms: list[dict]):
 
 
 def create_variant_request(template, profile, attributes, uoms, source, identity_signature) -> dict:
+	require_available_approver()
 	request, created = insert_request(
 		{
 			"request_type": CREATE_VARIANT,
@@ -510,6 +507,16 @@ def create_variant_request(template, profile, attributes, uoms, source, identity
 	request.add_comment("Info", _("Disabled Item {0} staged for approval.").format(request.staged_item_code))
 	assign_request_to_approvers(request)
 	return request_result(request, created=True)
+
+
+def require_available_approver():
+	if get_approver_users(exclude_user=frappe.session.user):
+		return
+	frappe.throw(
+		_("No other enabled System User has the configured approver role {0}.").format(
+			frappe.bold(get_settings().approver_role)
+		)
+	)
 
 
 def assign_request_to_approvers(request):
@@ -1007,17 +1014,16 @@ def terminal_result(request) -> dict:
 def get_request_status(name: str) -> dict:
 	request = frappe.get_doc("Dynamic Item Request", name)
 	if request.requested_by != frappe.session.user and not (
-		"System Manager" in frappe.get_roles() or get_settings().approver_role in frappe.get_roles()
+		"System Manager" in frappe.get_roles() or user_has_approver_role()
 	):
 		frappe.throw(_("Not permitted to view this request."), frappe.PermissionError)
+	can_review = request.status == PENDING and user_has_approver_role()
 	return {
 		"name": request.name,
 		"request_type": request.request_type,
 		"status": request.status,
 		"item_code": request.resolved_item or request.staged_item_code,
-		"can_approve": request.status == PENDING
-		and request.requested_by != frappe.session.user
-		and get_settings().approver_role in frappe.get_roles(),
-		"can_reject": request.status == PENDING and get_settings().approver_role in frappe.get_roles(),
+		"can_approve": can_review and request.requested_by != frappe.session.user,
+		"can_reject": can_review,
 		"can_cancel": request.status == PENDING and request.requested_by == frappe.session.user,
 	}
