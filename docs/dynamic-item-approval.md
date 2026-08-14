@@ -1,87 +1,15 @@
 # Approval-gated dynamic Item variants
 
-The Masters module resolves an existing ERPNext Item variant or stages exactly one disabled variant from requested parameters. New variants become usable only after another user with the configured approver role approves the request.
+Dynamic Item Approval resolves existing Item variants and creates missing variants only when users need them. Missing variants remain disabled until another authorized user approves them, preventing uncontrolled Item-master proliferation.
 
-## Safe rollout
+The complete final-user documentation is organized by task:
 
-The migration intentionally applies these defaults:
+- [Dynamic Item Approval user guide](dynamic-item/README.md)
+- [Getting started](dynamic-item/getting-started.md)
+- [Requester guide](dynamic-item/requester-guide.md)
+- [Approver guide](dynamic-item/approver-guide.md)
+- [Masters administrator guide](dynamic-item/administrator-guide.md)
+- [Statuses and business rules](dynamic-item/statuses-and-rules.md)
+- [Troubleshooting](dynamic-item/troubleshooting.md)
 
-- dynamic requests are disabled until roles and profiles are reviewed;
-- approval enforcement is enabled;
-- Cartesian-product and Brand-triggered bulk variant creation are disabled;
-- existing Items and variants are not changed.
-
-To activate requests, assign `Masters Item Requester` and `Masters Item Approver` to different System Users, review **Masters > Dynamic Variant Profiles**, then enable **Dynamic Item Requests** in **Masters Settings**. At least one enabled approver other than the requester is required whenever a new approval request is created.
-
-Every discovered editable child table whose `item_code` is a Link to Item is registered in Masters Settings. The configuration refresh action discovers grids added by future apps or customizations.
-
-## Architecture
-
-The dynamic Item domain is split by responsibility:
-
-- `request_flow.py` orchestrates resolve-or-request and request creation;
-- `approval_flow.py` owns request state transitions and maker-checker rules;
-- `item_approval.py` applies approved changes to Items;
-- `staging.py` creates request-owned schema and disabled Items;
-- `cleanup.py` and `artifact_usage.py` safely reverse unadopted staged schema;
-- `normalization.py`, `profile.py`, `lookups.py`, and `signatures.py` validate and canonicalize input;
-- `repository.py`, `packaging.py`, and `assignments.py` isolate persistence, UOM rules, and work assignment.
-
-`service.py` is an import-only compatibility facade for existing Python integrations. New code imports the focused module that owns the behavior. Architecture tests enforce that the facade contains no implementation, implementation modules never depend on it, and each module remains below the package size boundary.
-
-## API
-
-All methods use the authenticated Frappe session and enforce configured roles.
-
-Resolve an existing variant or stage a request:
-
-```text
-srv_erp.masters.dynamic_item.api.resolve_or_request_item_variant
-```
-
-Example `payload`:
-
-```json
-{
-  "template_item": "LED Lamp",
-  "attributes": {
-    "Brand": "Acme",
-    "Colour": "Warm White"
-  },
-  "uoms": [
-    {"uom": "Box", "conversion_factor": 12}
-  ],
-  "source": {
-    "doctype": "Sales Order",
-    "fieldname": "items",
-    "document": "SAL-ORD-2026-00001"
-  }
-}
-```
-
-Possible outcomes are `existing`, `pending_approval`, and `packaging_approval_required`. Pending results include the staged Item code and request name but must not be placed into a transaction row.
-
-Supporting methods:
-
-```text
-srv_erp.masters.dynamic_item.api.get_dynamic_variant_options
-srv_erp.masters.dynamic_item.api.preview_dynamic_item_variant
-srv_erp.masters.dynamic_item.api.get_dynamic_item_request_status
-srv_erp.masters.dynamic_item.api.approve_dynamic_item_request
-srv_erp.masters.dynamic_item.api.reject_dynamic_item_request
-srv_erp.masters.dynamic_item.api.cancel_dynamic_item_request
-```
-
-Approval and rejection are idempotent for their own terminal state. Rejection and cancellation retain the immutable request audit record, delete the disabled staged Item, and safely remove categorical schema that was created only for rejected requests.
-
-## Invariants
-
-- Variant identity is the canonical template plus sorted attribute/value pairs.
-- Packaging UOMs are Item data, never part of variant identity.
-- Numeric attributes must be configured on the template before use.
-- A pending Item is disabled and blocked by transaction validation.
-- Request attributes, packaging, source, state, and staged Item parameters are immutable.
-- A requester cannot approve their own request.
-- Duplicate active identities and exact packaging requests reuse the existing request.
-- Overlapping packaging requests and conflicting conversion factors are rejected.
-- Direct, quick-entry, report-driven, Brand-triggered, and bulk variant creation paths are blocked while approval enforcement is active.
+Start with [Getting started](dynamic-item/getting-started.md) for a complete first request and approval walkthrough.
