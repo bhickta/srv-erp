@@ -22,7 +22,7 @@ def handle_item_attribute_update(doc, method=None):
 
 
 def handle_brand_update(doc, method=None):
-	if frappe.flags.syncing_brand_master_values:
+	if frappe.flags.syncing_brand_master_values or getattr(frappe.flags, "dynamic_item_service", False):
 		return
 
 	if is_brand_disabled(doc.get("brand") or doc.name):
@@ -35,6 +35,8 @@ def handle_brand_update(doc, method=None):
 
 
 def handle_brand_delete(doc, method=None):
+	if getattr(frappe.flags, "dynamic_item_service", False):
+		return
 	remove_brand_attribute_value(doc.get("brand") or doc.name)
 
 
