@@ -224,6 +224,18 @@ class TestDynamicItemRequest(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			require_bulk_variant_creation()
 
+	def test_pending_item_and_request_parameters_are_immutable(self):
+		result = self._request("_Test Dynamic Immutable")
+		item = frappe.get_doc("Item", result["item_code"])
+		item.append("uoms", {"uom": "Box", "conversion_factor": 8})
+		with self.assertRaises(frappe.ValidationError):
+			item.save(ignore_permissions=True)
+
+		request = frappe.get_doc("Dynamic Item Request", result["request"])
+		request.source_name = "tampered-source"
+		with self.assertRaises(frappe.ValidationError):
+			request.save(ignore_permissions=True)
+
 	def test_invalid_and_overlapping_packaging_requests_are_blocked(self):
 		result = self._request("_Test Dynamic Copper")
 		frappe.set_user(self.APPROVER)

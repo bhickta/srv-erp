@@ -792,7 +792,9 @@ def approve_staged_variant(request) -> str:
 		frappe.throw(_("Staged Item approval metadata does not match this request."))
 	if not cint(item.disabled):
 		frappe.throw(_("Staged Item must remain disabled until approval."))
-	get_missing_packaging(item, [row.as_dict() for row in request.uoms])
+	missing_packaging = get_missing_packaging(item, [row.as_dict() for row in request.uoms])
+	if missing_packaging:
+		frappe.throw(_("Staged Item packaging no longer matches the approved request parameters."))
 	item.dynamic_item_approval_status = APPROVED
 	item.dynamic_item_approved_by = frappe.session.user
 	item.dynamic_item_approved_on = now_datetime()
