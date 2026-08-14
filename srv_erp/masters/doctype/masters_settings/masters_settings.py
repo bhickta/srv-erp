@@ -3,7 +3,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint
 
-from srv_erp.masters.dynamic_item.configuration import clear_settings_cache, get_approver_users
+from srv_erp.masters.dynamic_item.configuration import clear_settings_cache
 
 
 class MastersSettings(Document):
@@ -15,16 +15,6 @@ class MastersSettings(Document):
 			frappe.throw(_("Add at least one Requester Role before enabling Dynamic Item Requests."))
 		if cint(self.enable_dynamic_item_requests) and not self.approver_role:
 			frappe.throw(_("Approver Role is required before enabling Dynamic Item Requests."))
-		if (
-			cint(self.enable_dynamic_item_requests)
-			and self.approver_role
-			and not get_approver_users(role=self.approver_role)
-		):
-			frappe.throw(
-				_("Assign approver role {0} to at least one enabled System User first.").format(
-					frappe.bold(self.approver_role)
-				)
-			)
 		if cint(self.enforce_variant_approval) and cint(self.allow_bulk_variant_creation):
 			frappe.throw(_("Bulk Variant Creation cannot be enabled while variant approval is enforced."))
 
