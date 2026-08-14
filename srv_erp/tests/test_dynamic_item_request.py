@@ -135,6 +135,36 @@ class TestDynamicItemRequest(IntegrationTestCase):
 			)
 		)
 
+	def test_last_rejection_cleans_schema_shared_by_pending_requests(self):
+		attribute = "_Test Dynamic Shared Finish"
+		frappe.set_user(self.REQUESTER)
+		first = resolve_or_request(
+			{
+				"template_item": self.TEMPLATE,
+				"attributes": {self.ATTRIBUTE: "_Test Dynamic First", attribute: "Satin"},
+			}
+		)
+		second = resolve_or_request(
+			{
+				"template_item": self.TEMPLATE,
+				"attributes": {self.ATTRIBUTE: "_Test Dynamic Second", attribute: "Satin"},
+			}
+		)
+
+		frappe.set_user(self.APPROVER)
+		reject_request(first["request"], "Reject first")
+		self.assertTrue(frappe.db.exists("Item Attribute", attribute))
+		self.assertTrue(frappe.db.exists("Item", second["item_code"]))
+
+		reject_request(second["request"], "Reject second")
+		self.assertFalse(frappe.db.exists("Item Attribute", attribute))
+		self.assertFalse(
+			frappe.db.exists(
+				"Item Variant Attribute",
+				{"parent": self.TEMPLATE, "attribute": attribute},
+			)
+		)
+
 	def test_packaging_is_a_separate_approval_without_new_item_identity(self):
 		result = self._request("_Test Dynamic Violet")
 		frappe.set_user(self.APPROVER)
