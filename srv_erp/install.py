@@ -1,12 +1,12 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 from srv_erp.item.variant_auto_creation import (
 	set_srv_settings_defaults,
 	sync_brand_master_values_to_attribute,
 )
 from srv_erp.masters.setup import ensure_masters_roles, setup_masters_module
+from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 from srv_erp.selling.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.selling.sales_order_discount import set_sales_order_item_discount_grid_columns
 from srv_erp.selling.sales_person_user_mapping import sync_all_sales_person_user_permissions

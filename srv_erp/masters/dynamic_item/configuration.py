@@ -4,7 +4,6 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-
 REQUESTER_ROLE = "Masters Item Requester"
 APPROVER_ROLE = "Masters Item Approver"
 PENDING = "Pending Approval"

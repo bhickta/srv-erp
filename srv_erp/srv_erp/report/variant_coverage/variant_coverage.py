@@ -2,11 +2,9 @@ import json
 from decimal import Decimal
 
 import frappe
+from erpnext.controllers.item_variant import create_variant, generate_keyed_value_combinations, get_variant
 from frappe import _
 from frappe.utils import cint, cstr, flt
-
-from erpnext.controllers.item_variant import create_variant, generate_keyed_value_combinations, get_variant
-
 
 DEFAULT_VARIANT_ATTRIBUTE = "Brand"
 MAX_PREVIEW_ROWS = 5000
@@ -37,9 +35,9 @@ def create_missing_variants(filters=None, use_template_image=False):
 
 	if len(missing_rows) > SYNC_CREATE_LIMIT:
 		frappe.throw(
-			_("Please narrow the filters. Synchronous creation can create up to {0} variants at a time.").format(
-				SYNC_CREATE_LIMIT
-			)
+			_(
+				"Please narrow the filters. Synchronous creation can create up to {0} variants at a time."
+			).format(SYNC_CREATE_LIMIT)
 		)
 
 	if not missing_rows:
@@ -52,7 +50,9 @@ def create_missing_variants(filters=None, use_template_image=False):
 	)
 
 
-def create_missing_variants_job(filters=None, use_template_image=False, ignore_permissions=False, limit=MAX_CREATE_ROWS):
+def create_missing_variants_job(
+	filters=None, use_template_image=False, ignore_permissions=False, limit=MAX_CREATE_ROWS
+):
 	from srv_erp.masters.dynamic_item.bulk_guard import require_bulk_variant_creation
 
 	require_bulk_variant_creation()

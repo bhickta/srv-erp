@@ -1,12 +1,11 @@
 import frappe
-from frappe import _
-
 from erpnext.controllers.item_variant import (
 	create_variant_doc_for_quick_entry as erpnext_create_variant_doc_for_quick_entry,
 )
 from erpnext.controllers.item_variant import (
 	enqueue_multiple_variant_creation as erpnext_enqueue_multiple_variant_creation,
 )
+from frappe import _
 
 from srv_erp.masters.dynamic_item.configuration import (
 	is_approval_enforced,

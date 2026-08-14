@@ -146,7 +146,7 @@ def sync_variant_template_fields(template_item, fieldnames):
 			modified = now(),
 			modified_by = %(user)s
 		where variant_of = %(template_item)s
-			and ({ " or ".join(conditions) })
+			and ({" or ".join(conditions)})
 		""",
 		values,
 	)
@@ -180,11 +180,7 @@ def get_variant_item_name(template, variant):
 
 
 def get_variant_attribute_values(variant):
-	return [
-		row.attribute_value
-		for row in variant.get("attributes") or []
-		if row.attribute_value
-	]
+	return [row.attribute_value for row in variant.get("attributes") or [] if row.attribute_value]
 
 
 def sync_all_variant_item_fields() -> int:
@@ -213,11 +209,7 @@ def get_changed_template_controlled_fields(doc):
 
 def get_template_controlled_variant_fields(doc=None):
 	meta = frappe.get_meta("Item")
-	return [
-		df.fieldname
-		for df in meta.fields
-		if is_template_controlled_variant_field(df, doc)
-	]
+	return [df.fieldname for df in meta.fields if is_template_controlled_variant_field(df, doc)]
 
 
 def is_template_controlled_variant_field(df, doc=None):
@@ -231,11 +223,7 @@ def is_template_controlled_variant_field(df, doc=None):
 		return False
 	if doc and is_variant_attribute_field(doc, df.fieldname):
 		return False
-	if (
-		doc
-		and df.fieldname == "disabled"
-		and doc.get("dynamic_item_approval_status") == "Pending Approval"
-	):
+	if doc and df.fieldname == "disabled" and doc.get("dynamic_item_approval_status") == "Pending Approval":
 		return False
 
 	return True

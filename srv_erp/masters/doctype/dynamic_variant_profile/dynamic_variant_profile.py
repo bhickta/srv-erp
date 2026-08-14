@@ -13,7 +13,9 @@ class DynamicVariantProfile(Document):
 			as_dict=True,
 		)
 		if not template or not cint(template.has_variants) or template.variant_based_on != "Item Attribute":
-			frappe.throw(_("{0} must be an Item Attribute-based template.").format(frappe.bold(self.item_template)))
+			frappe.throw(
+				_("{0} must be an Item Attribute-based template.").format(frappe.bold(self.item_template))
+			)
 
 		attributes = [row.item_attribute for row in self.get("attributes") or [] if row.item_attribute]
 		if len(attributes) != len(set(attributes)):
@@ -24,7 +26,10 @@ class DynamicVariantProfile(Document):
 				"Item Variant Attribute",
 				{"parent": self.item_template, "attribute": row.item_attribute},
 			)
-			if cint(frappe.db.get_value("Item Attribute", row.item_attribute, "numeric_values")) and not is_attached:
+			if (
+				cint(frappe.db.get_value("Item Attribute", row.item_attribute, "numeric_values"))
+				and not is_attached
+			):
 				frappe.throw(
 					_("Numeric attribute {0} must be configured on the template first.").format(
 						frappe.bold(row.item_attribute)

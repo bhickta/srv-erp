@@ -34,10 +34,9 @@ def protect_dynamic_item_state(doc, method=None):
 		"dynamic_item_approved_on",
 	)
 	approval_changed = any(previous.get(fieldname) != doc.get(fieldname) for fieldname in protected_fields)
-	pending_activation_changed = (
-		previous.get("dynamic_item_approval_status") == PENDING
-		and previous.get("disabled") != doc.get("disabled")
-	)
+	pending_activation_changed = previous.get("dynamic_item_approval_status") == PENDING and previous.get(
+		"disabled"
+	) != doc.get("disabled")
 	if approval_changed or pending_activation_changed:
 		frappe.throw(_("Dynamic Item approval fields can only be changed through the Masters approval flow."))
 
@@ -76,9 +75,7 @@ def collect_item_links(doc) -> set[str]:
 		elif field.fieldtype == "Table" and field.options:
 			child_meta = frappe.get_meta(field.options)
 			item_fields = [
-				df.fieldname
-				for df in child_meta.fields
-				if df.fieldtype == "Link" and df.options == "Item"
+				df.fieldname for df in child_meta.fields if df.fieldtype == "Link" and df.options == "Item"
 			]
 			for row in doc.get(field.fieldname) or []:
 				for fieldname in item_fields:
