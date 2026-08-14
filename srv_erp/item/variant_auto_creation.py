@@ -62,7 +62,7 @@ def validate_item_attribute_brand_source(doc, method=None):
 	if not is_auto_create_variant_attribute(doc.name):
 		return
 
-	if frappe.flags.syncing_brand_attribute_values:
+	if frappe.flags.syncing_brand_attribute_values or getattr(frappe.flags, "dynamic_item_service", False):
 		return
 
 	if item_attribute_values_changed(doc):
@@ -462,6 +462,8 @@ def sync_missing_brand_variants_job(
 	attribute_value=None,
 	limit=SYNC_CREATE_LIMIT,
 ):
+	if not is_auto_create_variants_enabled():
+		return {"created": 0, "skipped": 0, "queued": 0, "disabled": 1}
 	attribute = attribute or get_auto_create_variant_attribute()
 	filters = {"variant_attribute": attribute}
 	if attribute_value:
@@ -598,7 +600,16 @@ def is_auto_create_variant_attribute(attribute) -> bool:
 
 
 def is_auto_create_variants_enabled() -> bool:
-	return cint(frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update"))
+	from srv_erp.masters.dynamic_item.configuration import (
+		is_approval_enforced,
+		is_bulk_variant_creation_enabled,
+	)
+
+	return bool(
+		cint(frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update"))
+		and is_bulk_variant_creation_enabled()
+		and not is_approval_enforced()
+	)
 
 
 def set_srv_settings_defaults():

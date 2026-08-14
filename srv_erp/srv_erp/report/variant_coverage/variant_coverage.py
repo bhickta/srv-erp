@@ -23,6 +23,9 @@ def execute(filters=None):
 
 @frappe.whitelist()
 def create_missing_variants(filters=None, use_template_image=False):
+	from srv_erp.masters.dynamic_item.bulk_guard import require_bulk_variant_creation
+
+	require_bulk_variant_creation()
 	filters = parse_filters(filters)
 	use_template_image = cint(use_template_image)
 
@@ -50,6 +53,9 @@ def create_missing_variants(filters=None, use_template_image=False):
 
 
 def create_missing_variants_job(filters=None, use_template_image=False, ignore_permissions=False, limit=MAX_CREATE_ROWS):
+	from srv_erp.masters.dynamic_item.bulk_guard import require_bulk_variant_creation
+
+	require_bulk_variant_creation()
 	filters = parse_filters(filters)
 	report = VariantCoverageReport(filters)
 	missing_rows = report.get_missing_rows(limit=limit)
