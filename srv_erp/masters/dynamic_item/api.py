@@ -9,6 +9,7 @@ from srv_erp.masters.dynamic_item.configuration import (
 	is_bulk_variant_creation_enabled,
 	is_dynamic_item_enabled,
 	require_requester,
+	user_has_approver_role,
 	user_has_requester_role,
 )
 from srv_erp.masters.dynamic_item.service import (
@@ -138,7 +139,7 @@ def get_dynamic_item_client_settings(document_type=None) -> dict:
 
 @frappe.whitelist()
 def refresh_masters_configuration() -> dict:
-	if "System Manager" not in frappe.get_roles() and get_settings().approver_role not in frappe.get_roles():
+	if "System Manager" not in frappe.get_roles() and not user_has_approver_role():
 		frappe.throw(_("Not permitted to refresh Masters configuration."), frappe.PermissionError)
 	from srv_erp.masters.setup import bootstrap_dynamic_variant_profiles, sync_dynamic_item_grids
 

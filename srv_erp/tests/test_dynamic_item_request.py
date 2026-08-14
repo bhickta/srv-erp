@@ -204,6 +204,20 @@ class TestDynamicItemRequest(IntegrationTestCase):
 				)
 			)
 
+	def test_existing_variant_resolves_without_an_available_approver(self):
+		result = self._request("_Test Dynamic Existing")
+		frappe.set_user(self.APPROVER)
+		approved = approve_request(result["request"])
+		frappe.db.set_value("User", self.APPROVER, "enabled", 0)
+
+		frappe.set_user(self.REQUESTER)
+		existing = resolve_or_request(self._payload("_Test Dynamic Existing"))
+		self.assertEqual(existing["outcome"], "existing")
+		self.assertEqual(existing["item_code"], approved["item_code"])
+
+		with self.assertRaises(frappe.ValidationError):
+			resolve_or_request(self._payload("_Test Dynamic Needs Approver"))
+
 	def _request(self, value):
 		frappe.set_user(self.REQUESTER)
 		return resolve_or_request(self._payload(value))
@@ -242,6 +256,8 @@ class TestDynamicItemRequest(IntegrationTestCase):
 					"send_welcome_email": 0,
 				}
 			).insert(ignore_permissions=True)
+		else:
+			frappe.db.set_value("User", email, "enabled", 1)
 		user = frappe.get_doc("User", email)
 		missing_roles = [role for role in roles if role not in frappe.get_roles(email)]
 		if missing_roles:
