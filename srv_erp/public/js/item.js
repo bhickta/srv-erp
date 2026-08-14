@@ -16,6 +16,9 @@ frappe.ui.form.on("Item", {
 				frappe.set_route("List", "Item Price");
 			}, __("Prices"));
 		}
+		if (srv_erp.dynamic_item) {
+			srv_erp.dynamic_item.configure_template_item(frm);
+		}
 	},
 	variant_of: srv_erp.item.toggle_variant_item_group,
 });
