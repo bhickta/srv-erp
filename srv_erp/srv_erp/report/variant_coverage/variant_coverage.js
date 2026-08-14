@@ -57,7 +57,13 @@ frappe.query_reports["Variant Coverage"] = {
 			return;
 		}
 
-		report.page.add_inner_button(__("Create Missing Variants"), () => {
+		frappe.call({
+			method: "srv_erp.masters.dynamic_item.api.get_dynamic_item_client_settings",
+			callback(response) {
+				if (!response.message?.bulk_variant_creation_enabled) {
+					return;
+				}
+				report.page.add_inner_button(__("Create Missing Variants"), () => {
 			const filters = report.get_values();
 
 			frappe.confirm(
@@ -92,6 +98,8 @@ frappe.query_reports["Variant Coverage"] = {
 					});
 				}
 			);
+				});
+			},
 		});
 	},
 
