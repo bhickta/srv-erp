@@ -5,6 +5,7 @@ from srv_erp.item.variant_auto_creation import (
 	set_srv_settings_defaults,
 	sync_brand_master_values_to_attribute,
 )
+from srv_erp.masters.setup import ensure_masters_roles, setup_masters_module
 from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 from srv_erp.selling.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.selling.sales_order_discount import set_sales_order_item_discount_grid_columns
@@ -20,10 +21,12 @@ from srv_erp.tree_group_filters import configure_tree_group_list_filters
 
 def before_migrate():
 	ensure_dsr_roles()
+	ensure_masters_roles()
 
 
 def after_install():
 	ensure_dsr_roles()
+	setup_masters_module()
 	create_brand_custom_fields()
 	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()
@@ -45,6 +48,7 @@ def after_install():
 
 def after_migrate():
 	ensure_dsr_roles()
+	setup_masters_module()
 	create_brand_custom_fields()
 	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()

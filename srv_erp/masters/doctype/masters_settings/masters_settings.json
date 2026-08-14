@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "creation": "2026-08-14 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "feature_section",
+  "enable_dynamic_item_requests",
+  "enforce_variant_approval",
+  "allow_bulk_variant_creation",
+  "column_break_feature",
+  "allow_dynamic_attributes",
+  "use_template_image",
+  "approval_section",
+  "approver_role",
+  "requester_roles",
+  "grid_section",
+  "item_grids"
+ ],
+ "fields": [
+  {
+   "fieldname": "feature_section",
+   "fieldtype": "Section Break",
+   "label": "Dynamic Item Creation"
+  },
+  {
+   "default": "0",
+   "description": "Allow configured users to resolve or request one Item variant at a time.",
+   "fieldname": "enable_dynamic_item_requests",
+   "fieldtype": "Check",
+   "label": "Enable Dynamic Item Requests"
+  },
+  {
+   "default": "1",
+   "description": "Require every newly inserted Item variant to originate from an approved Dynamic Item Request.",
+   "fieldname": "enforce_variant_approval",
+   "fieldtype": "Check",
+   "label": "Enforce Approval for New Variants"
+  },
+  {
+   "default": "0",
+   "description": "Allow legacy Cartesian-product variant creation. This cannot be enabled while approval enforcement is enabled.",
+   "fieldname": "allow_bulk_variant_creation",
+   "fieldtype": "Check",
+   "label": "Allow Bulk Variant Creation"
+  },
+  {
+   "fieldname": "column_break_feature",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Allow requests to propose missing categorical Item Attributes and values. Numeric ranges must be configured manually.",
+   "fieldname": "allow_dynamic_attributes",
+   "fieldtype": "Check",
+   "label": "Allow New Categorical Attributes"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_template_image",
+   "fieldtype": "Check",
+   "label": "Use Template Image on Staged Variants"
+  },
+  {
+   "fieldname": "approval_section",
+   "fieldtype": "Section Break",
+   "label": "Roles"
+  },
+  {
+   "default": "Masters Item Approver",
+   "description": "Any user with this role may approve another user's request.",
+   "fieldname": "approver_role",
+   "fieldtype": "Link",
+   "label": "Approver Role",
+   "options": "Role",
+   "reqd": 1
+  },
+  {
+   "fieldname": "requester_roles",
+   "fieldtype": "Table",
+   "label": "Requester Roles",
+   "options": "Dynamic Item Requester Role"
+  },
+  {
+   "fieldname": "grid_section",
+   "fieldtype": "Section Break",
+   "label": "Desk Item Grids"
+  },
+  {
+   "description": "The Resolve / Request Item action is shown only on enabled editable Item grids.",
+   "fieldname": "item_grids",
+   "fieldtype": "Table",
+   "label": "Enabled Item Grids",
+   "options": "Dynamic Item Grid"
+  }
+ ],
+ "grid_page_length": 50,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Masters",
+ "name": "Masters Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Masters Item Requester"
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Masters Item Approver",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
