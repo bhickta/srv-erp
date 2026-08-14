@@ -5,10 +5,22 @@ from erpnext.controllers.item_variant import get_variant
 from frappe import _
 from frappe.utils import cint, now_datetime
 
+from srv_erp.masters.dynamic_item.artifact_usage import (
+	attribute_used_by_other_request,
+	attribute_used_by_template_variant,
+	attribute_value_is_referenced,
+	brand_is_referenced,
+	get_request_artifact_history,
+)
 from srv_erp.masters.dynamic_item.assignments import (
 	assign_request_to_approvers,
 	close_approval_assignments,
 	require_available_approver,
+)
+from srv_erp.masters.dynamic_item.cleanup import (
+	cleanup_attribute_artifacts,
+	cleanup_request_schema,
+	delete_staged_item,
 )
 from srv_erp.masters.dynamic_item.configuration import (
 	ADD_PACKAGING,
@@ -305,219 +317,6 @@ def terminate_request(request, status: str, reason: str, actor: str) -> dict:
 	close_approval_assignments(request)
 	request.add_comment("Info", _("{0}: {1}").format(status, reason))
 	return terminal_result(request)
-
-
-def delete_staged_item(request):
-	item_code = request.staged_item_code
-	if not item_code or not frappe.db.exists("Item", item_code):
-		return
-	links = frappe.get_all(
-		"Dynamic Item Request",
-		filters={"resolved_item": item_code, "name": ["!=", request.name]},
-		pluck="name",
-		limit=1,
-	)
-	if links:
-		frappe.throw(_("Staged Item {0} is referenced by another request.").format(frappe.bold(item_code)))
-	with dynamic_item_service_context():
-		frappe.delete_doc("Item", item_code, ignore_permissions=True)
-
-
-def cleanup_request_schema(request):
-	for row in reversed(request.attributes):
-		try:
-			cleanup_attribute_artifacts(request, row)
-		except Exception:
-			frappe.log_error(
-				title=_("Dynamic Item Schema Cleanup Failed"),
-				message=frappe.get_traceback(),
-			)
-
-
-def cleanup_attribute_artifacts(request, row):
-	attribute = row.item_attribute
-	value = row.attribute_value
-	history = get_request_artifact_history(request.template_item, attribute, value)
-	if (
-		history.template_link_created
-		and not history.template_adopted
-		and not attribute_used_by_other_request(request.name, request.template_item, attribute)
-	):
-		if not attribute_used_by_template_variant(request.template_item, attribute):
-			template = frappe.get_doc("Item", request.template_item)
-			template.set("attributes", [d for d in template.attributes if d.attribute != attribute])
-			template.flags.dont_update_variants = True
-			with dynamic_item_service_context():
-				template.save(ignore_permissions=True)
-
-	if (
-		history.profile_row_created
-		and not history.template_adopted
-		and frappe.db.exists("Dynamic Variant Profile", request.template_item)
-	):
-		profile = frappe.get_doc("Dynamic Variant Profile", request.template_item)
-		profile_row = next((d for d in profile.attributes if d.item_attribute == attribute), None)
-		if (
-			profile_row
-			and not cint(profile_row.required_parameter)
-			and cint(profile_row.allow_new_values)
-			and not attribute_used_by_other_request(request.name, request.template_item, attribute)
-		):
-			profile.set("attributes", [d for d in profile.attributes if d.item_attribute != attribute])
-			with dynamic_item_service_context():
-				profile.save(ignore_permissions=True)
-
-	if (
-		history.value_created
-		and not history.value_adopted
-		and not attribute_value_is_referenced(request.name, attribute, value)
-	):
-		item_attribute = frappe.get_doc("Item Attribute", attribute)
-		item_attribute.set(
-			"item_attribute_values",
-			[d for d in item_attribute.item_attribute_values if d.attribute_value != value],
-		)
-		with dynamic_item_service_context():
-			item_attribute.save(ignore_permissions=True)
-
-	if history.master_created and not history.value_adopted and attribute.casefold() == "brand":
-		if frappe.db.exists("Brand", value) and not brand_is_referenced(value):
-			with dynamic_item_service_context():
-				frappe.delete_doc("Brand", value, ignore_permissions=True)
-
-	if (
-		history.attribute_created
-		and not history.attribute_adopted
-		and frappe.db.exists("Item Attribute", attribute)
-	):
-		if not frappe.db.exists("Item Variant Attribute", {"attribute": attribute}) and not frappe.db.exists(
-			"Item Attribute Value", {"parent": attribute}
-		):
-			with dynamic_item_service_context():
-				frappe.delete_doc("Item Attribute", attribute, ignore_permissions=True)
-
-
-def get_request_artifact_history(template: str, attribute: str, value: str) -> frappe._dict:
-	rows = frappe.db.sql(
-		"""
-		select
-			max(attribute_row.attribute_was_created) as attribute_created,
-			max(
-				case when request.status = %(approved)s then 1 else 0 end
-			) as attribute_adopted,
-			max(
-				case when request.template_item = %(template)s
-				then attribute_row.template_link_was_created else 0 end
-			) as template_link_created,
-			max(
-				case when request.template_item = %(template)s
-					and request.status = %(approved)s then 1 else 0 end
-			) as template_adopted,
-			max(
-				case when request.template_item = %(template)s
-				then attribute_row.profile_row_was_created else 0 end
-			) as profile_row_created,
-			max(
-				case when attribute_row.attribute_value = %(value)s
-				then attribute_row.value_was_created else 0 end
-			) as value_created,
-			max(
-				case when attribute_row.attribute_value = %(value)s
-					and request.status = %(approved)s then 1 else 0 end
-			) as value_adopted,
-			max(
-				case when attribute_row.attribute_value = %(value)s
-				then attribute_row.master_was_created else 0 end
-			) as master_created
-		from `tabDynamic Item Request Attribute` attribute_row
-		inner join `tabDynamic Item Request` request on request.name = attribute_row.parent
-		where attribute_row.item_attribute = %(attribute)s
-		""",
-		{
-			"approved": APPROVED,
-			"template": template,
-			"attribute": attribute,
-			"value": value,
-		},
-		as_dict=True,
-	)
-	return frappe._dict(rows[0] if rows else {})
-
-
-def attribute_used_by_template_variant(template: str, attribute: str) -> bool:
-	return bool(
-		frappe.db.sql(
-			"""
-			select 1
-			from `tabItem Variant Attribute` attribute_row
-			inner join `tabItem` item on item.name = attribute_row.parent
-			where item.variant_of = %(template)s
-				and attribute_row.attribute = %(attribute)s
-			limit 1
-			""",
-			{"template": template, "attribute": attribute},
-		)
-	)
-
-
-def attribute_used_by_other_request(request_name: str, template: str, attribute: str) -> bool:
-	return bool(
-		frappe.db.sql(
-			"""
-			select 1
-			from `tabDynamic Item Request Attribute` attribute_row
-			inner join `tabDynamic Item Request` request on request.name = attribute_row.parent
-			where request.name != %(request_name)s
-				and request.template_item = %(template)s
-				and request.status = %(pending)s
-				and attribute_row.item_attribute = %(attribute)s
-			limit 1
-			""",
-			{
-				"request_name": request_name,
-				"template": template,
-				"pending": PENDING,
-				"attribute": attribute,
-			},
-		)
-	)
-
-
-def attribute_value_is_referenced(request_name: str, attribute: str, value: str) -> bool:
-	if frappe.db.exists(
-		"Item Variant Attribute",
-		{"attribute": attribute, "attribute_value": value},
-	):
-		return True
-	return bool(
-		frappe.db.sql(
-			"""
-			select 1
-			from `tabDynamic Item Request Attribute` attribute_row
-			inner join `tabDynamic Item Request` request on request.name = attribute_row.parent
-			where request.name != %(request_name)s
-				and request.status = %(pending)s
-				and attribute_row.item_attribute = %(attribute)s
-				and attribute_row.attribute_value = %(value)s
-			limit 1
-			""",
-			{
-				"request_name": request_name,
-				"pending": PENDING,
-				"attribute": attribute,
-				"value": value,
-			},
-		)
-	)
-
-
-def brand_is_referenced(brand: str) -> bool:
-	if frappe.db.exists("Item", {"brand": brand}):
-		return True
-	return frappe.db.exists(
-		"Item Variant Attribute",
-		{"attribute": "Brand", "attribute_value": brand},
-	)
 
 
 def get_request_status(name: str) -> dict:
