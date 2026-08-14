@@ -231,6 +231,10 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 	for attribute, value in attributes.items():
 		rule = rules.get(attribute)
 		attribute_exists = frappe.db.exists("Item Attribute", attribute)
+		if attribute.casefold() == "brand":
+			brand = get_case_insensitive_name("Brand", value)
+			if brand and is_brand_disabled(brand):
+				frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(brand)))
 		if not rule and not cint(settings.allow_dynamic_attributes):
 			frappe.throw(_("Attribute {0} is not allowed by this profile.").format(frappe.bold(attribute)))
 		if attribute_exists and cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")):

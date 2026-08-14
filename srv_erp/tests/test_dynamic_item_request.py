@@ -165,6 +165,33 @@ class TestDynamicItemRequest(IntegrationTestCase):
 			)
 		)
 
+	def test_dynamic_brand_is_staged_and_removed_on_rejection(self):
+		brand = "_Test Dynamic Request Brand"
+		frappe.set_user(self.REQUESTER)
+		result = resolve_or_request(
+			{
+				"template_item": self.TEMPLATE,
+				"attributes": {self.ATTRIBUTE: "_Test Dynamic Brand Colour", "Brand": brand},
+			}
+		)
+		self.assertTrue(frappe.db.exists("Brand", brand))
+		self.assertTrue(
+			frappe.db.exists(
+				"Item Attribute Value",
+				{"parent": "Brand", "attribute_value": brand},
+			)
+		)
+
+		frappe.set_user(self.APPROVER)
+		reject_request(result["request"], "Brand not approved")
+		self.assertFalse(frappe.db.exists("Brand", brand))
+		self.assertFalse(
+			frappe.db.exists(
+				"Item Attribute Value",
+				{"parent": "Brand", "attribute_value": brand},
+			)
+		)
+
 	def test_packaging_is_a_separate_approval_without_new_item_identity(self):
 		result = self._request("_Test Dynamic Violet")
 		frappe.set_user(self.APPROVER)
