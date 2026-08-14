@@ -26,7 +26,10 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 app_include_css = "/assets/srv_erp/css/srv_erp.css"
-app_include_js = "/assets/srv_erp/js/sales_person_defaults.js"
+app_include_js = [
+	"/assets/srv_erp/js/sales_person_defaults.js",
+	"/assets/srv_erp/js/dynamic_item_request.js",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/srv_erp/css/srv_erp.css"
@@ -183,10 +186,17 @@ after_migrate = ["srv_erp.install.after_migrate"]
 
 doc_events = {
 	"*": {
-		"before_validate": "srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
+		"before_validate": [
+			"srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
+			"srv_erp.masters.dynamic_item.guard.validate_no_unapproved_items",
+		],
 	},
 	"Item": {
-		"validate": "srv_erp.item.variant_field_sync.validate_item_group_sync",
+		"before_insert": "srv_erp.masters.dynamic_item.guard.validate_dynamic_item_insert",
+		"validate": [
+			"srv_erp.item.variant_field_sync.validate_item_group_sync",
+			"srv_erp.masters.dynamic_item.guard.protect_dynamic_item_state",
+		],
 		"on_update": "srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
 	},
 	"Item Attribute": {
@@ -255,9 +265,10 @@ doc_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "srv_erp.event.get_events"
-# }
+override_whitelisted_methods = {
+	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "srv_erp.masters.dynamic_item.bulk_guard.enqueue_multiple_variant_creation",
+	"erpnext.controllers.item_variant.create_variant_doc_for_quick_entry": "srv_erp.masters.dynamic_item.bulk_guard.create_variant_doc_for_quick_entry",
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

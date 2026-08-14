@@ -120,8 +120,20 @@ def sync_variant_template_fields(template_item, fieldnames):
 	conditions = []
 	for fieldname in fieldnames:
 		value_key = f"value_{fieldname}"
-		assignments.append(f"`{fieldname}` = %({value_key})s")
-		conditions.append(f"ifnull(`{fieldname}`, '') != ifnull(%({value_key})s, '')")
+		if fieldname == "disabled" and frappe.db.has_column("Item", "dynamic_item_approval_status"):
+			assignments.append(
+				f"`{fieldname}` = case "
+				"when `dynamic_item_approval_status` = %(pending_approval)s "
+				f"then `{fieldname}` else %({value_key})s end"
+			)
+			conditions.append(
+				"(ifnull(`dynamic_item_approval_status`, '') != %(pending_approval)s "
+				f"and ifnull(`{fieldname}`, '') != ifnull(%({value_key})s, ''))"
+			)
+			values["pending_approval"] = "Pending Approval"
+		else:
+			assignments.append(f"`{fieldname}` = %({value_key})s")
+			conditions.append(f"ifnull(`{fieldname}`, '') != ifnull(%({value_key})s, '')")
 		values[value_key] = template_values.get(fieldname)
 
 	if not assignments:
@@ -151,6 +163,10 @@ def sync_variant_item_names(template):
 
 
 def get_template_controlled_field_value(fieldname, template, variant):
+	if fieldname == "disabled" and variant.get("dynamic_item_approval_status") == "Pending Approval":
+		return 1
+	if fieldname == "standard_rate" and variant.get("dynamic_item_approval_status") == "Pending Approval":
+		return 0
 	if fieldname == VARIANT_ITEM_NAME_FIELD:
 		return get_variant_item_name(template, variant)
 
@@ -214,6 +230,12 @@ def is_template_controlled_variant_field(df, doc=None):
 	if df.read_only or df.no_copy:
 		return False
 	if doc and is_variant_attribute_field(doc, df.fieldname):
+		return False
+	if (
+		doc
+		and df.fieldname == "disabled"
+		and doc.get("dynamic_item_approval_status") == "Pending Approval"
+	):
 		return False
 
 	return True
