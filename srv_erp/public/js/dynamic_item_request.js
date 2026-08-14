@@ -18,6 +18,12 @@ srv_erp.dynamic_item.configure_form = function (frm) {
 	if (!frm?.doctype) {
 		return;
 	}
+	const can_edit = frm.is_new()
+		? frappe.model.can_create(frm.doctype)
+		: Boolean(frm.perm?.[0]?.write);
+	if (frm.doc.docstatus !== 0 || !can_edit) {
+		return;
+	}
 	srv_erp.dynamic_item.get_client_settings(frm.doctype).then((settings) => {
 		if (!settings.enabled) {
 			return;
