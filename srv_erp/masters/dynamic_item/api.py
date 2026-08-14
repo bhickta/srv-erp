@@ -4,6 +4,12 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from srv_erp.masters.dynamic_item.approval_flow import (
+	approve_request,
+	cancel_request,
+	get_request_status,
+	reject_request,
+)
 from srv_erp.masters.dynamic_item.configuration import (
 	get_settings,
 	is_bulk_variant_creation_enabled,
@@ -12,26 +18,21 @@ from srv_erp.masters.dynamic_item.configuration import (
 	user_has_approver_role,
 	user_has_requester_role,
 )
-from srv_erp.masters.dynamic_item.service import (
-	approve_request,
-	cancel_request,
-	canonicalize_known_masters,
+from srv_erp.masters.dynamic_item.lookups import canonicalize_known_masters
+from srv_erp.masters.dynamic_item.normalization import normalize_attributes, normalize_uoms
+from srv_erp.masters.dynamic_item.profile import (
 	get_profile_rules,
-	get_request_status,
 	get_template_and_profile,
-	normalize_attributes,
-	normalize_uoms,
-	reject_request,
-	resolve_or_request,
 	validate_requested_attributes,
 )
+from srv_erp.masters.dynamic_item.request_flow import resolve_or_request
 
 
 @frappe.whitelist()
 def get_dynamic_variant_options(template_item: str, source_doctype=None, source_field=None) -> dict:
 	require_requester()
 	if source_doctype or source_field:
-		from srv_erp.masters.dynamic_item.service import validate_source
+		from srv_erp.masters.dynamic_item.profile import validate_source
 
 		validate_source({"doctype": source_doctype, "fieldname": source_field})
 	template, profile = get_template_and_profile(template_item)
