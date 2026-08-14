@@ -2,6 +2,8 @@
 
 Custom frappe application for SRV Electricals.
 
+Feature documentation: [Approval-gated dynamic Item variants](docs/dynamic-item-approval.md).
+
 ### Installation
 
 You can install this app using the [bench](https://github.com/frappe/bench) CLI:
