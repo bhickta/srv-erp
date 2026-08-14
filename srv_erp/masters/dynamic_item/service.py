@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-import hashlib
-import json
-import unicodedata
-from contextlib import contextmanager
-from decimal import Decimal, InvalidOperation
-
 import frappe
 from erpnext.controllers.item_variant import (
 	create_variant,
 	get_variant,
-	validate_is_incremental,
 )
 from frappe import _
 from frappe.utils import cint, cstr, flt, now_datetime
@@ -34,249 +27,29 @@ from srv_erp.masters.dynamic_item.configuration import (
 	require_requester,
 	user_has_approver_role,
 )
-
-MAX_ATTRIBUTES = 20
-MAX_PACKAGING_UOMS = 10
-
-
-class DynamicItemConflict(frappe.ValidationError):
-	pass
-
-
-@contextmanager
-def dynamic_item_service_context():
-	previous = getattr(frappe.flags, "dynamic_item_service", False)
-	frappe.flags.dynamic_item_service = True
-	try:
-		yield
-	finally:
-		frappe.flags.dynamic_item_service = previous
-
-
-def parse_payload(payload) -> frappe._dict:
-	if isinstance(payload, str):
-		payload = frappe.parse_json(payload)
-	if not isinstance(payload, dict):
-		frappe.throw(_("Request payload must be a JSON object."))
-	return frappe._dict(payload)
-
-
-def normalize_text(value, label: str) -> str:
-	value = unicodedata.normalize("NFC", cstr(value)).strip()
-	if not value:
-		frappe.throw(_("{0} cannot be empty.").format(label))
-	return value
-
-
-def normalize_attributes(attributes) -> dict[str, str]:
-	if not isinstance(attributes, dict):
-		frappe.throw(_("Attributes must be an object mapping attribute names to values."))
-	if not attributes:
-		frappe.throw(_("Specify at least one variant attribute."))
-	if len(attributes) > MAX_ATTRIBUTES:
-		frappe.throw(_("A request can contain at most {0} attributes.").format(MAX_ATTRIBUTES))
-
-	normalized = {}
-	seen = set()
-	for raw_attribute, raw_value in attributes.items():
-		attribute = normalize_text(raw_attribute, _("Attribute"))
-		value = normalize_text(raw_value, _("Attribute Value"))
-		key = attribute.casefold()
-		if key in seen:
-			frappe.throw(_("Attribute {0} is specified more than once.").format(frappe.bold(attribute)))
-		seen.add(key)
-		normalized[attribute] = value
-	return normalized
-
-
-def normalize_uoms(uoms) -> list[dict]:
-	if uoms is None:
-		return []
-	if not isinstance(uoms, list):
-		frappe.throw(_("UOMs must be an array."))
-	if len(uoms) > MAX_PACKAGING_UOMS:
-		frappe.throw(_("A request can contain at most {0} packaging UOMs.").format(MAX_PACKAGING_UOMS))
-
-	normalized = []
-	seen = set()
-	for row in uoms:
-		if not isinstance(row, dict):
-			frappe.throw(_("Each packaging UOM must be an object."))
-		uom = normalize_text(row.get("uom"), _("UOM"))
-		canonical_uom = get_case_insensitive_name("UOM", uom)
-		if not canonical_uom:
-			frappe.throw(_("UOM {0} does not exist.").format(frappe.bold(uom)))
-		key = canonical_uom.casefold()
-		if key in seen:
-			frappe.throw(_("UOM {0} is specified more than once.").format(frappe.bold(canonical_uom)))
-		seen.add(key)
-		try:
-			factor = Decimal(cstr(row.get("conversion_factor")))
-		except (InvalidOperation, TypeError):
-			frappe.throw(_("Conversion Factor for {0} must be a number.").format(frappe.bold(canonical_uom)))
-		if not factor.is_finite() or factor <= 0:
-			frappe.throw(
-				_("Conversion Factor for {0} must be greater than zero.").format(frappe.bold(canonical_uom))
-			)
-		normalized.append({"uom": canonical_uom, "conversion_factor": cstr(factor.normalize())})
-	return sorted(normalized, key=lambda row: row["uom"].casefold())
-
-
-def get_case_insensitive_name(doctype: str, value: str) -> str | None:
-	table = {
-		"Item Attribute": "`tabItem Attribute`",
-		"Item Attribute Value": "`tabItem Attribute Value`",
-		"Brand": "`tabBrand`",
-		"UOM": "`tabUOM`",
-	}.get(doctype)
-	if not table:
-		frappe.throw(_("Unsupported master lookup: {0}").format(doctype))
-
-	field = "attribute_value" if doctype == "Item Attribute Value" else "name"
-	params = {"value": value}
-	if doctype == "Item Attribute Value":
-		frappe.throw(_("Item Attribute Value lookup requires an attribute."))
-	rows = frappe.db.sql(
-		f"select `{field}` from {table} where lower(`{field}`) = lower(%(value)s) order by creation limit 1",
-		params,
-	)
-	return rows[0][0] if rows else None
-
-
-def get_case_insensitive_attribute_value(attribute: str, value: str) -> str | None:
-	rows = frappe.db.sql(
-		"""
-		select attribute_value
-		from `tabItem Attribute Value`
-		where parent = %(attribute)s
-			and lower(attribute_value) = lower(%(value)s)
-		order by idx
-		limit 1
-		""",
-		{"attribute": attribute, "value": value},
-	)
-	return rows[0][0] if rows else None
-
-
-def canonicalize_known_masters(attributes: dict[str, str]) -> dict[str, str]:
-	canonical = {}
-	for attribute, value in attributes.items():
-		canonical_attribute = get_case_insensitive_name("Item Attribute", attribute) or attribute
-		canonical_value = (
-			get_case_insensitive_attribute_value(canonical_attribute, value)
-			if frappe.db.exists("Item Attribute", canonical_attribute)
-			else None
-		)
-		canonical[canonical_attribute] = canonical_value or value
-	return canonical
-
-
-def validate_source(source):
-	if not source:
-		return frappe._dict()
-	if not isinstance(source, dict):
-		frappe.throw(_("Source must be a JSON object."))
-	source = frappe._dict(source)
-	if source.doctype or source.fieldname:
-		if not source.doctype or not source.fieldname:
-			frappe.throw(_("Source DocType and fieldname must be supplied together."))
-		if not is_grid_enabled(source.doctype, source.fieldname):
-			frappe.throw(
-				_("Dynamic Item Requests are not enabled for {0}.{1}.").format(
-					frappe.bold(source.doctype), frappe.bold(source.fieldname)
-				)
-			)
-	return source
-
-
-def get_template_and_profile(template_item: str):
-	template_item = normalize_text(template_item, _("Item Template"))
-	template = frappe.get_doc("Item", template_item)
-	if not template.has_permission("read"):
-		frappe.throw(_("Not permitted to read Item template {0}.").format(frappe.bold(template_item)))
-	if template.disabled:
-		frappe.throw(_("Item template {0} is disabled.").format(frappe.bold(template_item)))
-	if not cint(template.has_variants) or template.variant_based_on != "Item Attribute":
-		frappe.throw(_("{0} is not an Item Attribute-based template.").format(frappe.bold(template_item)))
-	if not frappe.db.exists("Dynamic Variant Profile", template_item):
-		frappe.throw(
-			_("Dynamic Variant Profile is not configured for {0}.").format(frappe.bold(template_item))
-		)
-	profile = frappe.get_doc("Dynamic Variant Profile", template_item)
-	if not cint(profile.enabled):
-		frappe.throw(_("Dynamic Variant Profile is disabled for {0}.").format(frappe.bold(template_item)))
-	return template, profile
-
-
-def get_profile_rules(profile) -> dict[str, frappe._dict]:
-	return {row.item_attribute: row for row in profile.get("attributes") or [] if row.item_attribute}
-
-
-def validate_requested_attributes(template, profile, attributes: dict[str, str]):
-	rules = get_profile_rules(profile)
-	missing = [
-		attribute
-		for attribute, rule in rules.items()
-		if cint(rule.required_parameter) and not attributes.get(attribute)
-	]
-	if missing:
-		frappe.throw(
-			_("Missing required variant attributes: {0}.").format(
-				", ".join(frappe.bold(attribute) for attribute in missing)
-			)
-		)
-
-	settings = get_settings()
-	template_attributes = {row.attribute for row in template.get("attributes") or []}
-	for attribute, value in attributes.items():
-		rule = rules.get(attribute)
-		attribute_exists = frappe.db.exists("Item Attribute", attribute)
-		if attribute.casefold() == "brand":
-			brand = get_case_insensitive_name("Brand", value)
-			if brand and is_brand_disabled(brand):
-				frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(brand)))
-		if not rule and not cint(settings.allow_dynamic_attributes):
-			frappe.throw(_("Attribute {0} is not allowed by this profile.").format(frappe.bold(attribute)))
-		if attribute_exists and cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")):
-			if not rule or attribute not in template_attributes:
-				frappe.throw(
-					_("Numeric attribute {0} must be configured on the template profile first.").format(
-						frappe.bold(attribute)
-					)
-				)
-			validate_numeric_value(template.name, attribute, value)
-		elif attribute_exists and not get_case_insensitive_attribute_value(attribute, value):
-			if rule and not cint(rule.allow_new_values):
-				frappe.throw(
-					_("New values are not allowed for attribute {0}.").format(frappe.bold(attribute))
-				)
-
-
-def validate_numeric_value(template_item: str, attribute: str, value: str):
-	row = frappe.db.get_value(
-		"Item Variant Attribute",
-		{"parent": template_item, "attribute": attribute},
-		["from_range", "to_range", "increment"],
-		as_dict=True,
-	)
-	if not row:
-		frappe.throw(_("Numeric attribute {0} is not configured on the template.").format(attribute))
-	validate_is_incremental(row, attribute, value, template_item)
-
-
-def make_identity_signature(template_item: str, attributes: dict[str, str]) -> str:
-	payload = {
-		"template_item": template_item,
-		"attributes": sorted((attribute, cstr(value)) for attribute, value in attributes.items()),
-	}
-	return hashlib.sha256(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
-
-
-def make_packaging_signature(item_code: str, uoms: list[dict]) -> str:
-	payload = {"item_code": item_code, "uoms": uoms}
-	return hashlib.sha256(
-		json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
-	).hexdigest()
+from srv_erp.masters.dynamic_item.context import dynamic_item_service_context
+from srv_erp.masters.dynamic_item.exceptions import DynamicItemConflict
+from srv_erp.masters.dynamic_item.lookups import (
+	canonicalize_known_masters,
+	get_case_insensitive_attribute_value,
+	get_case_insensitive_name,
+)
+from srv_erp.masters.dynamic_item.normalization import (
+	normalize_attributes,
+	normalize_text,
+	normalize_uoms,
+	parse_payload,
+)
+from srv_erp.masters.dynamic_item.profile import (
+	get_profile_rules,
+	get_template_and_profile,
+	validate_requested_attributes,
+	validate_source,
+)
+from srv_erp.masters.dynamic_item.signatures import (
+	make_identity_signature,
+	make_packaging_signature,
+)
 
 
 def get_item_state(item_code: str) -> frappe._dict:
