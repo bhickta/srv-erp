@@ -7,14 +7,13 @@ from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 
 import frappe
-from frappe import _
-from frappe.utils import cint, cstr, flt, now_datetime
-
 from erpnext.controllers.item_variant import (
 	create_variant,
 	get_variant,
 	validate_is_incremental,
 )
+from frappe import _
+from frappe.utils import cint, cstr, flt, now_datetime
 
 from srv_erp.item.variant_auto_creation import (
 	get_brand_abbreviation,
@@ -34,7 +33,6 @@ from srv_erp.masters.dynamic_item.configuration import (
 	require_approver,
 	require_requester,
 )
-
 
 MAX_ATTRIBUTES = 20
 MAX_PACKAGING_UOMS = 10
@@ -116,7 +114,9 @@ def normalize_uoms(uoms) -> list[dict]:
 		except (InvalidOperation, TypeError):
 			frappe.throw(_("Conversion Factor for {0} must be a number.").format(frappe.bold(canonical_uom)))
 		if not factor.is_finite() or factor <= 0:
-			frappe.throw(_("Conversion Factor for {0} must be greater than zero.").format(frappe.bold(canonical_uom)))
+			frappe.throw(
+				_("Conversion Factor for {0} must be greater than zero.").format(frappe.bold(canonical_uom))
+			)
 		normalized.append({"uom": canonical_uom, "conversion_factor": cstr(factor.normalize())})
 	return sorted(normalized, key=lambda row: row["uom"].casefold())
 
@@ -132,7 +132,6 @@ def get_case_insensitive_name(doctype: str, value: str) -> str | None:
 		frappe.throw(_("Unsupported master lookup: {0}").format(doctype))
 
 	field = "attribute_value" if doctype == "Item Attribute Value" else "name"
-	filters = ""
 	params = {"value": value}
 	if doctype == "Item Attribute Value":
 		frappe.throw(_("Item Attribute Value lookup requires an attribute."))
@@ -199,7 +198,9 @@ def get_template_and_profile(template_item: str):
 	if not cint(template.has_variants) or template.variant_based_on != "Item Attribute":
 		frappe.throw(_("{0} is not an Item Attribute-based template.").format(frappe.bold(template_item)))
 	if not frappe.db.exists("Dynamic Variant Profile", template_item):
-		frappe.throw(_("Dynamic Variant Profile is not configured for {0}.").format(frappe.bold(template_item)))
+		frappe.throw(
+			_("Dynamic Variant Profile is not configured for {0}.").format(frappe.bold(template_item))
+		)
 	profile = frappe.get_doc("Dynamic Variant Profile", template_item)
 	if not cint(profile.enabled):
 		frappe.throw(_("Dynamic Variant Profile is disabled for {0}.").format(frappe.bold(template_item)))
@@ -268,7 +269,9 @@ def make_identity_signature(template_item: str, attributes: dict[str, str]) -> s
 
 def make_packaging_signature(item_code: str, uoms: list[dict]) -> str:
 	payload = {"item_code": item_code, "uoms": uoms}
-	return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+	return hashlib.sha256(
+		json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+	).hexdigest()
 
 
 def get_item_state(item_code: str) -> frappe._dict:
@@ -324,9 +327,9 @@ def get_missing_packaging(item, uoms: list[dict]) -> list[dict]:
 		if uom in existing:
 			if flt(existing[uom], 9) != flt(factor, 9):
 				frappe.throw(
-					_("UOM {0} already has conversion factor {1}; requested factor {2} is a conflict.").format(
-						frappe.bold(uom), existing[uom], factor
-					),
+					_(
+						"UOM {0} already has conversion factor {1}; requested factor {2} is a conflict."
+					).format(frappe.bold(uom), existing[uom], factor),
 					DynamicItemConflict,
 				)
 			continue
@@ -661,9 +664,7 @@ def ensure_attribute_value(attribute: str, value: str) -> tuple[str, str | None,
 		value = brand
 
 	existing_abbrs = {
-		cstr(row.abbr).casefold()
-		for row in item_attribute.get("item_attribute_values") or []
-		if row.abbr
+		cstr(row.abbr).casefold() for row in item_attribute.get("item_attribute_values") or [] if row.abbr
 	}
 	abbr = get_brand_abbreviation(value) if attribute.casefold() == "brand" else None
 	if not abbr or abbr.casefold() in existing_abbrs:
@@ -691,9 +692,9 @@ def stage_variant_item(request, template, attributes: dict[str, str], identity_s
 		frappe.throw(_("ERPNext could not generate an Item Code for the requested attributes."))
 	if frappe.db.exists("Item", variant.item_code):
 		frappe.throw(
-			_("Generated Item Code {0} conflicts with a different Item. Review attribute abbreviations.").format(
-				frappe.bold(variant.item_code)
-			),
+			_(
+				"Generated Item Code {0} conflicts with a different Item. Review attribute abbreviations."
+			).format(frappe.bold(variant.item_code)),
 			DynamicItemConflict,
 		)
 
@@ -832,7 +833,9 @@ def cancel_request(name: str, reason: str | None = None) -> dict:
 	if request.status != PENDING:
 		frappe.throw(_("Only Pending Approval requests can be cancelled."))
 	if request.requested_by != frappe.session.user and "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Only the requester or a System Manager can cancel this request."), frappe.PermissionError)
+		frappe.throw(
+			_("Only the requester or a System Manager can cancel this request."), frappe.PermissionError
+		)
 	return terminate_request(
 		request,
 		CANCELLED,
@@ -901,7 +904,9 @@ def cleanup_attribute_artifacts(request, row):
 			with dynamic_item_service_context():
 				template.save(ignore_permissions=True)
 
-	if cint(row.profile_row_was_created) and frappe.db.exists("Dynamic Variant Profile", request.template_item):
+	if cint(row.profile_row_was_created) and frappe.db.exists(
+		"Dynamic Variant Profile", request.template_item
+	):
 		profile = frappe.get_doc("Dynamic Variant Profile", request.template_item)
 		if not attribute_used_by_other_request(request.name, request.template_item, attribute):
 			profile.set("attributes", [d for d in profile.attributes if d.item_attribute != attribute])

@@ -13,6 +13,7 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants_job,
 )
 
+
 def handle_item_attribute_update(doc, method=None):
 	if not should_sync_for_item_attribute(doc):
 		return
@@ -192,11 +193,7 @@ def get_attribute_value_row(doc, attribute_value):
 
 
 def get_existing_attribute_abbrs(doc, exclude_row=None):
-	return {
-		row.abbr.lower()
-		for row in doc.item_attribute_values
-		if row.abbr and row != exclude_row
-	}
+	return {row.abbr.lower() for row in doc.item_attribute_values if row.abbr and row != exclude_row}
 
 
 def sync_brand_abbreviation_from_attribute(brand, abbr):
@@ -522,7 +519,9 @@ def sync_item_attribute_and_get_status(attribute):
 @frappe.whitelist()
 def create_missing_variants_for_item_attribute(attribute, use_template_image=None):
 	if not is_auto_create_variant_attribute(attribute):
-		frappe.throw(_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute()))
+		frappe.throw(
+			_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute())
+		)
 
 	if use_template_image is None:
 		use_template_image = frappe.db.get_single_value(
@@ -614,9 +613,7 @@ def is_auto_create_variants_enabled() -> bool:
 
 def set_srv_settings_defaults():
 	if not frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute"):
-		frappe.db.set_single_value(
-			"SRV Settings", "variant_auto_create_attribute", DEFAULT_VARIANT_ATTRIBUTE
-		)
+		frappe.db.set_single_value("SRV Settings", "variant_auto_create_attribute", DEFAULT_VARIANT_ATTRIBUTE)
 
 	if frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update") is None:
 		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 0)
