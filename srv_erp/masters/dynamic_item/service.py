@@ -6,12 +6,17 @@ from erpnext.controllers.item_variant import (
 	get_variant,
 )
 from frappe import _
-from frappe.utils import cint, cstr, flt, now_datetime
+from frappe.utils import cint, cstr, now_datetime
 
 from srv_erp.item.variant_auto_creation import (
 	get_brand_abbreviation,
 	is_brand_disabled,
 	make_attribute_abbr,
+)
+from srv_erp.masters.dynamic_item.assignments import (
+	assign_request_to_approvers,
+	close_approval_assignments,
+	require_available_approver,
 )
 from srv_erp.masters.dynamic_item.configuration import (
 	ADD_PACKAGING,
@@ -20,9 +25,7 @@ from srv_erp.masters.dynamic_item.configuration import (
 	CREATE_VARIANT,
 	PENDING,
 	REJECTED,
-	get_approver_users,
 	get_settings,
-	is_grid_enabled,
 	require_approver,
 	require_requester,
 	user_has_approver_role,
@@ -40,83 +43,35 @@ from srv_erp.masters.dynamic_item.normalization import (
 	normalize_uoms,
 	parse_payload,
 )
+from srv_erp.masters.dynamic_item.packaging import (
+	add_packaging_rows,
+	get_missing_packaging,
+	validate_no_overlapping_packaging_request,
+)
 from srv_erp.masters.dynamic_item.profile import (
 	get_profile_rules,
 	get_template_and_profile,
 	validate_requested_attributes,
 	validate_source,
 )
+from srv_erp.masters.dynamic_item.repository import (
+	get_item_state,
+	get_pending_request,
+	get_variant_if_present,
+	insert_request,
+	lock_request,
+	lock_template,
+)
+from srv_erp.masters.dynamic_item.results import (
+	approved_result,
+	existing_result,
+	request_result,
+	terminal_result,
+)
 from srv_erp.masters.dynamic_item.signatures import (
 	make_identity_signature,
 	make_packaging_signature,
 )
-
-
-def get_item_state(item_code: str) -> frappe._dict:
-	return frappe.db.get_value(
-		"Item",
-		item_code,
-		["name", "disabled", "dynamic_item_approval_status", "dynamic_item_request"],
-		as_dict=True,
-	)
-
-
-def get_variant_if_present(template_item: str, attributes: dict[str, str]) -> str | None:
-	return get_variant(template_item, attributes)
-
-
-def get_pending_request(active_signature: str):
-	return frappe.db.get_value(
-		"Dynamic Item Request",
-		{"active_signature": active_signature, "status": PENDING},
-		["name", "request_type", "status", "staged_item_code", "resolved_item"],
-		as_dict=True,
-	)
-
-
-def request_result(request, created: bool = False) -> dict:
-	return {
-		"outcome": "packaging_approval_required"
-		if request.request_type == ADD_PACKAGING
-		else "pending_approval",
-		"item_code": request.staged_item_code or request.resolved_item,
-		"request": request.name,
-		"approval_status": request.status,
-		"created": bool(created),
-	}
-
-
-def existing_result(item_code: str) -> dict:
-	return {
-		"outcome": "existing",
-		"item_code": item_code,
-		"request": None,
-		"approval_status": APPROVED,
-		"created": False,
-	}
-
-
-def get_missing_packaging(item, uoms: list[dict]) -> list[dict]:
-	existing = {row.uom: flt(row.conversion_factor) for row in item.get("uoms") or [] if row.uom}
-	missing = []
-	for row in uoms:
-		uom = row["uom"]
-		factor = flt(row["conversion_factor"])
-		if uom in existing:
-			if flt(existing[uom], 9) != flt(factor, 9):
-				frappe.throw(
-					_(
-						"UOM {0} already has conversion factor {1}; requested factor {2} is a conflict."
-					).format(frappe.bold(uom), existing[uom], factor),
-					DynamicItemConflict,
-				)
-			continue
-		if uom == item.stock_uom:
-			if flt(factor, 9) != 1:
-				frappe.throw(_("Stock UOM {0} must have conversion factor 1.").format(frappe.bold(uom)))
-			continue
-		missing.append({"uom": uom, "conversion_factor": factor})
-	return missing
 
 
 def validate_existing_variant(item_code: str):
@@ -134,27 +89,6 @@ def validate_existing_variant(item_code: str):
 			DynamicItemConflict,
 		)
 	return None
-
-
-def insert_request(values: dict):
-	active_signature = values["active_signature"]
-	existing = get_pending_request(active_signature)
-	if existing:
-		return frappe.get_doc("Dynamic Item Request", existing.name), False
-
-	savepoint = "dynamic_item_request_reservation"
-	frappe.db.savepoint(savepoint)
-	try:
-		with dynamic_item_service_context():
-			request = frappe.get_doc({"doctype": "Dynamic Item Request", **values})
-			request.insert(ignore_permissions=True)
-		return request, True
-	except (frappe.DuplicateEntryError, frappe.UniqueValidationError):
-		frappe.db.rollback(save_point=savepoint)
-		existing = get_pending_request(active_signature)
-		if not existing:
-			raise
-		return frappe.get_doc("Dynamic Item Request", existing.name), False
 
 
 def resolve_or_request(payload) -> dict:
@@ -215,41 +149,6 @@ def create_packaging_request(item, template, attributes, uoms, source) -> dict:
 	return request_result(request, created=created)
 
 
-def validate_no_overlapping_packaging_request(item_code: str, uoms: list[dict]):
-	requested_uoms = {row["uom"] for row in uoms}
-	if not requested_uoms:
-		return
-	rows = frappe.db.sql(
-		"""
-		select request.name, packaging.uom
-		from `tabDynamic Item Request` request
-		inner join `tabDynamic Item Request UOM` packaging on packaging.parent = request.name
-		where request.request_type = %(request_type)s
-			and request.status = %(status)s
-			and request.resolved_item = %(item_code)s
-			and packaging.uom in %(uoms)s
-		order by request.creation
-		limit 1
-		""",
-		{
-			"request_type": ADD_PACKAGING,
-			"status": PENDING,
-			"item_code": item_code,
-			"uoms": tuple(requested_uoms),
-		},
-		as_dict=True,
-	)
-	if rows:
-		frappe.throw(
-			_("UOM {0} already has a pending packaging request {1} for Item {2}.").format(
-				frappe.bold(rows[0].uom),
-				frappe.get_desk_link("Dynamic Item Request", rows[0].name),
-				frappe.bold(item_code),
-			),
-			DynamicItemConflict,
-		)
-
-
 def create_variant_request(template, profile, attributes, uoms, source, identity_signature) -> dict:
 	require_available_approver()
 	request, created = insert_request(
@@ -284,63 +183,6 @@ def create_variant_request(template, profile, attributes, uoms, source, identity
 	request.add_comment("Info", _("Disabled Item {0} staged for approval.").format(request.staged_item_code))
 	assign_request_to_approvers(request)
 	return request_result(request, created=True)
-
-
-def require_available_approver():
-	if get_approver_users(exclude_user=frappe.session.user):
-		return
-	frappe.throw(
-		_("No other enabled System User has the configured approver role {0}.").format(
-			frappe.bold(get_settings().approver_role)
-		)
-	)
-
-
-def assign_request_to_approvers(request):
-	from frappe.desk.form.assign_to import add
-
-	approvers = get_approver_users(exclude_user=request.requested_by)
-	if not approvers:
-		return
-	try:
-		add(
-			{
-				"assign_to": approvers,
-				"doctype": request.doctype,
-				"name": request.name,
-				"description": _("Review {0} for Item template {1}.").format(
-					request.request_type, request.template_item
-				),
-				"priority": "Medium",
-				"assigned_by": request.requested_by,
-			},
-			ignore_permissions=True,
-		)
-	except Exception:
-		frappe.log_error(
-			title=_("Dynamic Item Approval Assignment Failed"),
-			message=frappe.get_traceback(),
-		)
-
-
-def close_approval_assignments(request):
-	from frappe.desk.form.assign_to import remove
-
-	assignments = frappe.get_all(
-		"ToDo",
-		filters={
-			"reference_type": request.doctype,
-			"reference_name": request.name,
-			"status": ["not in", ["Cancelled", "Closed"]],
-		},
-		pluck="allocated_to",
-	)
-	for user in assignments:
-		remove(request.doctype, request.name, user, ignore_permissions=True)
-
-
-def lock_template(template_item: str):
-	frappe.db.sql("select name from `tabItem` where name = %s for update", template_item)
 
 
 def stage_requested_schema(request, template, profile) -> dict[str, str]:
@@ -496,22 +338,8 @@ def stage_variant_item(request, template, attributes: dict[str, str], identity_s
 	request.staged_item_code = variant.name
 
 
-def add_packaging_rows(item, uoms: list[dict]):
-	missing = get_missing_packaging(item, uoms)
-	for row in missing:
-		item.append(
-			"uoms",
-			{"uom": row["uom"], "conversion_factor": row["conversion_factor"]},
-		)
-	return len(missing)
-
-
 def get_request_attributes(request) -> dict[str, str]:
 	return {row.item_attribute: row.attribute_value for row in request.attributes}
-
-
-def lock_request(name: str):
-	frappe.db.sql("select name from `tabDynamic Item Request` where name = %s for update", name)
 
 
 def approve_request(name: str) -> dict:
@@ -588,15 +416,6 @@ def approve_packaging_request(request) -> str:
 	with dynamic_item_service_context():
 		item.save(ignore_permissions=True)
 	return item.name
-
-
-def approved_result(request) -> dict:
-	return {
-		"outcome": "approved",
-		"request": request.name,
-		"item_code": request.resolved_item,
-		"approval_status": request.status,
-	}
 
 
 def reject_request(name: str, reason: str) -> dict:
@@ -858,15 +677,6 @@ def brand_is_referenced(brand: str) -> bool:
 		"Item Variant Attribute",
 		{"attribute": "Brand", "attribute_value": brand},
 	)
-
-
-def terminal_result(request) -> dict:
-	return {
-		"outcome": request.status.lower().replace(" ", "_"),
-		"request": request.name,
-		"item_code": request.resolved_item,
-		"approval_status": request.status,
-	}
 
 
 def get_request_status(name: str) -> dict:
