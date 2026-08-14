@@ -20,6 +20,9 @@ from srv_erp.item.variant_auto_creation import (
 class TestVariantCoverage(ERPNextTestSuite):
 	def setUp(self):
 		super().setUp()
+		frappe.db.set_single_value("Masters Settings", "enforce_variant_approval", 0)
+		frappe.db.set_single_value("Masters Settings", "allow_bulk_variant_creation", 1)
+		frappe.clear_document_cache("Masters Settings", "Masters Settings")
 		self.brand_attribute = "_Test VC Brand"
 		self.size_attribute = "_Test VC Size"
 		self.template = "_Test VC Template"

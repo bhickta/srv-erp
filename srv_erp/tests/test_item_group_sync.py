@@ -7,6 +7,8 @@ from erpnext.tests.utils import ERPNextTestSuite
 class TestItemGroupSync(ERPNextTestSuite):
 	def setUp(self):
 		super().setUp()
+		frappe.db.set_single_value("Masters Settings", "enforce_variant_approval", 0)
+		frappe.clear_document_cache("Masters Settings", "Masters Settings")
 		self.item_group_a = "_Test Variant Group A"
 		self.item_group_b = "_Test Variant Group B"
 		self.attribute = "_Test Variant Sync Size"
