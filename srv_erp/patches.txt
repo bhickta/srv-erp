@@ -22,3 +22,4 @@ srv_erp.patches.sync_brand_master_values_to_attribute
 srv_erp.patches.sync_brand_attribute_values_to_master
 srv_erp.patches.add_brand_abbreviation
 srv_erp.patches.add_brand_disabled
+srv_erp.patches.disable_bulk_variant_creation
