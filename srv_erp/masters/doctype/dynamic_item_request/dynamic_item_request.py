@@ -38,3 +38,16 @@ class DynamicItemRequest(Document):
 			frappe.throw(_("Dynamic Item Request state can only be changed through approval actions."))
 		if not self.is_child_table_same("attributes") or not self.is_child_table_same("uoms"):
 			frappe.throw(_("Pending request parameters cannot be edited. Reject and create a new request."))
+
+
+def on_doctype_update():
+	frappe.db.add_index(
+		"Dynamic Item Request",
+		["status", "request_type", "resolved_item"],
+		"dynamic_item_resolution_idx",
+	)
+	frappe.db.add_index(
+		"Dynamic Item Request",
+		["requested_by", "status"],
+		"dynamic_item_requester_idx",
+	)
