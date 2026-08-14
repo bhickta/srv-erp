@@ -184,7 +184,11 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 		primary_action(values) {
 			const attributes = {};
 			Object.entries(attribute_field_map).forEach(([fieldname, attribute]) => {
-				if (values[fieldname] !== undefined && values[fieldname] !== null && values[fieldname] !== "") {
+				if (
+					values[fieldname] !== undefined &&
+					values[fieldname] !== null &&
+					values[fieldname] !== ""
+				) {
 					attributes[attribute] = values[fieldname];
 				}
 			});
@@ -244,7 +248,9 @@ srv_erp.dynamic_item.handle_result = function (result, frm, grid_config) {
 	}
 
 	const request_link = frappe.utils.get_form_link("Dynamic Item Request", result.request, true);
-	const item_text = result.item_code ? ` ${__("Staged Item")}: ${frappe.utils.escape_html(result.item_code)}.` : "";
+	const item_text = result.item_code
+		? ` ${__("Staged Item")}: ${frappe.utils.escape_html(result.item_code)}.`
+		: "";
 	frappe.msgprint({
 		title: __("Approval Required"),
 		indicator: "orange",

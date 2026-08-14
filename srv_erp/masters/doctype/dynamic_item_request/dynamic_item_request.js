@@ -7,13 +7,21 @@ frappe.ui.form.on("Dynamic Item Request", {
 			callback(response) {
 				const status = response.message || {};
 				if (status.can_approve) {
-					frm.add_custom_button(__("Approve"), () => approve_request(frm), __("Actions"));
+					frm.add_custom_button(
+						__("Approve"),
+						() => approve_request(frm),
+						__("Actions")
+					);
 				}
 				if (status.can_reject) {
 					frm.add_custom_button(__("Reject"), () => reject_request(frm), __("Actions"));
 				}
 				if (status.can_cancel) {
-					frm.add_custom_button(__("Cancel Request"), () => cancel_request(frm), __("Actions"));
+					frm.add_custom_button(
+						__("Cancel Request"),
+						() => cancel_request(frm),
+						__("Actions")
+					);
 				}
 			},
 		});
