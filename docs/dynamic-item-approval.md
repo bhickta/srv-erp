@@ -15,6 +15,20 @@ To activate requests, assign `Masters Item Requester` and `Masters Item Approver
 
 Every discovered editable child table whose `item_code` is a Link to Item is registered in Masters Settings. The configuration refresh action discovers grids added by future apps or customizations.
 
+## Architecture
+
+The dynamic Item domain is split by responsibility:
+
+- `request_flow.py` orchestrates resolve-or-request and request creation;
+- `approval_flow.py` owns request state transitions and maker-checker rules;
+- `item_approval.py` applies approved changes to Items;
+- `staging.py` creates request-owned schema and disabled Items;
+- `cleanup.py` and `artifact_usage.py` safely reverse unadopted staged schema;
+- `normalization.py`, `profile.py`, `lookups.py`, and `signatures.py` validate and canonicalize input;
+- `repository.py`, `packaging.py`, and `assignments.py` isolate persistence, UOM rules, and work assignment.
+
+`service.py` is an import-only compatibility facade for existing Python integrations. New code imports the focused module that owns the behavior. Architecture tests enforce that the facade contains no implementation, implementation modules never depend on it, and each module remains below the package size boundary.
+
 ## API
 
 All methods use the authenticated Frappe session and enforce configured roles.
