@@ -22,6 +22,9 @@ class DynamicItemRequest(Document):
 			"resolved_item",
 			"signature",
 			"active_signature",
+			"source_doctype",
+			"source_field",
+			"source_name",
 			"requested_by",
 			"requested_on",
 			"approved_by",
@@ -29,6 +32,7 @@ class DynamicItemRequest(Document):
 			"rejected_by",
 			"rejected_on",
 			"rejection_reason",
+			"amended_from_request",
 		)
 		if any(previous.get(fieldname) != self.get(fieldname) for fieldname in protected_fields):
 			frappe.throw(_("Dynamic Item Request state can only be changed through approval actions."))

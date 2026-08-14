@@ -37,7 +37,10 @@ def protect_dynamic_item_state(doc, method=None):
 	pending_activation_changed = previous.get("dynamic_item_approval_status") == PENDING and previous.get(
 		"disabled"
 	) != doc.get("disabled")
-	if approval_changed or pending_activation_changed:
+	pending_parameters_changed = previous.get("dynamic_item_approval_status") == PENDING and (
+		not doc.is_child_table_same("attributes") or not doc.is_child_table_same("uoms")
+	)
+	if approval_changed or pending_activation_changed or pending_parameters_changed:
 		frappe.throw(_("Dynamic Item approval fields can only be changed through the Masters approval flow."))
 
 
