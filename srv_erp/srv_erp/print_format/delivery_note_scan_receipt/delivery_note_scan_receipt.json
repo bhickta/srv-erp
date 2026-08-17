@@ -1,0 +1,13 @@
+{
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Delivery Note",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "module": "Srv Erp",
+ "name": "Delivery Note Scan Receipt",
+ "print_format_type": "Jinja",
+ "raw_commands": "\u001b@\u001ba\u0001SCAN VERIFICATION\nDELIVERY NOTE\n\u001ba\u0000{{ doc.name }}\n{{ frappe.utils.format_date(doc.posting_date) }} {{ doc.posting_time or '' }}\n{% if doc.customer_name %}{{ doc.customer_name }}\n{% endif %}--------------------------------\n{% for row in doc.items if row.item_code %}{{ loop.index }}. {{ row.item_code }}\n   {{ row.qty }} {{ row.uom or row.stock_uom }}{% if row.warehouse %} | {{ row.warehouse }}{% endif %}\n{% endfor %}--------------------------------\nITEM LINES: {{ doc.items|selectattr('item_code')|list|length }}\nPACKAGES SCANNED: {{ doc.package_barcodes|length }}\n{% if doc.package_barcodes %}--------------------------------\n{% for scan in doc.package_barcodes %}{{ scan.barcode or scan.package_barcode }} | {{ scan.item_code }} | {{ scan.uom }}\n{% endfor %}{% endif %}\u001ba\u0001Printed: {{ frappe.utils.format_datetime(frappe.utils.now_datetime(), 'dd-MM-yyyy HH:mm') }}\n\n\n\u001dV\u0000",
+ "raw_printing": 1,
+ "standard": "Yes"
+}

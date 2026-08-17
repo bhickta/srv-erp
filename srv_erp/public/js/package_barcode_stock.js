@@ -20,6 +20,59 @@ srv_erp.package_barcode.setup_stock_scanner = function (frm) {
 	frm.barcode_scanner = barcode_scanner;
 	srv_erp.package_barcode.render_scan_review(frm);
 	srv_erp.package_barcode.refresh_barcode_only_items(frm);
+	srv_erp.package_barcode.add_scan_receipt_button(frm);
+};
+
+srv_erp.package_barcode.add_scan_receipt_button = function (frm) {
+	const print_format = srv_erp.package_barcode.receipt_formats[frm.doctype];
+	if (!print_format) {
+		return;
+	}
+
+	frm.add_custom_button(
+		__("Print Scan Receipt"),
+		() => srv_erp.package_barcode.print_scan_receipt(frm, print_format),
+		__("Package Barcode")
+	);
+};
+
+srv_erp.package_barcode.print_scan_receipt = async function (frm, print_format) {
+	if (!(frm.doc.items || []).some((row) => row.item_code)) {
+		frappe.msgprint(__("Scan at least one item before printing the receipt."));
+		return;
+	}
+
+	if (frm.is_dirty()) {
+		await frm.save();
+	}
+
+	frappe.dom.freeze(__("Preparing scan receipt..."));
+	try {
+		const result = await frappe.call({
+			method: "frappe.www.printview.get_rendered_raw_commands",
+			args: {
+				doc: frm.doc,
+				print_format,
+			},
+		});
+		const commands = result.message && result.message.raw_commands;
+		if (!commands) {
+			throw new Error(__("The scan receipt could not be rendered."));
+		}
+
+		await frappe.ui.form.qz_connect();
+		const printer = srv_erp.package_barcode.receipt_printer;
+		const config = qz.configs.create(printer, { encoding: "UTF-8" });
+		await qz.print(config, [commands]);
+		frappe.show_alert({
+			message: __("Scan receipt sent to {0}", [printer]),
+			indicator: "green",
+		});
+	} catch (error) {
+		frappe.ui.form.qz_fail(error);
+	} finally {
+		frappe.dom.unfreeze();
+	}
 };
 
 srv_erp.package_barcode.get_item_uom_details = function (item_code) {
