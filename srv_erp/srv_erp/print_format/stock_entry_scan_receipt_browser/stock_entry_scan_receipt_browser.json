@@ -1,0 +1,12 @@
+{
+ "custom_format": 0,
+ "disabled": 0,
+ "doc_type": "Stock Entry",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "module": "Srv Erp",
+ "name": "Stock Entry Scan Receipt Browser",
+ "print_format_type": "Jinja",
+ "raw_printing": 0,
+ "standard": "Yes"
+}

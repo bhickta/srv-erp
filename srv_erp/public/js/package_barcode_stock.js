@@ -34,6 +34,43 @@ srv_erp.package_barcode.add_scan_receipt_button = function (frm) {
 		() => srv_erp.package_barcode.print_scan_receipt(frm, print_format),
 		__("Package Barcode")
 	);
+	frm.add_custom_button(
+		__("Print Scan Receipt (Browser)"),
+		() => srv_erp.package_barcode.print_scan_receipt_in_browser(frm),
+		__("Package Barcode")
+	);
+};
+
+srv_erp.package_barcode.print_scan_receipt_in_browser = async function (frm) {
+	if (!(frm.doc.items || []).some((row) => row.item_code)) {
+		frappe.msgprint(__("Scan at least one item before printing the receipt."));
+		return;
+	}
+
+	const print_window = window.open("", "_blank");
+	if (!print_window) {
+		frappe.msgprint(__("Please allow pop-ups to use browser printing."));
+		return;
+	}
+
+	try {
+		if (frm.is_dirty()) {
+			await frm.save();
+		}
+
+		const print_format = srv_erp.package_barcode.browser_receipt_formats[frm.doctype];
+		const query = new URLSearchParams({
+			doctype: frm.doctype,
+			name: frm.doc.name,
+			format: print_format,
+			no_letterhead: "1",
+			trigger_print: "1",
+		});
+		print_window.location = `/printview?${query.toString()}`;
+	} catch (error) {
+		print_window.close();
+		throw error;
+	}
 };
 
 srv_erp.package_barcode.print_scan_receipt = async function (frm, print_format) {
