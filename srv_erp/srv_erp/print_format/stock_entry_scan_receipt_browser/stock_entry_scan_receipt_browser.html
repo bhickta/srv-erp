@@ -3,7 +3,9 @@
 	.print-format { width: 76mm; max-width: 76mm; padding: 0 !important; margin: 0 !important; font-family: monospace; font-size: 9pt; line-height: 1.2; color: #000; }
 	.scan-title { text-align: center; font-weight: 700; }
 	.scan-rule { border-top: 1px dashed #000; margin: 2mm 0; }
-	.scan-row { margin-bottom: 1.5mm; overflow-wrap: anywhere; }
+	.scan-row { margin-bottom: 2mm; overflow-wrap: anywhere; }
+	.item-name { font-weight: 700; }
+	.item-detail { padding-left: 3mm; font-size: 8.5pt; }
 	.scan-meta { font-size: 8pt; }
 </style>
 <div class="scan-title">SCAN VERIFICATION<br>STOCK ENTRY</div>
@@ -12,13 +14,8 @@
 {% if doc.stock_entry_type %}<div>{{ doc.stock_entry_type }}</div>{% endif %}
 <div class="scan-rule"></div>
 {% for row in doc.items if row.item_code %}
-<div class="scan-row"><b>{{ loop.index }}. {{ row.item_code }}</b><br>{{ row.qty }} {{ row.uom or row.stock_uom }}{% if row.s_warehouse %} | FROM: {{ row.s_warehouse }}{% endif %}{% if row.t_warehouse %} | TO: {{ row.t_warehouse }}{% endif %}</div>
+<div class="scan-row"><div class="item-name">{{ loop.index }}. {{ row.item_name or row.item_code }}</div><div class="item-detail">CODE: {{ row.item_code }}<br>QTY: {{ row.qty }} {{ row.uom or row.stock_uom }}{% if row.s_warehouse %}<br>FROM: {{ row.s_warehouse }}{% endif %}{% if row.t_warehouse %}<br>TO: {{ row.t_warehouse }}{% endif %}</div></div>
 {% endfor %}
 <div class="scan-rule"></div>
 <div>ITEM LINES: {{ doc.items|selectattr("item_code")|list|length }}</div>
-<div>PACKAGES SCANNED: {{ doc.package_barcodes|length }}</div>
-{% if doc.package_barcodes %}
-<div class="scan-rule"></div>
-{% for scan in doc.package_barcodes %}<div class="scan-row">{{ scan.barcode or scan.package_barcode }}<br>{{ scan.item_code }} | {{ scan.uom }}</div>{% endfor %}
-{% endif %}
 <div class="scan-meta" style="text-align:center; margin-top:2mm;">Printed: {{ frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd-MM-yyyy HH:mm") }}</div>
