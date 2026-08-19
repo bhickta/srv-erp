@@ -1,4 +1,5 @@
 import frappe
+from erpnext.stock.doctype.item_price.item_price import ItemPrice
 from frappe import _
 
 
@@ -27,7 +28,7 @@ PRICE_IDENTITY_FIELDS = (
 )
 
 
-class TemplateItemPriceMixin:
+class TemplateItemPrice(ItemPrice):
 	"""Allow an Item Price to act as the master price for a variant template."""
 
 	def validate_item_template(self):

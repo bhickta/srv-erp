@@ -253,12 +253,12 @@ doc_events = {
 
 # before_tests = "srv_erp.install.before_tests"
 
-# Extend DocType Class
+# Override DocType Class
 # ------------------------------
-#
-# Specify custom mixins to extend the standard doctype controller.
-extend_doctype_class = {
-	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPriceMixin",
+# Frappe v15 does not apply extend_doctype_class, so Item Price uses a small
+# subclass that only relaxes ERPNext's template-item restriction.
+override_doctype_class = {
+	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
 }
 
 # Overriding Methods
