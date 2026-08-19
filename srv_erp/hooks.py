@@ -54,6 +54,7 @@ doctype_js = {
 	],
 	"Item Attribute": "public/js/item_attribute_variant_sync.js",
 	"Brand": "public/js/item_attribute_variant_sync.js",
+	"Item Price": "public/js/item_price.js",
 	"Sales Order": "public/js/sales_order.js",
 	"Stock Entry": [
 		"public/js/package_barcode/namespace.js",
@@ -187,7 +188,15 @@ doc_events = {
 	},
 	"Item": {
 		"validate": "srv_erp.item.variant_field_sync.validate_item_group_sync",
-		"on_update": "srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
+		"on_update": [
+			"srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
+			"srv_erp.item.variant_price_sync.sync_prices_to_new_variant",
+		],
+	},
+	"Item Price": {
+		"before_validate": "srv_erp.item.variant_price_sync.protect_managed_variant_price",
+		"on_update": "srv_erp.item.variant_price_sync.sync_template_price_to_variants",
+		"on_trash": "srv_erp.item.variant_price_sync.delete_managed_variant_prices",
 	},
 	"Item Attribute": {
 		"validate": "srv_erp.item.variant_auto_creation.validate_item_attribute_brand_source",
@@ -248,9 +257,9 @@ doc_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "srv_erp.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPriceMixin",
+}
 
 # Overriding Methods
 # ------------------------------

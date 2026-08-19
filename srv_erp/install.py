@@ -19,6 +19,7 @@ def before_migrate():
 def after_install():
 	ensure_dsr_roles()
 	create_brand_custom_fields()
+	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
@@ -35,6 +36,7 @@ def after_install():
 def after_migrate():
 	ensure_dsr_roles()
 	create_brand_custom_fields()
+	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()
 	create_stock_reconciliation_package_uom_custom_fields()
 	create_dsr_custom_fields()
@@ -70,6 +72,34 @@ def create_brand_custom_fields():
 					"in_list_view": 1,
 					"in_standard_filter": 1,
 					"label": "Disabled",
+				},
+			],
+		},
+		update=True,
+	)
+
+
+def create_variant_price_custom_fields():
+	create_custom_fields(
+		{
+			"Item Price": [
+				{
+					"default": "0",
+					"description": "When checked, this price is the single source of truth for every variant of the selected template item.",
+					"fieldname": "is_variant_price_template",
+					"fieldtype": "Check",
+					"hidden": 1,
+					"insert_after": "item_code",
+					"label": "Variant Price Template",
+					"read_only": 1,
+				},
+				{
+					"fieldname": "variant_price_template",
+					"fieldtype": "Data",
+					"hidden": 1,
+					"insert_after": "is_variant_price_template",
+					"label": "Variant Price Template ID",
+					"read_only": 1,
 				},
 			],
 		},
