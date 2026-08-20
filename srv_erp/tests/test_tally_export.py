@@ -8,9 +8,9 @@ from srv_erp.integrations.tally_export import (
 	_clean_name,
 	_ledger,
 	_parse_doctypes,
+	_quantity,
 	_sales_order_voucher,
 	_tally_date,
-	_quantity,
 )
 
 

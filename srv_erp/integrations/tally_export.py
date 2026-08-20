@@ -58,6 +58,10 @@ def _clean_name(value, company_abbr=None):
 	return value
 
 
+def _company_abbr(company):
+	return frappe.db.get_value("Company", company, "abbr")
+
+
 def _account_parent(account, by_name, company_abbr):
 	parent = by_name.get(account.get("parent_account"))
 	if parent and parent.get("parent_account"):
@@ -99,10 +103,13 @@ def _ledger(name, parent, billwise=False, tax_id=None, country=None):
 	return row
 
 
-def _export_accounts(company, company_abbr):
+def _export_accounts(company, company_abbr, include_disabled=False):
+	filters = {"company": company}
+	if not include_disabled:
+		filters["disabled"] = 0
 	accounts = frappe.get_all(
 		"Account",
-		filters={"company": company, "disabled": 0},
+		filters=filters,
 		fields=[
 			"name", "account_name", "parent_account", "is_group", "root_type",
 			"account_type", "account_currency",
@@ -129,7 +136,7 @@ def _export_accounts(company, company_abbr):
 	return result
 
 
-def _export_parties(doctype, parent, company):
+def _export_parties(doctype, parent, company, names=None):
 	if doctype == "Customer":
 		fields = ["name", "customer_name", "tax_id", "territory"]
 		party_name_field = "customer_name"
@@ -138,7 +145,8 @@ def _export_parties(doctype, parent, company):
 		party_name_field = "supplier_name"
 
 	result = []
-	for party in frappe.get_all(doctype, fields=fields, order_by="name"):
+	filters = {"name": ["in", sorted(names)]} if names is not None else None
+	for party in frappe.get_all(doctype, filters=filters, fields=fields, order_by="name"):
 		name = party.get(party_name_field) or party.name
 		country = party.get("country")
 		if not country and doctype == "Customer":
@@ -170,21 +178,24 @@ def _export_cost_centers(company, company_abbr):
 	return result
 
 
-def _export_uoms():
-	used_uoms = set(
-		frappe.get_all(
-			"Item",
-			filters={"disabled": 0, "is_stock_item": 1},
-			pluck="stock_uom",
+def _export_uoms(uoms=None):
+	if uoms is None:
+		used_uoms = set(
+			frappe.get_all(
+				"Item",
+				filters={"disabled": 0, "is_stock_item": 1},
+				pluck="stock_uom",
+			)
 		)
-	)
-	used_uoms.update(
-		frappe.get_all(
-			"UOM Conversion Detail",
-			filters={"parenttype": "Item"},
-			pluck="uom",
+		used_uoms.update(
+			frappe.get_all(
+				"UOM Conversion Detail",
+				filters={"parenttype": "Item"},
+				pluck="uom",
+			)
 		)
-	)
+	else:
+		used_uoms = set(uoms)
 	return [
 		{
 			"metadata": _metadata("Unit", row.name),
@@ -201,12 +212,30 @@ def _export_uoms():
 	]
 
 
-def _export_item_groups():
+def _ancestor_names(rows, requested_names, parent_field, root_name=None):
+	by_name = {row.name: row for row in rows}
+	result = set()
+	remaining = list(filter(None, requested_names))
+	while remaining:
+		name = remaining.pop()
+		if name == root_name or name in result:
+			continue
+		result.add(name)
+		row = by_name.get(name)
+		if row and row.get(parent_field):
+			remaining.append(row.get(parent_field))
+	return result
+
+
+def _export_item_groups(names=None):
 	rows = frappe.get_all(
 		"Item Group",
 		fields=["name", "parent_item_group", "is_group"],
 		order_by="lft",
 	)
+	if names is not None:
+		required_names = _ancestor_names(rows, names, "parent_item_group", "All Item Groups")
+		rows = [row for row in rows if row.name in required_names]
 	return [
 		{
 			"metadata": _metadata("StockGroup", row.name),
@@ -218,13 +247,19 @@ def _export_item_groups():
 	]
 
 
-def _export_warehouses(company, company_abbr):
+def _export_warehouses(company, company_abbr, names=None):
+	filters = {"company": company}
+	if names is None:
+		filters["disabled"] = 0
 	rows = frappe.get_all(
 		"Warehouse",
-		filters={"company": company, "disabled": 0},
+		filters=filters,
 		fields=["name", "warehouse_name", "parent_warehouse", "is_group"],
 		order_by="lft",
 	)
+	if names is not None:
+		required_names = _ancestor_names(rows, names, "parent_warehouse")
+		rows = [row for row in rows if row.name in required_names]
 	return [
 		{
 			"metadata": _metadata("Godown", _clean_name(row.warehouse_name or row.name, company_abbr)),
@@ -234,10 +269,15 @@ def _export_warehouses(company, company_abbr):
 	]
 
 
-def _export_items():
+def _export_items(item_codes=None):
+	filters = (
+		{"name": ["in", sorted(item_codes)]}
+		if item_codes is not None
+		else {"disabled": 0, "is_stock_item": 1}
+	)
 	rows = frappe.get_all(
 		"Item",
-		filters={"disabled": 0, "is_stock_item": 1},
+		filters=filters,
 		fields=["name", "item_name", "item_group", "stock_uom", "gst_hsn_code", "description"],
 		order_by="name",
 	)
@@ -268,7 +308,7 @@ def build_master_payload(company, doctypes=None):
 	if unsupported:
 		frappe.throw(_("Unsupported master DocTypes: {0}").format(", ".join(sorted(unsupported))))
 
-	abbr = frappe.db.get_value("Company", company, "abbr")
+	abbr = _company_abbr(company)
 	messages = []
 	if "Account" in doctypes:
 		messages.extend(_export_accounts(company, abbr))
@@ -404,10 +444,7 @@ def _validate_sales_order_filters(company, from_date, to_date):
 		frappe.throw(_("From Date cannot be after To Date"))
 
 
-def build_sales_order_payload(company, from_date, to_date, customer=None, sales_order=None):
-	"""Return submitted ERPNext Sales Orders as TallyPrime Sales Order vouchers."""
-	_validate_sales_order_filters(company, from_date, to_date)
-
+def _sales_order_filters(company, from_date, to_date, customer=None, sales_order=None):
 	filters = {
 		"company": company,
 		"docstatus": 1,
@@ -417,21 +454,59 @@ def build_sales_order_payload(company, from_date, to_date, customer=None, sales_
 		filters["customer"] = customer
 	if sales_order:
 		filters["name"] = sales_order
+	return filters
 
+
+def _get_sales_orders(company, from_date, to_date, customer=None, sales_order=None):
+	_validate_sales_order_filters(company, from_date, to_date)
 	order_names = frappe.get_all(
 		"Sales Order",
-		filters=filters,
+		filters=_sales_order_filters(company, from_date, to_date, customer, sales_order),
 		pluck="name",
 		order_by="transaction_date, name",
 	)
+	return [frappe.get_doc("Sales Order", name) for name in order_names]
+
+
+def build_sales_order_master_payload(company, from_date, to_date, customer=None, sales_order=None):
+	"""Return the masters referenced by the selected Sales Order vouchers."""
+	orders = _get_sales_orders(company, from_date, to_date, customer, sales_order)
+	if not orders:
+		frappe.throw(_("No submitted Sales Orders match the selected filters."))
+
+	item_codes = {item.item_code for order in orders for item in order.items if item.item_code}
+	item_rows = frappe.get_all(
+		"Item",
+		filters={"name": ["in", sorted(item_codes)]},
+		fields=["name", "item_group", "stock_uom"],
+	)
+	item_groups = {row.item_group for row in item_rows if row.item_group}
+	uoms = {row.stock_uom for row in item_rows if row.stock_uom}
+	uoms.update(item.uom for order in orders for item in order.items if item.uom)
+	warehouses = {item.warehouse for order in orders for item in order.items if item.warehouse}
+	customers = {order.customer for order in orders if order.customer}
+
+	abbr = _company_abbr(company)
+	messages = []
+	messages.extend(_export_accounts(company, abbr, include_disabled=True))
+	messages.extend(_export_parties("Customer", "Sundry Debtors", company, customers))
+	messages.extend(_export_uoms(uoms))
+	messages.extend(_export_item_groups(item_groups))
+	messages.extend(_export_warehouses(company, abbr, warehouses))
+	# Scoped exports intentionally include disabled/non-stock items because an old
+	# submitted order can still reference them and Tally requires the exact master.
+	messages.extend(_export_items(item_codes))
+	return {"tallymessage": messages}
+
+
+def build_sales_order_payload(company, from_date, to_date, customer=None, sales_order=None):
+	"""Return submitted ERPNext Sales Orders as TallyPrime Sales Order vouchers."""
+	orders = _get_sales_orders(company, from_date, to_date, customer, sales_order)
 	abbr, default_income_account = frappe.db.get_value(
 		"Company", company, ["abbr", "default_income_account"]
 	)
 	income_account = _clean_name(default_income_account, abbr) or "Sales"
-	messages = [
-		_sales_order_voucher(frappe.get_doc("Sales Order", name), abbr, income_account)
-		for name in order_names
-	]
+	messages = [_sales_order_voucher(order, abbr, income_account) for order in orders]
 	return {"tallymessage": messages}
 
 
@@ -461,16 +536,22 @@ def get_export_summary(company):
 def get_sales_order_count(company, from_date, to_date, customer=None, sales_order=None):
 	frappe.only_for(("Accounts Manager", "System Manager"))
 	_validate_sales_order_filters(company, from_date, to_date)
-	filters = {
-		"company": company,
-		"docstatus": 1,
-		"transaction_date": ["between", [from_date, to_date]],
-	}
-	if customer:
-		filters["customer"] = customer
-	if sales_order:
-		filters["name"] = sales_order
-	return frappe.db.count("Sales Order", filters)
+	return frappe.db.count(
+		"Sales Order", _sales_order_filters(company, from_date, to_date, customer, sales_order)
+	)
+
+
+@frappe.whitelist()
+def download_sales_order_masters_json(company, from_date, to_date, customer=None, sales_order=None):
+	"""Download the masters required by the selected Sales Orders as UTF-16 JSON."""
+	frappe.only_for(("Accounts Manager", "System Manager"))
+	payload = build_sales_order_master_payload(company, from_date, to_date, customer, sales_order)
+	content = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+	filename = f"tally-required-masters-{getdate(from_date)}-to-{getdate(to_date)}.json"
+	frappe.local.response.filename = filename
+	frappe.local.response.filecontent = content
+	frappe.local.response.type = "download"
+	frappe.local.response.display_content_as = "attachment"
 
 
 @frappe.whitelist()
