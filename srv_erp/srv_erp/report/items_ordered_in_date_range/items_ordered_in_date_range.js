@@ -122,6 +122,7 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		if (data.is_group || data.is_total) {
 			value = $("<span>").html(value).css("font-weight", "bold").prop("outerHTML");
 		}
+		value = format_production_status(value, column, data);
 
 		return value;
 	},
@@ -129,6 +130,40 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		return report.get_filter_value("subtotal_view") ? custom_format : null;
 	},
 };
+
+function format_production_status(value, column, data) {
+	const subtotal_view = frappe.query_report.get_filter_value("subtotal_view");
+	const ordered_field = subtotal_view ? "qty" : "stock_ordered_qty";
+	const status_fields = [ordered_field, "stock_delivered_qty", "stock_available_qty", "stock_shortfall_qty"];
+	const shortage = flt(data.stock_shortfall_qty);
+	const ordered = flt(data[ordered_field]);
+	const delivered = flt(data.stock_delivered_qty);
+	const stock = flt(data.stock_available_qty);
+
+	if (column.fieldname === "item_name" || (subtotal_view && column.fieldname === "brand")) {
+		const color = shortage > 0 ? "#b3261e" : "#137333";
+		return `<span style="border-left:3px solid ${color};padding-left:6px">${value}</span>`;
+	}
+	if (!status_fields.includes(column.fieldname)) {
+		return value;
+	}
+
+	let foreground = "#1a73e8";
+	let background = "#e8f0fe";
+	if (column.fieldname === "stock_shortfall_qty") {
+		foreground = shortage > 0 ? "#b3261e" : "#137333";
+		background = shortage > 0 ? "#fce8e6" : "#e6f4ea";
+	} else if (column.fieldname === "stock_available_qty") {
+		const stock_is_sufficient = stock >= Math.max(ordered - delivered, 0);
+		foreground = stock_is_sufficient ? "#137333" : "#b3261e";
+		background = stock_is_sufficient ? "#e6f4ea" : "#fce8e6";
+	} else if (column.fieldname === "stock_delivered_qty") {
+		foreground = delivered > 0 ? "#137333" : "#b3261e";
+		background = delivered > 0 ? "#e6f4ea" : "#fce8e6";
+	}
+
+	return `<span style="display:block;margin:-2px -4px;padding:2px 4px;border-radius:3px;color:${foreground};background:${background};font-weight:700">${value}</span>`;
+}
 
 async function set_finished_warehouse(report, replace_existing = false) {
 	const warehouse_filter = report.get_filter("warehouse");

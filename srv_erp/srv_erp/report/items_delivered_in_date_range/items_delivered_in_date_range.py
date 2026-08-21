@@ -34,6 +34,17 @@ def get_columns():
 			"fieldtype": "Data",
 			"width": 160,
 		},
+		{"label": _("Ordered"), "fieldname": "stock_ordered_qty", "fieldtype": "Float", "width": 100},
+		{"label": _("Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 100},
+		{"label": _("Stock"), "fieldname": "stock_available_qty", "fieldtype": "Float", "width": 100},
+		{
+			"label": _("To Produce"),
+			"fieldname": "stock_shortfall_qty",
+			"fieldtype": "Float",
+			"width": 110,
+			"description": _("Ordered - Delivered - Stock (minimum 0)"),
+		},
+		{"label": _("Stock UOM"), "fieldname": "production_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
 		{
 			"label": _("Item Group"),
 			"fieldname": "item_group",
@@ -101,47 +112,6 @@ def get_columns():
 			"width": 115,
 		},
 		{
-			"label": _("Stock Available"),
-			"fieldname": "stock_available_qty",
-			"fieldtype": "Float",
-			"width": 115,
-			"convertible": "qty",
-		},
-		{
-			"label": _("Stock Available UOM"),
-			"fieldname": "uom_stock_available_qty",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 125,
-		},
-		{
-			"label": _("Stock Qty Delivered"),
-			"fieldname": "stock_qty",
-			"fieldtype": "Float",
-			"width": 130,
-			"convertible": "qty",
-		},
-		{
-			"label": _("Stock Qty Delivered UOM"),
-			"fieldname": "uom_stock_qty",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 130,
-		},
-		{
-			"label": _("Difference (Stock - Delivered)"),
-			"fieldname": "difference_qty",
-			"fieldtype": "Float",
-			"width": 160,
-		},
-		{
-			"label": _("Difference Stock UOM"),
-			"fieldname": "uom_difference_qty",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 110,
-		},
-		{
 			"label": _("Delivery Note"),
 			"fieldname": "delivery_note",
 			"fieldtype": "Link",
@@ -183,12 +153,16 @@ def get_data(filters):
 			(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
 			dn.posting_date,
 			dni.qty,
+			COALESCE(soi.stock_qty, dni.stock_qty) AS stock_ordered_qty,
+			COALESCE(soi.delivered_qty, dni.stock_qty) AS stock_delivered_qty,
 			COALESCE(bin.actual_qty, 0) AS stock_available_qty,
-			item.stock_uom AS uom_stock_available_qty,
-			dni.stock_uom AS uom_stock_qty,
-			dni.stock_qty,
-			COALESCE(bin.actual_qty, 0) - dni.stock_qty AS difference_qty,
-			item.stock_uom AS uom_difference_qty,
+			item.stock_uom AS production_uom,
+			GREATEST(
+				COALESCE(soi.stock_qty, dni.stock_qty)
+					- COALESCE(soi.delivered_qty, dni.stock_qty)
+					- COALESCE(bin.actual_qty, 0),
+				0
+			) AS stock_shortfall_qty,
 			dn.name as delivery_note,
 			dn.company
 		FROM
@@ -199,6 +173,9 @@ def get_data(filters):
 			`tabItem` item ON item.name = dni.item_code
 		LEFT JOIN
 			`tabBin` bin ON bin.item_code = dni.item_code AND bin.warehouse = %(warehouse)s
+		LEFT JOIN
+			`tabSales Order Item` soi
+				ON soi.name = dni.so_detail AND soi.parent = dni.against_sales_order
 		WHERE
 			dn.docstatus = 1
 			{conditions}

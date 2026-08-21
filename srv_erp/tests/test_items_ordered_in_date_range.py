@@ -30,9 +30,25 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 
 		add_selected_uom_columns.assert_called_once_with(columns, data, "Box")
 
-	def test_existing_detailed_and_item_summary_columns_remain_available(self):
+	def test_production_columns_are_prominent_in_all_views(self):
 		self.assertEqual(get_columns(False)[0]["fieldname"], "item_code")
 		self.assertEqual(get_columns(True)[0]["fieldname"], "brand")
+		for grouped in (False, True):
+			columns = get_columns(grouped)
+			fieldnames = [column["fieldname"] for column in columns]
+			production_fields = [
+				"stock_ordered_qty",
+				"stock_delivered_qty",
+				"stock_available_qty",
+				"stock_shortfall_qty",
+				"production_uom",
+			]
+			start = fieldnames.index("stock_ordered_qty")
+			self.assertEqual(fieldnames[start : start + 5], production_fields)
+			self.assertEqual(
+				[columns[start + offset]["label"] for offset in range(4)],
+				["Ordered", "Delivered", "Stock", "To Produce"],
+			)
 		self.assertEqual(
 			[column["fieldname"] for column in get_columns(subtotal_view=True)],
 			[
@@ -40,28 +56,15 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 				"brand",
 				"stock_uom",
 				"qty",
-				"stock_available_qty",
 				"stock_delivered_qty",
-				"stock_pending_qty",
+				"stock_available_qty",
 				"stock_shortfall_qty",
 			],
 		)
 		self.assertEqual(
 			[column["label"] for column in get_columns(subtotal_view=True)[3:]],
-			[
-				"Ordered (Qty + UOM)",
-				"Stock (Qty + UOM)",
-				"Delivered (Qty + UOM)",
-				"Remaining to Deliver (Qty + UOM)",
-				"Shortfall After Available Stock (Qty + UOM)",
-			],
+			["Ordered", "Delivered", "Stock", "To Produce"],
 		)
-		for grouped in (False, True):
-			columns = {column["fieldname"]: column for column in get_columns(grouped)}
-			self.assertEqual(columns["stock_pending_qty"]["label"], "Qty Remaining to Deliver")
-			self.assertEqual(
-				columns["stock_shortfall_qty"]["label"], "Shortfall After Available Stock"
-			)
 
 	def test_preferred_uom_converts_per_item_and_falls_back_safely(self):
 		rows = [

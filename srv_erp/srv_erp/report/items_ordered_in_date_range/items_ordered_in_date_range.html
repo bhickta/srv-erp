@@ -24,6 +24,10 @@
 	.spacer-row td { height: 8px; padding: 0; border: 0; }
 	.number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 	.qty-uom { color: #6b7280; font-size: 8.5pt; font-weight: 500; }
+	.qty-ordered { color: #1a73e8; background: #e8f0fe; }
+	.qty-good { color: #137333; background: #e6f4ea; }
+	.qty-short { color: #b3261e; background: #fce8e6; }
+	.production-cell { font-weight: 700; }
 	.printed-on { margin-top: 10px; text-align: right; color: #6b7280; font-size: 8.5pt; }
 </style>
 
@@ -52,38 +56,38 @@
 
 <table class="report-table">
 	<colgroup>
-		<col style="width: 15%;"><col style="width: 17%;"><col style="width: 8%;">
-		<col style="width: 11%;"><col style="width: 11%;"><col style="width: 11%;"><col style="width: 13%;"><col style="width: 14%;">
+		<col style="width: 20%;"><col style="width: 20%;"><col style="width: 10%;">
+		<col style="width: 12.5%;"><col style="width: 12.5%;"><col style="width: 12.5%;"><col style="width: 12.5%;">
 	</colgroup>
 	<thead>
 		<tr>
 			<th style="text-align: left;">{%= __("Item Code") %}</th>
 			<th style="text-align: left;">{%= __("Brand") %}</th>
 			<th style="text-align: left;">{%= __("UOM Used") %}</th>
-			<th class="number">{%= __("Ordered (Qty + UOM)") %}</th>
-			<th class="number">{%= __("Stock (Qty + UOM)") %}</th>
-			<th class="number">{%= __("Delivered (Qty + UOM)") %}</th>
-			<th class="number">{%= __("Remaining to Deliver (Qty + UOM)") %}</th>
-			<th class="number">{%= __("Shortfall After Available Stock (Qty + UOM)") %}</th>
+			<th class="number qty-ordered">{%= __("Ordered") %}</th>
+			<th class="number qty-good">{%= __("Delivered") %}</th>
+			<th class="number qty-good">{%= __("Stock") %}</th>
+			<th class="number qty-short">{%= __("To Produce") %}<br><small>{%= __("Ordered − Delivered − Stock") %}</small></th>
 		</tr>
 	</thead>
 	<tbody>
 		{% for (let i = 0; i < data.length; i++) { %}
 			{% const row = data[i]; %}
 			{% if (!Object.keys(row).length) { %}
-				<tr class="spacer-row"><td colspan="8"></td></tr>
+				<tr class="spacer-row"><td colspan="7"></td></tr>
 			{% } else if (row.is_group) { %}
-				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="7"></td></tr>
+				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="6"></td></tr>
 			{% } else { %}
+				{% const has_shortfall = flt(row.stock_shortfall_qty) > 0; %}
+				{% const stock_sufficient = flt(row.stock_available_qty) >= Math.max(flt(row.qty) - flt(row.stock_delivered_qty), 0); %}
 				<tr class="{% if (row.is_total) { %}total-row{% } %}">
 					<td></td>
 					<td class="item-brand">{%= row.brand || "" %}</td>
 					<td>{%= row.stock_uom || "" %}</td>
-					<td class="number">{{ quantity(row.qty, row.stock_uom) }}</td>
-					<td class="number">{{ quantity(row.stock_available_qty, row.stock_uom) }}</td>
-					<td class="number">{{ quantity(row.stock_delivered_qty, row.stock_uom) }}</td>
-					<td class="number">{{ quantity(row.stock_pending_qty, row.stock_uom) }}</td>
-					<td class="number">{{ quantity(row.stock_shortfall_qty, row.stock_uom) }}</td>
+					<td class="number production-cell qty-ordered">{{ quantity(row.qty, row.stock_uom) }}</td>
+					<td class="number production-cell {% if (flt(row.stock_delivered_qty) > 0) { %}qty-good{% } else { %}qty-short{% } %}">{{ quantity(row.stock_delivered_qty, row.stock_uom) }}</td>
+					<td class="number production-cell {% if (stock_sufficient) { %}qty-good{% } else { %}qty-short{% } %}">{{ quantity(row.stock_available_qty, row.stock_uom) }}</td>
+					<td class="number production-cell {% if (has_shortfall) { %}qty-short{% } else { %}qty-good{% } %}">{{ quantity(row.stock_shortfall_qty, row.stock_uom) }}</td>
 				</tr>
 			{% } %}
 		{% } %}
