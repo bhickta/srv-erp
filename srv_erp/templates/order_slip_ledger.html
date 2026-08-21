@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>{{ _("Order Slip Ledger") }}</title>
+	<style>
+		@page { size: A4 portrait; margin: 9mm; }
+		* { box-sizing: border-box; }
+		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 9px; }
+		.header { margin-bottom: 8px; text-align: center; }
+		.header h1 { margin: 0 0 2px; font-size: 15px; }
+		.header .period { font-size: 10px; }
+		table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+		th, td { border: 1px solid #777; padding: 4px 5px; vertical-align: top; }
+		th { background: #f2f2f2; font-size: 8.5px; text-align: center; }
+		.date { width: 11%; text-align: center; }
+		.particulars { width: 43%; }
+		.quantity { width: 11%; text-align: right; white-space: nowrap; }
+		.rate { width: 13%; text-align: right; white-space: nowrap; }
+		.total { width: 11%; text-align: right; white-space: nowrap; font-weight: 700; }
+		.order-slip { width: 11%; text-align: right; white-space: nowrap; font-weight: 700; }
+		.customer { margin-bottom: 4px; font-size: 9.5px; font-weight: 700; }
+		.customer-meta { color: #444; font-size: 8px; font-weight: normal; }
+		.item { min-height: 14px; padding: 2px 0; overflow-wrap: anywhere; }
+		.item-code { color: #444; font-size: 8px; }
+		.amount-cell { vertical-align: top; }
+		.grand-total td { padding: 7px 5px; font-size: 10px; font-weight: 700; }
+		.no-border-right { border-right: 0; }
+		@media print {
+			.no-print { display: none !important; }
+			thead { display: table-header-group; }
+			tr { break-inside: avoid; page-break-inside: avoid; }
+			body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>{{ _("Order Slip") }}</h1>
+		<div>{{ _("Ledger Account") }}</div>
+		{% if date_heading %}<div class="period">{{ _("For") }} {{ date_heading }}</div>{% endif %}
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<th class="date">{{ _("Date") }}</th>
+				<th class="particulars">{{ _("Particulars") }}</th>
+				<th class="quantity">{{ _("Quantity") }}</th>
+				<th class="rate">{{ _("Rate") }}</th>
+				<th class="total">{{ _("Gross Total") }}</th>
+				<th class="order-slip">{{ _("Order Slip") }}</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for order in orders %}
+			<tr>
+				<td class="date">{{ frappe.utils.format_date(order.transaction_date) }}</td>
+				<td class="particulars">
+					<div class="customer">{{ order.customer_name or order.customer }}
+						<div class="customer-meta">{{ order.customer }} · {{ order.name }}{% if order.contact_mobile %} · {{ order.contact_mobile }}{% endif %}</div>
+					</div>
+					{% for item in order.items %}<div class="item">{{ item.item_name or item.item_code }} <span class="item-code">— {{ item.item_code }}</span></div>{% endfor %}
+				</td>
+				<td class="quantity">{% for item in order.items %}<div class="item">{{ frappe.utils.fmt_money(item.qty, precision=2) }} {{ item.uom or item.stock_uom }}</div>{% endfor %}</td>
+				<td class="rate">{% for item in order.items %}<div class="item">{{ frappe.utils.fmt_money(item.rate, currency=order.currency) }}/{{ item.uom or item.stock_uom }}</div>{% endfor %}</td>
+				<td class="total amount-cell">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>
+				<td class="order-slip amount-cell">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>
+			</tr>
+		{% endfor %}
+			<tr class="grand-total">
+				<td colspan="5" style="text-align:right">{{ _("Grand Total") }}</td>
+				<td class="order-slip">{{ frappe.utils.fmt_money(grand_total, currency=currency) }}</td>
+			</tr>
+		</tbody>
+	</table>
+	<script>
+		window.addEventListener("load", function () { window.setTimeout(function () { window.print(); }, 250); });
+	</script>
+</body>
+</html>
