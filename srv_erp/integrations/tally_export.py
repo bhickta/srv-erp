@@ -5,8 +5,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, formatdate, getdate
-
+from frappe.utils import cint, flt, getdate
 
 SUPPORTED_MASTER_DOCTYPES = (
 	"Account",
@@ -35,9 +34,79 @@ DEFAULT_ACCOUNT_GROUPS = {
 	"Chargeable": "Indirect Expenses",
 }
 
+TALLY_RESERVED_GROUPS = frozenset(
+	{
+		"Bank Accounts",
+		"Bank OD A/c",
+		"Branch / Divisions",
+		"Capital Account",
+		"Cash-in-Hand",
+		"Current Assets",
+		"Current Liabilities",
+		"Deposits (Asset)",
+		"Direct Expenses",
+		"Direct Incomes",
+		"Duties & Taxes",
+		"Fixed Assets",
+		"Indirect Expenses",
+		"Indirect Incomes",
+		"Investments",
+		"Loans & Advances (Asset)",
+		"Loans (Liability)",
+		"Misc. Expenses (ASSET)",
+		"Provisions",
+		"Purchase Accounts",
+		"Reserves & Surplus",
+		"Sales Accounts",
+		"Secured Loans",
+		"Stock-in-Hand",
+		"Sundry Creditors",
+		"Sundry Debtors",
+		"Suspense A/c",
+		"Unsecured Loans",
+	}
+)
+
+TALLY_UOM_FORMAL_NAMES = {
+	"Box": "Boxes",
+	"Dozen": "Dozens",
+	"Gram": "Grams",
+	"Kg": "Kilograms",
+	"Litre": "Litres",
+	"Meter": "Metres",
+	"Nos": "Numbers",
+	"Pcs": "Pieces",
+	"Set": "Sets",
+	"Ton": "Tonnes",
+	"Unit": "Units",
+}
+
+MASTER_IMPORT_FORMAT_VARIABLE = "svMstImportFormat"
+VOUCHER_IMPORT_FORMAT_VARIABLE = "svVchImportFormat"
+
+
+def _import_payload(company, import_format_variable, messages):
+	"""Return the native JSONEx body expected by TallyPrime 7.x imports."""
+	return {
+		"static_variables": [
+			{"name": import_format_variable, "value": "jsonex"},
+			{"name": "svCurrentCompany", "value": company},
+		],
+		"tallymessage": messages,
+	}
+
+
+def _encode_tally_json(payload):
+	"""Encode native JSON with the UTF-16 LE BOM required by TallyPrime."""
+	return json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+
 
 def _metadata(object_type, name):
 	return {"type": object_type, "name": name, "reservedname": ""}
+
+
+def _uom_formal_name(symbol):
+	return TALLY_UOM_FORMAL_NAMES.get(symbol, f"{symbol} Units")
 
 
 def _voucher_metadata(name):
@@ -78,6 +147,7 @@ def _account_parent(account, by_name, company_abbr):
 def _group(name, parent):
 	return {
 		"metadata": _metadata("Group", name),
+		"name": name,
 		"parent": parent,
 		"isbillwiseon": False,
 		"iscostcentreson": False,
@@ -90,6 +160,7 @@ def _group(name, parent):
 def _ledger(name, parent, billwise=False, tax_id=None, country=None):
 	row = {
 		"metadata": _metadata("Ledger", name),
+		"name": name,
 		"parent": parent,
 		"isbillwiseon": bool(billwise),
 		"iscostcentreson": False,
@@ -111,8 +182,13 @@ def _export_accounts(company, company_abbr, include_disabled=False):
 		"Account",
 		filters=filters,
 		fields=[
-			"name", "account_name", "parent_account", "is_group", "root_type",
-			"account_type", "account_currency",
+			"name",
+			"account_name",
+			"parent_account",
+			"is_group",
+			"root_type",
+			"account_type",
+			"account_currency",
 		],
 		order_by="lft",
 	)
@@ -122,6 +198,8 @@ def _export_accounts(company, company_abbr, include_disabled=False):
 		if not account.parent_account:
 			continue
 		name = _clean_name(account.account_name or account.name, company_abbr)
+		if account.is_group and name in TALLY_RESERVED_GROUPS:
+			continue
 		parent = _account_parent(account, by_name, company_abbr)
 		if account.is_group:
 			result.append(_group(name, parent))
@@ -170,7 +248,8 @@ def _export_cost_centers(company, company_abbr):
 		parent = _clean_name(row.parent_cost_center, company_abbr) or "Primary Cost Category"
 		result.append(
 			{
-				"metadata": _metadata("CostCentre", name),
+				"metadata": _metadata("Cost Centre", name),
+				"name": name,
 				"parent": parent,
 				"category": "Primary Cost Category",
 			}
@@ -199,7 +278,8 @@ def _export_uoms(uoms=None):
 	return [
 		{
 			"metadata": _metadata("Unit", row.name),
-			"originalname": row.name,
+			"name": row.name,
+			"originalname": _uom_formal_name(row.name),
 			"issimpleunit": True,
 			"decimalplaces": str(cint(row.must_be_whole_number == 0) * 3),
 		}
@@ -238,7 +318,8 @@ def _export_item_groups(names=None):
 		rows = [row for row in rows if row.name in required_names]
 	return [
 		{
-			"metadata": _metadata("StockGroup", row.name),
+			"metadata": _metadata("Stock Group", row.name),
+			"name": row.name,
 			"parent": row.parent_item_group if row.parent_item_group != "All Item Groups" else "",
 			"shouldquantitiesbeadded": True,
 		}
@@ -263,6 +344,7 @@ def _export_warehouses(company, company_abbr, names=None):
 	return [
 		{
 			"metadata": _metadata("Godown", _clean_name(row.warehouse_name or row.name, company_abbr)),
+			"name": _clean_name(row.warehouse_name or row.name, company_abbr),
 			"parent": _clean_name(row.parent_warehouse, company_abbr),
 		}
 		for row in rows
@@ -284,9 +366,10 @@ def _export_items(item_codes=None):
 	result = []
 	for row in rows:
 		item = {
-			"metadata": _metadata("StockItem", row.name),
+			"metadata": _metadata("Stock Item", row.name),
+			"name": row.name,
 			"parent": row.item_group,
-			"baseunits": row.stock_uom,
+			"base units": row.stock_uom,
 			"description": row.description or row.item_name,
 			"isbatchwiseon": False,
 			"isgodownon": True,
@@ -298,7 +381,7 @@ def _export_items(item_codes=None):
 	return result
 
 
-def build_master_payload(company, doctypes=None):
+def build_master_payload(company, doctypes=None, tally_company=None):
 	"""Return a TallyPrime native JSON-compatible master payload."""
 	if not frappe.db.exists("Company", company):
 		frappe.throw(_("Company {0} does not exist").format(frappe.bold(company)))
@@ -326,7 +409,7 @@ def build_master_payload(company, doctypes=None):
 		messages.extend(_export_warehouses(company, abbr))
 	if "Item" in doctypes:
 		messages.extend(_export_items())
-	return {"tallymessage": messages}
+	return _import_payload(tally_company or company, MASTER_IMPORT_FORMAT_VARIABLE, messages)
 
 
 def _parse_doctypes(doctypes):
@@ -353,14 +436,23 @@ def _tally_date(value):
 	return getdate(value).strftime("%Y%m%d")
 
 
-def _tally_due_date(value):
-	return formatdate(value, "d-MMM-yyyy")
+def _tally_due_date(value, base_date):
+	"""Return the duration syntax required by Tally's Due Date data type."""
+	days = (getdate(value) - getdate(base_date)).days
+	unit = "Day" if abs(days) == 1 else "Days"
+	return f"{days} {unit}"
 
 
-def _sales_order_inventory_entry(item, order_name, company_abbr, income_account):
-	uom = item.uom or item.stock_uom
-	qty = _quantity(item.qty, uom)
-	amount = _amount(item.base_net_amount)
+def _sales_order_inventory_entry(item, order_name, order_date, company_abbr, income_account):
+	# Tally validates voucher quantities against the Stock Item's base unit. ERPNext
+	# Sales Orders can use a sales UOM (for example, Box) while the item master uses
+	# a stock UOM (for example, Nos), so export the normalized stock quantity.
+	uom = item.stock_uom or item.uom
+	stock_qty = flt(getattr(item, "stock_qty", 0)) or flt(item.qty)
+	amount_value = flt(item.base_net_amount)
+	rate_value = amount_value / stock_qty if stock_qty else flt(item.base_net_rate)
+	qty = _quantity(stock_qty, uom)
+	amount = _amount(amount_value)
 	warehouse = _clean_name(item.warehouse, company_abbr)
 	batch_allocation = {
 		"orderno": order_name,
@@ -368,54 +460,58 @@ def _sales_order_inventory_entry(item, order_name, company_abbr, income_account)
 		"amount": amount,
 		"actualqty": qty,
 		"billedqty": qty,
-		"orderduedate": _tally_due_date(item.delivery_date),
+		"orderduedate": _tally_due_date(item.delivery_date, order_date),
 	}
 	if warehouse:
 		batch_allocation["godownname"] = warehouse
 		batch_allocation["batchname"] = "Primary Batch"
 
-	return {
+	entry = {
 		"stockitemname": item.item_code,
 		"isdeemedpositive": False,
-		"rate": f"{_amount(item.base_net_rate)}/{uom}",
+		"rate": f"{_amount(rate_value)}/{uom}",
 		"amount": amount,
 		"actualqty": qty,
 		"billedqty": qty,
 		"batchallocations": [batch_allocation],
-		"accountingallocations": [
+	}
+	if amount_value:
+		entry["accountingallocations"] = [
 			{
 				"ledgername": income_account,
 				"isdeemedpositive": False,
 				"amount": amount,
 			}
-		],
-	}
+		]
+	return entry
 
 
 def _sales_order_voucher(order, company_abbr, income_account):
 	party = order.customer_name or order.customer
 	party_amount = -flt(order.base_grand_total)
-	ledger_entries = [
-		{
-			"ledgername": party,
-			"isdeemedpositive": True,
-			"ispartyledger": True,
-			"islastdeemedpositive": True,
-			"amount": _amount(party_amount),
-		}
-	]
-	for tax in order.taxes:
-		if not tax.account_head or not flt(tax.base_tax_amount_after_discount_amount):
-			continue
+	ledger_entries = []
+	if party_amount:
 		ledger_entries.append(
 			{
-				"ledgername": _clean_name(tax.account_head, company_abbr),
-				"isdeemedpositive": False,
-				"amount": _amount(tax.base_tax_amount_after_discount_amount),
+				"ledgername": party,
+				"isdeemedpositive": True,
+				"ispartyledger": True,
+				"islastdeemedpositive": True,
+				"amount": _amount(party_amount),
 			}
 		)
+		for tax in order.taxes:
+			if not tax.account_head or not flt(tax.base_tax_amount_after_discount_amount):
+				continue
+			ledger_entries.append(
+				{
+					"ledgername": _clean_name(tax.account_head, company_abbr),
+					"isdeemedpositive": False,
+					"amount": _amount(tax.base_tax_amount_after_discount_amount),
+				}
+			)
 
-	return {
+	voucher = {
 		"metadata": _voucher_metadata(order.name),
 		"date": _tally_date(order.transaction_date),
 		"partyname": party,
@@ -427,12 +523,20 @@ def _sales_order_voucher(order, company_abbr, income_account):
 		"persistedview": "Invoice Voucher View",
 		"isoptional": True,
 		"isorder": True,
-		"ledgerentries": ledger_entries,
 		"allinventoryentries": [
-			_sales_order_inventory_entry(item, order.name, company_abbr, income_account)
+			_sales_order_inventory_entry(
+				item,
+				order.name,
+				order.transaction_date,
+				company_abbr,
+				income_account,
+			)
 			for item in order.items
 		],
 	}
+	if ledger_entries:
+		voucher["ledgerentries"] = ledger_entries
+	return voucher
 
 
 def _validate_sales_order_filters(company, from_date, to_date):
@@ -468,7 +572,14 @@ def _get_sales_orders(company, from_date, to_date, customer=None, sales_order=No
 	return [frappe.get_doc("Sales Order", name) for name in order_names]
 
 
-def build_sales_order_master_payload(company, from_date, to_date, customer=None, sales_order=None):
+def build_sales_order_master_payload(
+	company,
+	from_date,
+	to_date,
+	customer=None,
+	sales_order=None,
+	tally_company=None,
+):
 	"""Return the masters referenced by the selected Sales Order vouchers."""
 	orders = _get_sales_orders(company, from_date, to_date, customer, sales_order)
 	if not orders:
@@ -496,18 +607,23 @@ def build_sales_order_master_payload(company, from_date, to_date, customer=None,
 	# Scoped exports intentionally include disabled/non-stock items because an old
 	# submitted order can still reference them and Tally requires the exact master.
 	messages.extend(_export_items(item_codes))
-	return {"tallymessage": messages}
+	return _import_payload(tally_company or company, MASTER_IMPORT_FORMAT_VARIABLE, messages)
 
 
-def build_sales_order_payload(company, from_date, to_date, customer=None, sales_order=None):
+def build_sales_order_payload(
+	company,
+	from_date,
+	to_date,
+	customer=None,
+	sales_order=None,
+	tally_company=None,
+):
 	"""Return submitted ERPNext Sales Orders as TallyPrime Sales Order vouchers."""
 	orders = _get_sales_orders(company, from_date, to_date, customer, sales_order)
-	abbr, default_income_account = frappe.db.get_value(
-		"Company", company, ["abbr", "default_income_account"]
-	)
+	abbr, default_income_account = frappe.db.get_value("Company", company, ["abbr", "default_income_account"])
 	income_account = _clean_name(default_income_account, abbr) or "Sales"
 	messages = [_sales_order_voucher(order, abbr, income_account) for order in orders]
-	return {"tallymessage": messages}
+	return _import_payload(tally_company or company, VOUCHER_IMPORT_FORMAT_VARIABLE, messages)
 
 
 @frappe.whitelist()
@@ -533,7 +649,14 @@ def get_export_summary(company):
 
 
 @frappe.whitelist()
-def get_sales_order_count(company, from_date, to_date, customer=None, sales_order=None):
+def get_sales_order_count(
+	company,
+	from_date,
+	to_date,
+	customer=None,
+	sales_order=None,
+	tally_company=None,
+):
 	frappe.only_for(("Accounts Manager", "System Manager"))
 	_validate_sales_order_filters(company, from_date, to_date)
 	return frappe.db.count(
@@ -542,11 +665,25 @@ def get_sales_order_count(company, from_date, to_date, customer=None, sales_orde
 
 
 @frappe.whitelist()
-def download_sales_order_masters_json(company, from_date, to_date, customer=None, sales_order=None):
+def download_sales_order_masters_json(
+	company,
+	from_date,
+	to_date,
+	customer=None,
+	sales_order=None,
+	tally_company=None,
+):
 	"""Download the masters required by the selected Sales Orders as UTF-16 JSON."""
 	frappe.only_for(("Accounts Manager", "System Manager"))
-	payload = build_sales_order_master_payload(company, from_date, to_date, customer, sales_order)
-	content = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+	payload = build_sales_order_master_payload(
+		company,
+		from_date,
+		to_date,
+		customer,
+		sales_order,
+		tally_company,
+	)
+	content = _encode_tally_json(payload)
 	filename = f"tally-required-masters-{getdate(from_date)}-to-{getdate(to_date)}.json"
 	frappe.local.response.filename = filename
 	frappe.local.response.filecontent = content
@@ -555,11 +692,25 @@ def download_sales_order_masters_json(company, from_date, to_date, customer=None
 
 
 @frappe.whitelist()
-def download_sales_order_json(company, from_date, to_date, customer=None, sales_order=None):
-	"""Download submitted Sales Orders for TallyPrime 7.0+ as UTF-16 JSON."""
+def download_sales_order_json(
+	company,
+	from_date,
+	to_date,
+	customer=None,
+	sales_order=None,
+	tally_company=None,
+):
+	"""Download submitted Sales Orders for TallyPrime 7.x as UTF-16 JSON."""
 	frappe.only_for(("Accounts Manager", "System Manager"))
-	payload = build_sales_order_payload(company, from_date, to_date, customer, sales_order)
-	content = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+	payload = build_sales_order_payload(
+		company,
+		from_date,
+		to_date,
+		customer,
+		sales_order,
+		tally_company,
+	)
+	content = _encode_tally_json(payload)
 	filename = f"tally-sales-orders-{getdate(from_date)}-to-{getdate(to_date)}.json"
 	frappe.local.response.filename = filename
 	frappe.local.response.filecontent = content
@@ -568,11 +719,11 @@ def download_sales_order_json(company, from_date, to_date, customer=None, sales_
 
 
 @frappe.whitelist()
-def download_master_json(company, doctypes=None):
-	"""Download master data for TallyPrime 7.0+ as UTF-16 native JSON."""
+def download_master_json(company, doctypes=None, tally_company=None):
+	"""Download master data for TallyPrime 7.x as UTF-16 native JSON."""
 	frappe.only_for(("Accounts Manager", "System Manager"))
-	payload = build_master_payload(company, _parse_doctypes(doctypes))
-	content = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-16")
+	payload = build_master_payload(company, _parse_doctypes(doctypes), tally_company)
+	content = _encode_tally_json(payload)
 	filename = f"tally-masters-{frappe.scrub(company)}.json"
 	frappe.local.response.filename = filename
 	frappe.local.response.filecontent = content

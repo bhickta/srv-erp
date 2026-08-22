@@ -24,18 +24,23 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 					<div class="col-lg-4">
 						<div class="frappe-card tally-export-help">
 							<h4>${__("Import into Tally")}</h4>
-							<p>${__("Downloads native UTF-16 JSON for TallyPrime 7.0 or later.")}</p>
+							<p>${__("Downloads native UTF-16 JSON for TallyPrime 7.x, including Release 7.1.")}</p>
 							<ol>
 								<li>${__("Download Required Masters, then import it from Alt+O > Import > Masters.")}</li>
 								<li>${__("Enable Sales Order processing in TallyPrime.")}</li>
+								<li>${__(
+									"For zero-value orders, alter the Sales Order Voucher Type: set Activate this Voucher Type and Allow zero-valued transactions to Yes; then set Provide Accounting Allocations for Order/Delivery Note to No."
+								)}</li>
 								<li>${__("Download Sales Orders, then import it from Alt+O > Import > Transactions.")}</li>
 								<li>${__("Review Tally's import summary and Exceptions.")}</li>
 							</ol>
-							<div class="alert alert-info">${__("Always import the generated Masters file first. It contains the exact items and dependencies used by the selected orders.")}</div>
+							<div class="alert alert-info">${__(
+								"Always import the generated Masters file first. It contains the exact items and dependencies used by the selected orders."
+							)}</div>
 						</div>
 					</div>
 				</div>
-			</div>`,
+			</div>`
 		).appendTo(this.page.body);
 
 		this.form = new frappe.ui.FieldGroup({
@@ -48,6 +53,14 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 					default: frappe.defaults.get_user_default("Company"),
 					reqd: 1,
 					onchange: () => this.load_count(),
+				},
+				{
+					fieldtype: "Data",
+					fieldname: "tally_company",
+					label: __("Tally Company Name"),
+					description: __(
+						"Leave blank when it is the same as the ERPNext company name."
+					),
 				},
 				{ fieldtype: "Column Break" },
 				{
@@ -95,8 +108,14 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 			body: this.$body.find(".tally-export-form"),
 		});
 		this.form.make();
-		this.page.set_primary_action(__("2. Download Sales Orders"), () => this.download_sales_orders(), "download");
-		this.page.add_inner_button(__("1. Download Required Masters"), () => this.download_masters());
+		this.page.set_primary_action(
+			__("2. Download Sales Orders"),
+			() => this.download_sales_orders(),
+			"download"
+		);
+		this.page.add_inner_button(__("1. Download Required Masters"), () =>
+			this.download_masters()
+		);
 		this.load_count();
 	}
 
@@ -114,11 +133,14 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 			args: values,
 			callback: (r) => {
 				const count = r.message || 0;
-				this.form.get_field("summary").$wrapper.html(
-					`<div class="alert alert-info">${__("{0} submitted Sales Order(s) will be exported.", [
-						format_number(count),
-					])}</div>`,
-				);
+				this.form
+					.get_field("summary")
+					.$wrapper.html(
+						`<div class="alert alert-info">${__(
+							"{0} submitted Sales Order(s) will be exported.",
+							[format_number(count)]
+						)}</div>`
+					);
 			},
 		});
 	}
@@ -142,14 +164,17 @@ srv_erp.tally_export.TallyExportPage = class TallyExportPage {
 		if (!params) return;
 		window.open(
 			`/api/method/srv_erp.integrations.tally_export.download_sales_order_masters_json?${params}`,
-			"_blank",
+			"_blank"
 		);
 	}
 
 	download_sales_orders() {
 		const params = this.get_download_params();
 		if (!params) return;
-		window.open(`/api/method/srv_erp.integrations.tally_export.download_sales_order_json?${params}`, "_blank");
+		window.open(
+			`/api/method/srv_erp.integrations.tally_export.download_sales_order_json?${params}`,
+			"_blank"
+		);
 	}
 };
 
