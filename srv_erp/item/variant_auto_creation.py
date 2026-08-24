@@ -602,6 +602,18 @@ def is_auto_create_variants_enabled() -> bool:
 
 
 def set_srv_settings_defaults():
+	if not frappe.db.exists("Item Attribute", DEFAULT_VARIANT_ATTRIBUTE):
+		frappe.flags.syncing_brand_attribute_values = True
+		try:
+			frappe.get_doc(
+				{
+					"doctype": "Item Attribute",
+					"attribute_name": DEFAULT_VARIANT_ATTRIBUTE,
+				}
+			).insert(ignore_permissions=True)
+		finally:
+			frappe.flags.syncing_brand_attribute_values = False
+
 	if not frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute"):
 		frappe.db.set_single_value(
 			"SRV Settings", "variant_auto_create_attribute", DEFAULT_VARIANT_ATTRIBUTE

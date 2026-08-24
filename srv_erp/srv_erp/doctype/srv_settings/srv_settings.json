@@ -32,7 +32,6 @@
    "label": "Auto Create Variants on Brand Update"
   },
   {
-   "default": "Brand",
    "description": "Item Attribute watched for automatic variant creation.",
    "fieldname": "variant_auto_create_attribute",
    "fieldtype": "Link",
