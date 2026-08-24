@@ -179,6 +179,8 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		self.assertEqual([row.stock_delivered_qty for row in result if row.get("is_total")], [5, 1])
 		self.assertEqual([row.stock_pending_qty for row in result if row.get("is_total")], [13, 4])
 		self.assertEqual(sum(not row for row in result), 2)
+		self.assertTrue(result[1].is_subtotal_detail)
+		self.assertNotIn("indent", result[1])
 
 	def test_keeps_different_uoms_in_separate_subtotals(self):
 		rows = [

@@ -371,7 +371,7 @@ def append_item_code_subtotals(rows):
 		for fieldname in quantity_fields:
 			uom_total[fieldname] += row.get(fieldname) or 0
 		row["item_code"] = None
-		row["indent"] = 1
+		row["is_subtotal_detail"] = 1
 		data.append(row)
 
 	if current_item_code:

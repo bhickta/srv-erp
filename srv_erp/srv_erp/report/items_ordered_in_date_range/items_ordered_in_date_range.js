@@ -116,8 +116,8 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			value = `${value} <span class="text-muted">${frappe.utils.escape_html(data.stock_uom)}</span>`;
 		}
 
-		if (data.indent && column.fieldname === "brand") {
-			value = `${"&nbsp;".repeat(data.indent * 4)}${value}`;
+		if (data.is_subtotal_detail && column.fieldname === "brand") {
+			value = `&nbsp;&nbsp;&nbsp;&nbsp;${value}`;
 		}
 		if (data.is_group || data.is_total) {
 			value = $("<span>").html(value).css("font-weight", "bold").prop("outerHTML");
