@@ -215,8 +215,26 @@ def get_subtotal_data(filters, conditions):
 		as_dict=True,
 	)
 
+	# Materialize the same template/brand keys used by the former EXISTS clause once,
+	# instead of evaluating the sales-order filter for every Item in the catalogue.
 	stock_rows = frappe.db.sql(
 		f"""
+			WITH relevant_item_brands AS (
+				SELECT
+					COALESCE(NULLIF(item.variant_of, ''), item.name) AS item_code,
+					{RESOLVED_BRAND_SQL} AS brand
+				FROM `tabSales Order Item` soi
+				INNER JOIN `tabSales Order` so ON so.name = soi.parent
+				INNER JOIN `tabItem` item ON item.name = soi.item_code
+				LEFT JOIN `tabItem` template ON template.name = item.variant_of
+				LEFT JOIN `tabItem Variant Attribute` variant_brand
+					ON variant_brand.parent = item.name
+					AND variant_brand.attribute = %(brand_variant_attribute)s
+				WHERE so.docstatus = 1 {conditions}
+				GROUP BY
+					COALESCE(NULLIF(item.variant_of, ''), item.name),
+					{RESOLVED_BRAND_SQL}
+			)
 			SELECT
 				stock_item.name AS actual_item_code,
 				COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name) AS item_code,
@@ -230,7 +248,13 @@ def get_subtotal_data(filters, conditions):
 				0 AS stock_delivered_qty,
 				0 AS stock_pending_qty,
 				stock_item.stock_uom
-			FROM `tabItem` stock_item
+			FROM relevant_item_brands relevant
+			INNER JOIN `tabItem` stock_item
+				ON stock_item.variant_of = relevant.item_code
+				OR (
+					stock_item.name = relevant.item_code
+					AND (stock_item.variant_of IS NULL OR stock_item.variant_of = '')
+				)
 			LEFT JOIN `tabItem` stock_template ON stock_template.name = stock_item.variant_of
 			LEFT JOIN `tabItem Variant Attribute` stock_variant_brand
 				ON stock_variant_brand.parent = stock_item.name
@@ -238,23 +262,10 @@ def get_subtotal_data(filters, conditions):
 			LEFT JOIN `tabBin` stock_bin
 				ON stock_bin.item_code = stock_item.name
 				AND stock_bin.warehouse = %(warehouse)s
-			WHERE EXISTS (
-				SELECT 1
-				FROM `tabSales Order Item` soi
-				INNER JOIN `tabSales Order` so ON so.name = soi.parent
-				INNER JOIN `tabItem` item ON item.name = soi.item_code
-				LEFT JOIN `tabItem` template ON template.name = item.variant_of
-				LEFT JOIN `tabItem Variant Attribute` variant_brand
-					ON variant_brand.parent = item.name
-					AND variant_brand.attribute = %(brand_variant_attribute)s
-				WHERE so.docstatus = 1 {conditions}
-					AND COALESCE(NULLIF(item.variant_of, ''), item.name)
-						= COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name)
-					AND ({RESOLVED_BRAND_SQL}) <=> COALESCE(
-						NULLIF(stock_variant_brand.attribute_value, ''),
-						NULLIF(stock_item.brand, ''),
-						stock_template.brand
-					)
+			WHERE relevant.brand <=> COALESCE(
+				NULLIF(stock_variant_brand.attribute_value, ''),
+				NULLIF(stock_item.brand, ''),
+				stock_template.brand
 			)
 			GROUP BY
 				stock_item.name, COALESCE(NULLIF(stock_item.variant_of, ''), stock_item.name),
