@@ -485,6 +485,8 @@ def get_conditions(filters):
 			"WHERE st_filter.parent = so.name AND st_filter.parenttype = 'Sales Order' "
 			"AND st_filter.sales_person = %(sales_person)s)"
 		)
+	if cint(filters.get("pending_only")):
+		conditions.append("soi.stock_qty > soi.delivered_qty")
 
 	return " AND " + " AND ".join(conditions) if conditions else ""
 

@@ -2,9 +2,9 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
-from frappe.utils import getdate
 from dateutil.relativedelta import relativedelta
+from frappe import _
+from frappe.utils import cint, getdate
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
@@ -211,6 +211,11 @@ def get_conditions(filters):
 		conditions += " AND dni.brand = %(brand)s"
 	if filters.get("sales_person"):
 		conditions += " AND EXISTS (SELECT name FROM `tabSales Team` WHERE parent = dn.name AND sales_person = %(sales_person)s)"
+	if cint(filters.get("pending_only")):
+		conditions += (
+			" AND COALESCE(soi.stock_qty, dni.stock_qty)"
+			" > COALESCE(soi.delivered_qty, dni.stock_qty)"
+		)
 	return conditions
 
 

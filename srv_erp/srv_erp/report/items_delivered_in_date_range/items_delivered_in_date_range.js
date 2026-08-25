@@ -7,6 +7,13 @@ frappe.query_reports["Items Delivered in Date Range"] = {
 	},
 	filters: [
 		{
+			fieldname: "pending_only",
+			label: __("Pending Only"),
+			fieldtype: "Check",
+			default: 0,
+			description: __("Show only delivered items whose Sales Order quantity is still pending."),
+		},
+		{
 			fieldname: "from_date",
 			label: __("From Date"),
 			fieldtype: "Date",

@@ -20,6 +20,13 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			description: __("Planning quantities show their actual UOM beside every value."),
 		},
 		{
+			fieldname: "pending_only",
+			label: __("Pending Only"),
+			fieldtype: "Check",
+			default: 0,
+			description: __("Show only Sales Order items with quantity still pending for delivery."),
+		},
+		{
 			fieldname: "from_date",
 			label: __("From Date"),
 			fieldtype: "Date",
