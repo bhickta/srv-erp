@@ -2,6 +2,9 @@ const sales_order_attribute_fields = ["branding_type", "color", "marketed_by"];
 const sales_order_rate_discount_field = "srv_discount_percentage";
 const sales_order_base_rate_field = "srv_rate_before_discount";
 const sales_order_last_discount_field = "srv_last_discount_percentage";
+const sales_order_pending_qty_field = "srv_pending_qty";
+const hide_fully_delivered_label = "Hide Fully Delivered Items";
+const show_fully_delivered_label = "Show Fully Delivered Items";
 const sales_order_discount_refresh_fields = [
 	"rate",
 	"amount",
@@ -151,7 +154,93 @@ function refresh_discount_calculated_fields(frm, cdt, cdn) {
 	}, 0);
 }
 
+function get_pending_qty(row) {
+	return Math.max(flt(row.qty) - flt(row.delivered_qty), 0);
+}
+
+function is_fully_delivered(row) {
+	return flt(row.qty) > 0 && get_pending_qty(row) <= 0;
+}
+
+function update_pending_qty(row) {
+	row[sales_order_pending_qty_field] = get_pending_qty(row);
+}
+
+function setup_delivery_item_filter(frm) {
+	const grid = frm.fields_dict.items && frm.fields_dict.items.grid;
+	if (!grid || grid.__srv_unfiltered_get_data) {
+		return;
+	}
+
+	grid.__srv_unfiltered_get_data = grid.get_data.bind(grid);
+	grid.get_data = function(filter_field) {
+		const data = grid.__srv_unfiltered_get_data(filter_field) || [];
+		if (!frm.__srv_hide_fully_delivered_items) {
+			return data;
+		}
+
+		return data.filter((row) => !is_fully_delivered(row));
+	};
+}
+
+function refresh_sales_order_items_grid(frm) {
+	const grid = frm.fields_dict.items && frm.fields_dict.items.grid;
+	if (!grid) {
+		return;
+	}
+
+	(frm.doc.items || []).forEach(update_pending_qty);
+	if (grid.grid_pagination) {
+		grid.grid_pagination.page_index = 1;
+	}
+	grid.refresh();
+}
+
+function add_delivery_item_filter_button(frm) {
+	[hide_fully_delivered_label, show_fully_delivered_label].forEach((label) => {
+		frm.remove_custom_button(__(label), __("View"));
+	});
+
+	if (frm.doc.docstatus !== 1) {
+		return;
+	}
+
+	const label = frm.__srv_hide_fully_delivered_items
+		? show_fully_delivered_label
+		: hide_fully_delivered_label;
+	frm.add_custom_button(
+		__(label),
+		() => {
+			frm.__srv_hide_fully_delivered_items = !frm.__srv_hide_fully_delivered_items;
+			refresh_sales_order_items_grid(frm);
+			add_delivery_item_filter_button(frm);
+		},
+		__("View")
+	);
+}
+
+function refresh_pending_qty(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	update_pending_qty(row);
+	refresh_field(sales_order_pending_qty_field, cdn, "items");
+
+	if (frm.__srv_hide_fully_delivered_items) {
+		refresh_sales_order_items_grid(frm);
+	}
+}
+
 frappe.ui.form.on("Sales Order", {
+	onload(frm) {
+		frm.__srv_hide_fully_delivered_items = false;
+		setup_delivery_item_filter(frm);
+	},
+
+	refresh(frm) {
+		setup_delivery_item_filter(frm);
+		refresh_sales_order_items_grid(frm);
+		add_delivery_item_filter_button(frm);
+	},
+
 	branding_type(frm) {
 		copy_parent_value_to_items(frm, "branding_type");
 	},
@@ -166,6 +255,10 @@ frappe.ui.form.on("Sales Order", {
 });
 
 frappe.ui.form.on("Sales Order Item", {
+	items_add(frm, cdt, cdn) {
+		refresh_pending_qty(frm, cdt, cdn);
+	},
+
 	item_code(frm, cdt, cdn) {
 		set_item_attribute_defaults(frm, cdt, cdn);
 	},
@@ -200,5 +293,10 @@ frappe.ui.form.on("Sales Order Item", {
 		}
 	},
 
-	qty: refresh_discount_calculated_fields,
+	qty(frm, cdt, cdn) {
+		refresh_discount_calculated_fields(frm, cdt, cdn);
+		refresh_pending_qty(frm, cdt, cdn);
+	},
+
+	delivered_qty: refresh_pending_qty,
 });

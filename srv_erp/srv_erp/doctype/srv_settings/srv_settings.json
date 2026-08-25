@@ -9,6 +9,9 @@
   "auto_create_variants_on_brand_update",
   "variant_auto_create_attribute",
   "variant_auto_create_use_template_image",
+  "sales_order_tab",
+  "sales_order_items_section",
+  "show_pending_qty_in_sales_order",
   "dsr_settings_tab",
   "dsr_submission_section",
   "dsr_submission_rules"
@@ -46,6 +49,23 @@
    "fieldname": "variant_auto_create_use_template_image",
    "fieldtype": "Check",
    "label": "Use Template Image for Auto Created Variants"
+  },
+  {
+   "fieldname": "sales_order_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sales Order"
+  },
+  {
+   "fieldname": "sales_order_items_section",
+   "fieldtype": "Section Break",
+   "label": "Items Grid"
+  },
+  {
+   "default": "1",
+   "description": "Show the calculated Pending Qty column in the Sales Order Items grid for all users. Reload open Sales Orders after changing this setting.",
+   "fieldname": "show_pending_qty_in_sales_order",
+   "fieldtype": "Check",
+   "label": "Show Pending Qty in Sales Order"
   },
   {
    "fieldname": "dsr_settings_tab",
