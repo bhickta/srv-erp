@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 frappe.query_reports["Items Ordered in Date Range"] = {
-	onload: async function(report) {
+	onload: async function (report) {
 		await set_finished_warehouse(report);
 	},
 	filters: [
@@ -24,7 +24,9 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			label: __("Pending Only"),
 			fieldtype: "Check",
 			default: 1,
-			description: __("Show only Sales Order items with quantity still pending for delivery."),
+			description: __(
+				"Show only Sales Order items with quantity still pending for delivery."
+			),
 		},
 		{
 			fieldname: "from_date",
@@ -50,27 +52,58 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 				const range = frappe.query_report.get_filter_value("range");
 				const today = frappe.datetime.get_today();
 				const offsets = { Daily: 0, Weekly: -7, Monthly: -1, Quarterly: -3, Yearly: -12 };
-				const from_date = range === "Weekly"
-					? frappe.datetime.add_days(today, offsets[range])
-					: frappe.datetime.add_months(today, offsets[range]);
+				const from_date =
+					range === "Weekly"
+						? frappe.datetime.add_days(today, offsets[range])
+						: frappe.datetime.add_months(today, offsets[range]);
 				frappe.query_report.set_filter_value("from_date", from_date);
 				frappe.query_report.set_filter_value("to_date", today);
 			},
 		},
 		{ fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer" },
-		{ fieldname: "customer_group", label: __("Customer Group"), fieldtype: "Link", options: "Customer Group" },
-		{ fieldname: "territory", label: __("Territory"), fieldtype: "Link", options: "Territory" },
-		{ fieldname: "sales_person", label: __("Sales Person"), fieldtype: "Link", options: "Sales Person" },
+		{
+			fieldname: "customer_group",
+			label: __("Customer Group"),
+			fieldtype: "Link",
+			options: "Customer Group",
+		},
+		{
+			fieldname: "territory",
+			label: __("Territory"),
+			fieldtype: "Link",
+			options: "Territory",
+		},
+		{
+			fieldname: "sales_person",
+			label: __("Sales Person"),
+			fieldtype: "Link",
+			options: "Sales Person",
+		},
 		{ fieldname: "item_code", label: __("Item"), fieldtype: "Link", options: "Item" },
-		{ fieldname: "item_group", label: __("Item Group"), fieldtype: "Link", options: "Item Group" },
+		{
+			fieldname: "item_group",
+			label: __("Item Group"),
+			fieldtype: "Link",
+			options: "Item Group",
+		},
 		{ fieldname: "brand", label: __("Brand"), fieldtype: "Link", options: "Brand" },
 		{
+			fieldname: "quantity_uom",
+			label: __("Quantity UOM"),
+			fieldtype: "Select",
+			options: ["SO UOM", "Stock UOM"],
+			default: "SO UOM",
+			description: __(
+				"Choose the UOM used by Ordered, Delivered, Stock, and Qty to Manufacture."
+			),
+		},
+		{
 			fieldname: "include_uom",
-			label: __("Preferred UOM"),
+			label: __("Other UOM"),
 			fieldtype: "Link",
 			options: "UOM",
 			description: __(
-				"Sub-total View converts items with a valid factor and safely keeps other items in Stock UOM."
+				"Overrides Quantity UOM where an item has this conversion; other items safely use the selected mode."
 			),
 		},
 		{ fieldname: "project", label: __("Project"), fieldtype: "Link", options: "Project" },
@@ -81,7 +114,7 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			options: "Company",
 			default: frappe.defaults.get_user_default("Company"),
 			reqd: 1,
-			on_change: async function() {
+			on_change: async function () {
 				await set_finished_warehouse(frappe.query_report, true);
 			},
 		},
@@ -120,7 +153,9 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 			data[column.fieldname] != null &&
 			data.stock_uom
 		) {
-			value = `${value} <span class="text-muted">${frappe.utils.escape_html(data.stock_uom)}</span>`;
+			value = `${value} <span class="text-muted">${frappe.utils.escape_html(
+				data.stock_uom
+			)}</span>`;
 		}
 
 		if (data.is_subtotal_detail && column.fieldname === "brand") {
@@ -141,7 +176,12 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 function format_production_status(value, column, data) {
 	const subtotal_view = frappe.query_report.get_filter_value("subtotal_view");
 	const ordered_field = subtotal_view ? "qty" : "stock_ordered_qty";
-	const status_fields = [ordered_field, "stock_delivered_qty", "stock_available_qty", "stock_shortfall_qty"];
+	const status_fields = [
+		ordered_field,
+		"stock_delivered_qty",
+		"stock_available_qty",
+		"stock_shortfall_qty",
+	];
 	const shortage = flt(data.stock_shortfall_qty);
 	const ordered = flt(data[ordered_field]);
 	const delivered = flt(data.stock_delivered_qty);

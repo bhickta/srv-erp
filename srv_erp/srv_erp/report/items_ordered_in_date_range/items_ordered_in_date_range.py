@@ -6,11 +6,19 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
-from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
-
 
 DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
 RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF(item.brand, ''), template.brand)"
+SO_UOM = "SO UOM"
+STOCK_UOM = "Stock UOM"
+STOCK_QUANTITY_FIELDS = (
+	"stock_ordered_qty",
+	"stock_delivered_qty",
+	"stock_available_qty",
+	"stock_pending_qty",
+	"stock_shortfall_qty",
+	"difference_qty",
+)
 
 
 def execute(filters=None):
@@ -21,15 +29,9 @@ def execute(filters=None):
 	subtotal_view = cint(filters.get("subtotal_view"))
 	columns = get_columns(group_by_item, subtotal_view)
 	data = get_data(filters, group_by_item, subtotal_view)
-	add_report_uom_columns(columns, data, filters)
+	if not subtotal_view:
+		convert_data_to_display_uom(data, filters)
 	return columns, data
-
-
-def add_report_uom_columns(columns, data, filters):
-	if cint(filters.get("subtotal_view")):
-		return
-
-	add_selected_uom_columns(columns, data, filters.get("include_uom"))
 
 
 def get_columns(group_by_item=False, subtotal_view=False):
@@ -51,8 +53,6 @@ def get_columns(group_by_item=False, subtotal_view=False):
 		{"label": _("Sales Person"), "fieldname": "sales_person", "fieldtype": "Data", "width": 140},
 		{"label": _("Order Date"), "fieldname": "transaction_date", "fieldtype": "Date", "width": 100},
 		{"label": _("Delivery Date"), "fieldname": "delivery_date", "fieldtype": "Date", "width": 100},
-		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
-		{"label": _("Qty Ordered UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 105},
 		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 130},
 		{"label": _("Status"), "fieldname": "status", "fieldtype": "Data", "width": 110},
 		{"label": _("Project"), "fieldname": "project", "fieldtype": "Link", "options": "Project", "width": 120},
@@ -95,8 +95,6 @@ def get_grouped_columns():
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 180},
 		*get_production_columns(),
 		{"label": _("Item Group"), "fieldname": "item_group", "fieldtype": "Link", "options": "Item Group", "width": 120},
-		{"label": _("Qty Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 105},
-		{"label": _("Qty Ordered UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 105},
 		{"label": _("Order Count"), "fieldname": "order_count", "fieldtype": "Int", "width": 95},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
 	]
@@ -114,7 +112,7 @@ def get_production_columns():
 			"width": 150,
 			"description": _("Ordered - Delivered - Stock (minimum 0)"),
 		},
-		{"label": _("Stock UOM"), "fieldname": "production_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
+		{"label": _("UOM"), "fieldname": "production_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
 	]
 
 
@@ -148,6 +146,7 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 				so.transaction_date,
 				soi.delivery_date,
 				soi.uom AS uom_qty,
+				soi.conversion_factor AS so_conversion_factor,
 				soi.qty,
 				soi.stock_qty AS stock_ordered_qty,
 				soi.stock_uom AS production_uom,
@@ -187,6 +186,55 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 	)
 
 
+def convert_data_to_display_uom(data, filters, conversion_factors=None):
+	selected_uom = filters.get("include_uom")
+	display_mode = filters.get("quantity_uom") or SO_UOM
+	if conversion_factors is None:
+		conversion_factors = get_uom_conversion_factors(
+			[row.get("item_code") for row in data], selected_uom
+		)
+
+	for index, source_row in enumerate(data):
+		row = frappe._dict(source_row)
+		target_uom, factor = get_display_uom_and_factor(
+			row,
+			display_mode,
+			selected_uom,
+			conversion_factors,
+		)
+		for fieldname in STOCK_QUANTITY_FIELDS:
+			if (
+				fieldname == "stock_ordered_qty"
+				and target_uom == row.get("uom_qty")
+				and factor == flt(row.get("so_conversion_factor"))
+				and row.get("qty") is not None
+			):
+				row[fieldname] = flt(row.get("qty"))
+			elif row.get(fieldname) is not None:
+				row[fieldname] = flt(row.get(fieldname)) / factor
+		row.production_uom = target_uom
+		for fieldname in STOCK_QUANTITY_FIELDS:
+			uom_fieldname = f"uom_{fieldname}"
+			if uom_fieldname in row:
+				row[uom_fieldname] = target_uom
+		data[index] = row
+
+
+def get_display_uom_and_factor(row, display_mode, selected_uom=None, conversion_factors=None):
+	conversion_factors = conversion_factors or {}
+	if selected_uom:
+		factor = flt(conversion_factors.get(row.get("item_code")))
+		if factor > 0:
+			return selected_uom, factor
+
+	if display_mode == SO_UOM:
+		factor = flt(row.get("so_conversion_factor"))
+		if row.get("uom_qty") and factor > 0:
+			return row.uom_qty, factor
+
+	return row.get("production_uom") or row.get("stock_uom"), 1
+
+
 def get_subtotal_data(filters, conditions):
 	ordered_rows = frappe.db.sql(
 		f"""
@@ -198,6 +246,14 @@ def get_subtotal_data(filters, conditions):
 				0 AS stock_available_qty,
 				SUM(soi.delivered_qty) AS stock_delivered_qty,
 				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
+				CASE
+					WHEN COUNT(DISTINCT CONCAT_WS('|', soi.uom, soi.conversion_factor)) = 1
+					THEN MAX(soi.uom)
+				END AS so_uom,
+				CASE
+					WHEN COUNT(DISTINCT CONCAT_WS('|', soi.uom, soi.conversion_factor)) = 1
+					THEN MAX(soi.conversion_factor)
+				END AS so_conversion_factor,
 				soi.stock_uom
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
@@ -247,6 +303,8 @@ def get_subtotal_data(filters, conditions):
 				SUM(COALESCE(stock_bin.actual_qty, 0)) AS stock_available_qty,
 				0 AS stock_delivered_qty,
 				0 AS stock_pending_qty,
+				NULL AS so_uom,
+				NULL AS so_conversion_factor,
 				stock_item.stock_uom
 			FROM relevant_item_brands relevant
 			INNER JOIN `tabItem` stock_item
@@ -279,11 +337,20 @@ def get_subtotal_data(filters, conditions):
 		as_dict=True,
 	)
 
-	rows = convert_and_group_subtotal_rows(ordered_rows + stock_rows, filters.get("include_uom"))
+	rows = convert_and_group_subtotal_rows(
+		ordered_rows + stock_rows,
+		filters.get("include_uom"),
+		display_mode=filters.get("quantity_uom") or SO_UOM,
+	)
 	return append_item_code_subtotals(rows)
 
 
-def convert_and_group_subtotal_rows(rows, selected_uom=None, conversion_factors=None):
+def convert_and_group_subtotal_rows(
+	rows,
+	selected_uom=None,
+	conversion_factors=None,
+	display_mode=STOCK_UOM,
+):
 	rows = [frappe._dict(row) for row in rows]
 	if conversion_factors is None:
 		conversion_factors = get_uom_conversion_factors(
@@ -305,14 +372,30 @@ def convert_and_group_subtotal_rows(rows, selected_uom=None, conversion_factors=
 		)
 		for fieldname in base_quantity_fields:
 			item[fieldname] = item.get(fieldname, 0) + flt(row.get(fieldname))
+		if row.get("so_uom") and flt(row.get("so_conversion_factor")) > 0:
+			if item.get("so_uom") and (
+				item.so_uom != row.so_uom
+				or flt(item.so_conversion_factor) != flt(row.so_conversion_factor)
+			):
+				item.so_uom = None
+				item.so_conversion_factor = None
+				item.so_uom_conflict = 1
+			elif not item.get("so_uom_conflict"):
+				item.so_uom = row.so_uom
+				item.so_conversion_factor = row.so_conversion_factor
 
 	quantity_fields = (*base_quantity_fields, "stock_shortfall_qty")
 	grouped = {}
 	for row in per_item.values():
 		row.stock_shortfall_qty = max(row.stock_pending_qty - row.stock_available_qty, 0)
-		factor = 1 if selected_uom and row.stock_uom == selected_uom else conversion_factors.get(row.actual_item_code)
-		display_uom = selected_uom if factor else row.stock_uom
-		factor = flt(factor) if factor else 1
+		factor = flt(conversion_factors.get(row.actual_item_code)) if selected_uom else 0
+		display_uom = selected_uom if factor > 0 else None
+		if not display_uom and display_mode == SO_UOM:
+			factor = flt(row.get("so_conversion_factor"))
+			display_uom = row.get("so_uom") if factor > 0 else None
+		if not display_uom:
+			display_uom = row.stock_uom
+			factor = 1
 		key = (row.item_code, row.brand, display_uom)
 		group = grouped.setdefault(
 			key,
@@ -413,6 +496,10 @@ def get_grouped_data(filters, conditions):
 				soi.item_name,
 				soi.item_group,
 				soi.uom AS uom_qty,
+				CASE
+					WHEN COUNT(DISTINCT soi.conversion_factor) = 1
+					THEN MAX(soi.conversion_factor)
+				END AS so_conversion_factor,
 				SUM(soi.qty) AS qty,
 				SUM(soi.stock_qty) AS stock_ordered_qty,
 				soi.stock_uom AS production_uom,
