@@ -47,7 +47,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			self.assertEqual(fieldnames[start : start + 5], production_fields)
 			self.assertEqual(
 				[columns[start + offset]["label"] for offset in range(4)],
-				["Ordered", "Delivered", "Stock", "To Produce"],
+				["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 			)
 		self.assertEqual(
 			[column["fieldname"] for column in get_columns(subtotal_view=True)],
@@ -63,7 +63,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		)
 		self.assertEqual(
 			[column["label"] for column in get_columns(subtotal_view=True)[3:]],
-			["Ordered", "Delivered", "Stock", "To Produce"],
+			["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 		)
 
 	def test_preferred_uom_converts_per_item_and_falls_back_safely(self):
