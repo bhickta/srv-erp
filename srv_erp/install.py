@@ -8,6 +8,10 @@ from srv_erp.item.variant_auto_creation import (
 )
 from srv_erp.selling.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.selling.sales_order_discount import set_sales_order_item_discount_grid_columns
+from srv_erp.selling.sales_order_ui import (
+	configure_sales_order_pending_qty_field,
+	set_sales_order_ui_defaults,
+)
 from srv_erp.selling.sales_person_user_mapping import sync_all_sales_person_user_permissions
 from srv_erp.stock.stock_balance_report import use_srv_stock_balance_report
 
@@ -26,6 +30,8 @@ def after_install():
 	create_sales_order_attribute_custom_fields()
 	create_stock_entry_detail_custom_fields()
 	set_sales_order_item_discount_grid_columns()
+	set_sales_order_ui_defaults()
+	configure_sales_order_pending_qty_field()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
 	set_package_barcode_settings_defaults()
@@ -43,6 +49,8 @@ def after_migrate():
 	create_sales_order_attribute_custom_fields()
 	create_stock_entry_detail_custom_fields()
 	set_sales_order_item_discount_grid_columns()
+	set_sales_order_ui_defaults()
+	configure_sales_order_pending_qty_field()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
 	migrate_legacy_dsr_configuration()
