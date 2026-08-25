@@ -79,10 +79,10 @@ def get_subtotal_columns():
 			"width": 130,
 		},
 		{
-			"label": _("To Produce"),
+			"label": _("Qty to Manufacture"),
 			"fieldname": "stock_shortfall_qty",
 			"fieldtype": "Float",
-			"width": 140,
+			"width": 150,
 			"description": _("Ordered - Delivered - Stock (minimum 0)"),
 		},
 	]
@@ -108,10 +108,10 @@ def get_production_columns():
 		{"label": _("Delivered"), "fieldname": "stock_delivered_qty", "fieldtype": "Float", "width": 100},
 		{"label": _("Stock"), "fieldname": "stock_available_qty", "fieldtype": "Float", "width": 100},
 		{
-			"label": _("To Produce"),
+			"label": _("Qty to Manufacture"),
 			"fieldname": "stock_shortfall_qty",
 			"fieldtype": "Float",
-			"width": 110,
+			"width": 150,
 			"description": _("Ordered - Delivered - Stock (minimum 0)"),
 		},
 		{"label": _("Stock UOM"), "fieldname": "production_uom", "fieldtype": "Link", "options": "UOM", "width": 90},
