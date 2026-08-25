@@ -1,34 +1,86 @@
+from unittest import TestCase
 from unittest.mock import patch
 
 import frappe
-from frappe.tests import IntegrationTestCase
 
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
-	add_report_uom_columns,
+	SO_UOM,
+	STOCK_UOM,
 	append_item_code_subtotals,
 	convert_and_group_subtotal_rows,
+	convert_data_to_display_uom,
 	get_columns,
 )
 
 
-class TestItemsOrderedInDateRange(IntegrationTestCase):
-	@patch(
-		"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range.add_selected_uom_columns"
-	)
-	def test_subtotal_view_skips_additional_uom_columns(self, add_selected_uom_columns):
-		add_report_uom_columns([], [{}], frappe._dict(subtotal_view=1, include_uom="Box"))
+class TestItemsOrderedInDateRange(TestCase):
+	def setUp(self):
+		translation_patcher = patch(
+			"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range._",
+			side_effect=lambda value: value,
+		)
+		translation_patcher.start()
+		self.addCleanup(translation_patcher.stop)
 
-		add_selected_uom_columns.assert_not_called()
+	def test_so_uom_is_the_default_for_planning_quantities(self):
+		data = [
+			frappe._dict(
+				item_code="DB 548-KOMAL STAR",
+				uom_qty="Box",
+				so_conversion_factor=3,
+				stock_ordered_qty=51,
+				stock_delivered_qty=17,
+				stock_available_qty=0,
+				stock_pending_qty=34,
+				stock_shortfall_qty=34,
+				production_uom="Nos",
+			)
+		]
 
-	@patch(
-		"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range.add_selected_uom_columns"
-	)
-	def test_existing_views_keep_additional_uom_columns(self, add_selected_uom_columns):
-		columns = []
-		data = []
-		add_report_uom_columns(columns, data, frappe._dict(subtotal_view=0, include_uom="Box"))
+		convert_data_to_display_uom(data, frappe._dict())
 
-		add_selected_uom_columns.assert_called_once_with(columns, data, "Box")
+		self.assertEqual(data[0].production_uom, "Box")
+		self.assertEqual(data[0].stock_ordered_qty, 17)
+		self.assertAlmostEqual(data[0].stock_delivered_qty, 17 / 3)
+		self.assertAlmostEqual(data[0].stock_shortfall_qty, 34 / 3)
+
+	def test_stock_uom_can_be_selected(self):
+		data = [
+			frappe._dict(
+				item_code="ITEM-1",
+				uom_qty="Box",
+				so_conversion_factor=3,
+				stock_ordered_qty=51,
+				stock_delivered_qty=17,
+				production_uom="Nos",
+			)
+		]
+
+		convert_data_to_display_uom(data, frappe._dict(quantity_uom=STOCK_UOM))
+
+		self.assertEqual(data[0].production_uom, "Nos")
+		self.assertEqual(data[0].stock_ordered_qty, 51)
+		self.assertEqual(data[0].stock_delivered_qty, 17)
+
+	def test_other_uom_overrides_so_uom_when_conversion_exists(self):
+		data = [
+			frappe._dict(
+				item_code="ITEM-1",
+				uom_qty="Box",
+				so_conversion_factor=3,
+				stock_ordered_qty=100,
+				production_uom="Nos",
+			)
+		]
+
+		convert_data_to_display_uom(
+			data,
+			frappe._dict(quantity_uom=SO_UOM, include_uom="Carton"),
+			conversion_factors={"ITEM-1": 10},
+		)
+
+		self.assertEqual(data[0].production_uom, "Carton")
+		self.assertEqual(data[0].stock_ordered_qty, 10)
 
 	def test_production_columns_are_prominent_in_all_views(self):
 		self.assertEqual(get_columns(False)[0]["fieldname"], "item_code")
@@ -36,6 +88,8 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		for grouped in (False, True):
 			columns = get_columns(grouped)
 			fieldnames = [column["fieldname"] for column in columns]
+			self.assertNotIn("qty", fieldnames)
+			self.assertNotIn("uom_qty", fieldnames)
 			production_fields = [
 				"stock_ordered_qty",
 				"stock_delivered_qty",
@@ -49,6 +103,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 				[columns[start + offset]["label"] for offset in range(4)],
 				["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 			)
+			self.assertEqual(columns[start + 4]["label"], "UOM")
 		self.assertEqual(
 			[column["fieldname"] for column in get_columns(subtotal_view=True)],
 			[
@@ -66,7 +121,7 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 			["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 		)
 
-	def test_preferred_uom_converts_per_item_and_falls_back_safely(self):
+	def test_other_uom_converts_per_item_and_falls_back_safely(self):
 		rows = [
 			{
 				"actual_item_code": "DB-473-AMBER",
@@ -105,6 +160,31 @@ class TestItemsOrderedInDateRange(IntegrationTestCase):
 		)
 		self.assertAlmostEqual(amber.stock_shortfall_qty, 0.6)
 		self.assertEqual(result[1].stock_shortfall_qty, 0)
+
+	def test_subtotal_view_uses_so_uom_by_default(self):
+		rows = [
+			{
+				"actual_item_code": "DB 548-KOMAL STAR",
+				"item_code": "DB 548-KOMAL STAR",
+				"brand": "Komal Star",
+				"qty": 51,
+				"stock_available_qty": 6,
+				"stock_delivered_qty": 17,
+				"stock_pending_qty": 34,
+				"stock_uom": "Nos",
+				"so_uom": "Box",
+				"so_conversion_factor": 3,
+			}
+		]
+
+		result = convert_and_group_subtotal_rows(rows, display_mode=SO_UOM)
+
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0].stock_uom, "Box")
+		self.assertEqual(result[0].qty, 17)
+		self.assertAlmostEqual(result[0].stock_delivered_qty, 17 / 3)
+		self.assertAlmostEqual(result[0].stock_available_qty, 2)
+		self.assertAlmostEqual(result[0].stock_shortfall_qty, 28 / 3)
 
 	def test_conversion_occurs_before_brand_aggregation(self):
 		rows = [

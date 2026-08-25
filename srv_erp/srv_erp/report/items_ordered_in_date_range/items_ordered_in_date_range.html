@@ -35,7 +35,9 @@
 <div class="report-view">
 	{%= __("Item and Brand Sub-total View — the actual UOM is shown beside every quantity") %}
 	{% if (filters.include_uom) { %}
-		<br>{%= __("Preferred UOM: {0}; items without a valid conversion remain in Stock UOM", [filters.include_uom]) %}
+		<br>{%= __("Other UOM: {0}; items without a valid conversion use {1}", [filters.include_uom, filters.quantity_uom || "SO UOM"]) %}
+	{% } else { %}
+		<br>{%= __("Quantity UOM: {0}", [filters.quantity_uom || "SO UOM"]) %}
 	{% } %}
 </div>
 
