@@ -4,10 +4,32 @@ from unittest.mock import patch
 
 import frappe
 
-from srv_erp.integrations.tally_export import _ancestor_names, build_sales_order_master_payload
+from srv_erp.integrations.tally_export import (
+	_ancestor_names,
+	_master_payload,
+	build_sales_order_master_payload,
+)
 
 
 class TestSalesOrderMasterExport(TestCase):
+	def test_master_payload_includes_object_level_name_for_tally_import(self):
+		payload = _master_payload(
+			[
+				{
+					"metadata": {
+						"type": "Group",
+						"name": "Current Assets",
+						"reservedname": "",
+					},
+					"parent": "Primary",
+				}
+			]
+		)
+
+		master = payload["tallymessage"][0]
+		self.assertEqual(master["name"], "Current Assets")
+		self.assertEqual(master["metadata"]["name"], master["name"])
+
 	def test_master_dependencies_include_item_group_ancestors(self):
 		rows = [
 			frappe._dict(name="Electrical", parent_item_group="All Item Groups"),

@@ -40,6 +40,19 @@ def _metadata(object_type, name):
 	return {"type": object_type, "name": name, "reservedname": ""}
 
 
+def _master_payload(messages):
+	"""Return masters with the object-level name required by TallyPrime JSON import."""
+	normalized_messages = []
+	for message in messages:
+		message = dict(message)
+		metadata = message.get("metadata") or {}
+		if metadata.get("name") and not message.get("name"):
+			message["name"] = metadata["name"]
+		normalized_messages.append(message)
+
+	return {"tallymessage": normalized_messages}
+
+
 def _voucher_metadata(name):
 	return {
 		"type": "Voucher",
@@ -326,7 +339,7 @@ def build_master_payload(company, doctypes=None):
 		messages.extend(_export_warehouses(company, abbr))
 	if "Item" in doctypes:
 		messages.extend(_export_items())
-	return {"tallymessage": messages}
+	return _master_payload(messages)
 
 
 def _parse_doctypes(doctypes):
@@ -496,7 +509,7 @@ def build_sales_order_master_payload(company, from_date, to_date, customer=None,
 	# Scoped exports intentionally include disabled/non-stock items because an old
 	# submitted order can still reference them and Tally requires the exact master.
 	messages.extend(_export_items(item_codes))
-	return {"tallymessage": messages}
+	return _master_payload(messages)
 
 
 def build_sales_order_payload(company, from_date, to_date, customer=None, sales_order=None):
