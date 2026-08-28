@@ -68,6 +68,7 @@ def get_subtotal_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 180},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 180},
+		{"label": _("Sales Orders"), "fieldname": "sales_orders", "fieldtype": "Data", "width": 120},
 		{"label": _("UOM Used"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 100},
 		{"label": _("Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 130},
 		{
@@ -99,7 +100,7 @@ def get_grouped_columns():
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 180},
 		*get_production_columns(),
 		{"label": _("Item Group"), "fieldname": "item_group", "fieldtype": "Link", "options": "Item Group", "width": 120},
-		{"label": _("Order Count"), "fieldname": "order_count", "fieldtype": "Int", "width": 95},
+		{"label": _("Sales Orders"), "fieldname": "sales_orders", "fieldtype": "Data", "width": 120},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
 	]
 
@@ -250,6 +251,7 @@ def get_subtotal_data(filters, conditions):
 				0 AS stock_available_qty,
 				SUM({STOCK_DELIVERED_QTY_SQL}) AS stock_delivered_qty,
 				SUM({STOCK_PENDING_QTY_SQL}) AS stock_pending_qty,
+				GROUP_CONCAT(DISTINCT so.name ORDER BY so.name SEPARATOR ', ') AS sales_orders,
 				CASE
 					WHEN COUNT(DISTINCT CONCAT_WS('|', soi.uom, soi.conversion_factor)) = 1
 					THEN MAX(soi.uom)
@@ -307,6 +309,7 @@ def get_subtotal_data(filters, conditions):
 				SUM(COALESCE(stock_bin.actual_qty, 0)) AS stock_available_qty,
 				0 AS stock_delivered_qty,
 				0 AS stock_pending_qty,
+				NULL AS sales_orders,
 				NULL AS so_uom,
 				NULL AS so_conversion_factor,
 				stock_item.stock_uom
@@ -376,6 +379,7 @@ def convert_and_group_subtotal_rows(
 		)
 		for fieldname in base_quantity_fields:
 			item[fieldname] = item.get(fieldname, 0) + flt(row.get(fieldname))
+		merge_sales_orders(item, row.get("sales_orders"))
 		if row.get("so_uom") and flt(row.get("so_conversion_factor")) > 0:
 			if item.get("so_uom") and (
 				item.so_uom != row.so_uom
@@ -405,10 +409,21 @@ def convert_and_group_subtotal_rows(
 			key,
 			frappe._dict(item_code=row.item_code, brand=row.brand, stock_uom=display_uom),
 		)
+		merge_sales_orders(group, row.get("sales_orders"))
 		for fieldname in quantity_fields:
 			group[fieldname] = group.get(fieldname, 0) + flt(row.get(fieldname)) / factor
 
 	return [grouped[key] for key in sorted(grouped, key=lambda key: tuple(value or "" for value in key))]
+
+
+def merge_sales_orders(target, sales_orders):
+	orders = {
+		order.strip()
+		for value in (target.get("sales_orders"), sales_orders)
+		for order in (value or "").split(",")
+		if order.strip()
+	}
+	target["sales_orders"] = ", ".join(sorted(orders))
 
 
 def get_uom_conversion_factors(item_codes, selected_uom):
@@ -454,7 +469,11 @@ def append_item_code_subtotals(rows):
 		if item_code != current_item_code:
 			data.append(make_group_row(row))
 		current_item_code = item_code
-		uom_total = uom_totals.setdefault(stock_uom, {fieldname: 0 for fieldname in quantity_fields})
+		uom_total = uom_totals.setdefault(
+			stock_uom,
+			{"sales_orders": "", **{fieldname: 0 for fieldname in quantity_fields}},
+		)
+		merge_sales_orders(uom_total, row.get("sales_orders"))
 		for fieldname in quantity_fields:
 			uom_total[fieldname] += row.get(fieldname) or 0
 		row["item_code"] = None
@@ -521,6 +540,7 @@ def get_grouped_data(filters, conditions):
 					0
 				) AS stock_shortfall_qty,
 				soi.stock_uom AS uom_stock_shortfall_qty,
+				GROUP_CONCAT(DISTINCT so.name ORDER BY so.name SEPARATOR ', ') AS sales_orders,
 				COUNT(DISTINCT so.name) AS order_count,
 				so.company
 			FROM `tabSales Order Item` soi

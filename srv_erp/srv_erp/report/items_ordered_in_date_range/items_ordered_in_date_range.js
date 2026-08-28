@@ -4,6 +4,7 @@
 frappe.query_reports["Items Ordered in Date Range"] = {
 	onload: async function (report) {
 		await set_finished_warehouse(report);
+		bind_sales_order_traceability(report);
 	},
 	filters: [
 		{
@@ -136,6 +137,9 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		},
 	],
 	formatter(value, row, column, data, default_formatter) {
+		if (data && column.fieldname === "sales_orders") {
+			return format_sales_orders(data.sales_orders);
+		}
 		value = default_formatter(value, row, column, data);
 		if (!data) {
 			return value;
@@ -172,6 +176,54 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 		return report.get_filter_value("subtotal_view") ? custom_format : null;
 	},
 };
+
+function format_sales_orders(value) {
+	const sales_orders = (value || "")
+		.split(",")
+		.map((sales_order) => sales_order.trim())
+		.filter(Boolean);
+	if (!sales_orders.length) {
+		return "";
+	}
+
+	const label =
+		sales_orders.length === 1
+			? __("1 Sales Order")
+			: __("{0} Sales Orders", [sales_orders.length]);
+	return `<button type="button" class="btn btn-link btn-xs p-0 srv-sales-orders-link"
+		data-sales-orders="${encodeURIComponent(sales_orders.join(","))}"
+		title="${frappe.utils.escape_html(sales_orders.join(", "))}">${label}</button>`;
+}
+
+function bind_sales_order_traceability(report) {
+	report.page.wrapper
+		.off("click.srv_sales_orders", ".srv-sales-orders-link")
+		.on("click.srv_sales_orders", ".srv-sales-orders-link", (event) => {
+			event.preventDefault();
+			const sales_orders = decodeURIComponent(
+				$(event.currentTarget).attr("data-sales-orders") || ""
+			)
+				.split(",")
+				.filter(Boolean);
+			show_sales_orders(sales_orders);
+		});
+}
+
+function show_sales_orders(sales_orders) {
+	const links = sales_orders
+		.map((sales_order) => {
+			const label = frappe.utils.escape_html(sales_order);
+			const href = frappe.utils.get_form_link("Sales Order", sales_order);
+			return `<li><a href="${href}">${label}</a></li>`;
+		})
+		.join("");
+	const dialog = new frappe.ui.Dialog({
+		title: __("Contributing Sales Orders"),
+		fields: [{ fieldname: "sales_orders", fieldtype: "HTML" }],
+	});
+	dialog.fields_dict.sales_orders.$wrapper.html(`<ul class="mb-0 pl-4">${links}</ul>`);
+	dialog.show();
+}
 
 function format_production_status(value, column, data) {
 	const subtotal_view = frappe.query_report.get_filter_value("subtotal_view");

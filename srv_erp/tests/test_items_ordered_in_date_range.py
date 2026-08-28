@@ -1,3 +1,4 @@
+from inspect import getsource
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -12,6 +13,8 @@ from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_ra
 	convert_and_group_subtotal_rows,
 	convert_data_to_display_uom,
 	get_columns,
+	get_grouped_data,
+	merge_sales_orders,
 )
 
 
@@ -117,6 +120,7 @@ class TestItemsOrderedInDateRange(TestCase):
 			[
 				"item_code",
 				"brand",
+				"sales_orders",
 				"stock_uom",
 				"qty",
 				"stock_delivered_qty",
@@ -125,9 +129,28 @@ class TestItemsOrderedInDateRange(TestCase):
 			],
 		)
 		self.assertEqual(
-			[column["label"] for column in get_columns(subtotal_view=True)[3:]],
+			[column["label"] for column in get_columns(subtotal_view=True)[4:]],
 			["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 		)
+		self.assertIn("sales_orders", [column["fieldname"] for column in get_columns(True)])
+		self.assertIn("sales_order", [column["fieldname"] for column in get_columns(False)])
+		self.assertNotIn("sales_orders", [column["fieldname"] for column in get_columns(False)])
+
+	def test_grouped_query_collects_sales_orders_without_changing_quantity_grouping(self):
+		query = getsource(get_grouped_data)
+		self.assertIn(
+			"GROUP_CONCAT(DISTINCT so.name ORDER BY so.name SEPARATOR ', ') AS sales_orders",
+			query,
+		)
+		self.assertIn("COUNT(DISTINCT so.name) AS order_count", query)
+		self.assertNotIn("so.name, soi.item_code", query.split("GROUP BY", 1)[1])
+
+	def test_sales_order_sources_are_deduplicated_and_sorted(self):
+		target = frappe._dict(sales_orders="SAL-ORD-3, SAL-ORD-1")
+
+		merge_sales_orders(target, "SAL-ORD-2, SAL-ORD-1")
+
+		self.assertEqual(target.sales_orders, "SAL-ORD-1, SAL-ORD-2, SAL-ORD-3")
 
 	def test_other_uom_converts_per_item_and_falls_back_safely(self):
 		rows = [
@@ -200,6 +223,7 @@ class TestItemsOrderedInDateRange(TestCase):
 				"actual_item_code": "ITEM-A",
 				"item_code": "DB 473",
 				"brand": "Amber",
+				"sales_orders": "SAL-ORD-2",
 				"qty": 10,
 				"stock_available_qty": 0,
 				"stock_delivered_qty": 0,
@@ -210,6 +234,7 @@ class TestItemsOrderedInDateRange(TestCase):
 				"actual_item_code": "ITEM-B",
 				"item_code": "DB 473",
 				"brand": "Amber",
+				"sales_orders": "SAL-ORD-1, SAL-ORD-2",
 				"qty": 20,
 				"stock_available_qty": 0,
 				"stock_delivered_qty": 0,
@@ -226,12 +251,14 @@ class TestItemsOrderedInDateRange(TestCase):
 		self.assertEqual(result[0].qty, 4)
 		self.assertEqual(result[0].stock_shortfall_qty, 4)
 		self.assertEqual(result[0].stock_uom, "Box")
+		self.assertEqual(result[0].sales_orders, "SAL-ORD-1, SAL-ORD-2")
 
 	def test_appends_subtotal_after_each_item_code(self):
 		rows = [
 			frappe._dict(
 				item_code="DB 473",
 				brand="SRV",
+				sales_orders="SAL-ORD-2",
 				qty=6,
 				stock_available_qty=8,
 				stock_delivered_qty=2,
@@ -241,6 +268,7 @@ class TestItemsOrderedInDateRange(TestCase):
 			frappe._dict(
 				item_code="DB 473",
 				brand="Amber",
+				sales_orders="SAL-ORD-1, SAL-ORD-2",
 				qty=12,
 				stock_available_qty=15,
 				stock_delivered_qty=3,
@@ -266,6 +294,10 @@ class TestItemsOrderedInDateRange(TestCase):
 		self.assertEqual([row.stock_available_qty for row in result if row.get("is_total")], [23, 7])
 		self.assertEqual([row.stock_delivered_qty for row in result if row.get("is_total")], [5, 1])
 		self.assertEqual([row.stock_pending_qty for row in result if row.get("is_total")], [13, 4])
+		self.assertEqual(
+			[row.sales_orders for row in result if row.get("is_total")],
+			["SAL-ORD-1, SAL-ORD-2", ""],
+		)
 		self.assertEqual(sum(not row for row in result), 2)
 		self.assertTrue(result[1].is_subtotal_detail)
 		self.assertNotIn("indent", result[1])
