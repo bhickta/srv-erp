@@ -1,0 +1,13 @@
+;; SRV ERPNext Bridge trigger for TallyPrime 7.x
+;; The local Python bridge keeps credentials out of TDL and performs the sync.
+
+[#Menu: Gateway of Tally]
+    Add : Key Item : Before : @@locQuit : ERPNext Sales Sync : E : Call : SRV ERP Sync
+
+[Function: SRV ERP Sync]
+    010 : HTTP Request : "http://127.0.0.1:8765/sync" : GET : JSON : UTF8 : : SRV ERP Sync Complete
+    020 : Return
+
+[Function: SRV ERP Sync Complete]
+    010 : Msg Box : "ERPNext Sync" : "Sync request completed. Open Tally Bridge logs for the detailed result."
+    020 : Return

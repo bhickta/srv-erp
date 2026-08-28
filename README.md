@@ -31,3 +31,15 @@ Pre-commit is configured to use the following tools for checking and formatting 
 ### License
 
 mit
+
+### TallyPrime Bridge
+
+The automated ERPNext-to-TallyPrime Sales Order and Delivery Note bridge is independent of the
+legacy manual JSON exporter. Build its Windows package with:
+
+```bash
+python tally_plugin/build_package.py
+```
+
+Installation, security, TDL loading, and operating instructions are in
+[`tally_plugin/README.md`](tally_plugin/README.md).
