@@ -8,6 +8,8 @@ from srv_erp.srv_erp.report.items_delivered_in_date_range.items_delivered_in_dat
 )
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
 	get_columns as get_ordered_columns,
+)
+from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
 	get_conditions as get_ordered_conditions,
 )
 
@@ -22,7 +24,7 @@ class TestReportPendingOnly(TestCase):
 	def test_ordered_report_filters_fully_delivered_items(self):
 		conditions = get_ordered_conditions(frappe._dict(pending_only=1))
 
-		self.assertIn("soi.stock_qty > soi.delivered_qty", conditions)
+		self.assertIn("soi.qty > COALESCE(soi.delivered_qty, 0)", conditions)
 
 	def test_delivered_report_filters_fully_delivered_items(self):
 		conditions = get_delivered_conditions(frappe._dict(pending_only=1))

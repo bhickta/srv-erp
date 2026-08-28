@@ -9,6 +9,10 @@ from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 
 DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
 RESOLVED_BRAND_SQL = "COALESCE(NULLIF(variant_brand.attribute_value, ''), NULLIF(item.brand, ''), template.brand)"
+STOCK_DELIVERED_QTY_SQL = (
+	"COALESCE(soi.delivered_qty, 0) * COALESCE(NULLIF(soi.conversion_factor, 0), 1)"
+)
+STOCK_PENDING_QTY_SQL = f"GREATEST(soi.stock_qty - ({STOCK_DELIVERED_QTY_SQL}), 0)"
 SO_UOM = "SO UOM"
 STOCK_UOM = "Stock UOM"
 STOCK_QUANTITY_FIELDS = (
@@ -154,12 +158,12 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 				item.stock_uom AS uom_stock_available_qty,
 				COALESCE(bin.actual_qty, 0) - soi.stock_qty AS difference_qty,
 				item.stock_uom AS uom_difference_qty,
-				soi.delivered_qty AS stock_delivered_qty,
+				{STOCK_DELIVERED_QTY_SQL} AS stock_delivered_qty,
 				soi.stock_uom AS uom_stock_delivered_qty,
-				GREATEST(soi.stock_qty - soi.delivered_qty, 0) AS stock_pending_qty,
+				{STOCK_PENDING_QTY_SQL} AS stock_pending_qty,
 				soi.stock_uom AS uom_stock_pending_qty,
 				GREATEST(
-					GREATEST(soi.stock_qty - soi.delivered_qty, 0) - COALESCE(bin.actual_qty, 0),
+					{STOCK_PENDING_QTY_SQL} - COALESCE(bin.actual_qty, 0),
 					0
 				) AS stock_shortfall_qty,
 				soi.stock_uom AS uom_stock_shortfall_qty,
@@ -244,8 +248,8 @@ def get_subtotal_data(filters, conditions):
 				{RESOLVED_BRAND_SQL} AS brand,
 				SUM(soi.stock_qty) AS qty,
 				0 AS stock_available_qty,
-				SUM(soi.delivered_qty) AS stock_delivered_qty,
-				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
+				SUM({STOCK_DELIVERED_QTY_SQL}) AS stock_delivered_qty,
+				SUM({STOCK_PENDING_QTY_SQL}) AS stock_pending_qty,
 				CASE
 					WHEN COUNT(DISTINCT CONCAT_WS('|', soi.uom, soi.conversion_factor)) = 1
 					THEN MAX(soi.uom)
@@ -507,12 +511,12 @@ def get_grouped_data(filters, conditions):
 				item.stock_uom AS uom_stock_available_qty,
 				MAX(COALESCE(bin.actual_qty, 0)) - SUM(soi.stock_qty) AS difference_qty,
 				item.stock_uom AS uom_difference_qty,
-				SUM(soi.delivered_qty) AS stock_delivered_qty,
+				SUM({STOCK_DELIVERED_QTY_SQL}) AS stock_delivered_qty,
 				soi.stock_uom AS uom_stock_delivered_qty,
-				SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0)) AS stock_pending_qty,
+				SUM({STOCK_PENDING_QTY_SQL}) AS stock_pending_qty,
 				soi.stock_uom AS uom_stock_pending_qty,
 				GREATEST(
-					SUM(GREATEST(soi.stock_qty - soi.delivered_qty, 0))
+					SUM({STOCK_PENDING_QTY_SQL})
 						- MAX(COALESCE(bin.actual_qty, 0)),
 					0
 				) AS stock_shortfall_qty,
@@ -573,7 +577,7 @@ def get_conditions(filters):
 			"AND st_filter.sales_person = %(sales_person)s)"
 		)
 	if cint(filters.get("pending_only")):
-		conditions.append("soi.stock_qty > soi.delivered_qty")
+		conditions.append("soi.qty > COALESCE(soi.delivered_qty, 0)")
 
 	return " AND " + " AND ".join(conditions) if conditions else ""
 

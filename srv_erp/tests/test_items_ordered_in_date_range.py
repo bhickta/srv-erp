@@ -5,6 +5,8 @@ import frappe
 
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
 	SO_UOM,
+	STOCK_DELIVERED_QTY_SQL,
+	STOCK_PENDING_QTY_SQL,
 	STOCK_UOM,
 	append_item_code_subtotals,
 	convert_and_group_subtotal_rows,
@@ -21,6 +23,12 @@ class TestItemsOrderedInDateRange(TestCase):
 		)
 		translation_patcher.start()
 		self.addCleanup(translation_patcher.stop)
+
+	def test_sales_order_delivered_qty_is_converted_to_stock_uom_in_queries(self):
+		self.assertIn("soi.delivered_qty", STOCK_DELIVERED_QTY_SQL)
+		self.assertIn("soi.conversion_factor", STOCK_DELIVERED_QTY_SQL)
+		self.assertIn(STOCK_DELIVERED_QTY_SQL, STOCK_PENDING_QTY_SQL)
+		self.assertIn("soi.stock_qty", STOCK_PENDING_QTY_SQL)
 
 	def test_so_uom_is_the_default_for_planning_quantities(self):
 		data = [
