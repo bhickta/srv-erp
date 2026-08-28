@@ -4,6 +4,12 @@ from unittest.mock import patch
 import frappe
 
 from srv_erp.srv_erp.report.items_delivered_in_date_range.items_delivered_in_date_range import (
+	STOCK_DELIVERED_QTY_SQL as DELIVERED_REPORT_STOCK_DELIVERED_QTY_SQL,
+)
+from srv_erp.srv_erp.report.items_delivered_in_date_range.items_delivered_in_date_range import (
+	STOCK_ORDERED_QTY_SQL as DELIVERED_REPORT_STOCK_ORDERED_QTY_SQL,
+)
+from srv_erp.srv_erp.report.items_delivered_in_date_range.items_delivered_in_date_range import (
 	get_conditions as get_delivered_conditions,
 )
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
@@ -29,11 +35,8 @@ class TestReportPendingOnly(TestCase):
 	def test_delivered_report_filters_fully_delivered_items(self):
 		conditions = get_delivered_conditions(frappe._dict(pending_only=1))
 
-		self.assertIn(
-			"COALESCE(soi.stock_qty, dni.stock_qty)"
-			" > COALESCE(soi.delivered_qty, dni.stock_qty)",
-			conditions,
-		)
+		self.assertIn(DELIVERED_REPORT_STOCK_ORDERED_QTY_SQL, conditions)
+		self.assertIn(DELIVERED_REPORT_STOCK_DELIVERED_QTY_SQL, conditions)
 
 	@patch(
 		"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range._",

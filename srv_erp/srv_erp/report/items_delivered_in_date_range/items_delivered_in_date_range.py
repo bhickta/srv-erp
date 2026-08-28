@@ -9,6 +9,14 @@ from frappe.utils import cint, getdate
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
+STOCK_ORDERED_QTY_SQL = "COALESCE(soi.stock_qty, dni.stock_qty)"
+STOCK_DELIVERED_QTY_SQL = (
+	"COALESCE("
+	"soi.delivered_qty * COALESCE(NULLIF(soi.conversion_factor, 0), 1), "
+	"dni.stock_qty"
+	")"
+)
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -18,6 +26,7 @@ def execute(filters=None):
 	data = get_data(filters)
 	add_selected_uom_columns(columns, data, filters.get("include_uom"))
 	return columns, data
+
 
 def get_columns():
 	return [
@@ -137,53 +146,58 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-	
-	data = frappe.db.sql(f"""
-		SELECT
-			dni.item_code,
-			dni.item_name,
-			dni.item_group,
-			dni.brand,
-			dni.uom AS uom_qty,
-			dn.customer,
-			dn.customer_name,
-			dn.customer_group,
-			dn.territory,
-			dn.project,
-			(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
-			dn.posting_date,
-			dni.qty,
-			COALESCE(soi.stock_qty, dni.stock_qty) AS stock_ordered_qty,
-			COALESCE(soi.delivered_qty, dni.stock_qty) AS stock_delivered_qty,
-			COALESCE(bin.actual_qty, 0) AS stock_available_qty,
-			item.stock_uom AS production_uom,
-			GREATEST(
-				COALESCE(soi.stock_qty, dni.stock_qty)
-					- COALESCE(soi.delivered_qty, dni.stock_qty)
-					- COALESCE(bin.actual_qty, 0),
-				0
-			) AS stock_shortfall_qty,
-			dn.name as delivery_note,
-			dn.company
-		FROM
-			`tabDelivery Note Item` dni
-		INNER JOIN
-			`tabDelivery Note` dn ON dni.parent = dn.name
-		INNER JOIN
-			`tabItem` item ON item.name = dni.item_code
-		LEFT JOIN
-			`tabBin` bin ON bin.item_code = dni.item_code AND bin.warehouse = %(warehouse)s
-		LEFT JOIN
-			`tabSales Order Item` soi
-				ON soi.name = dni.so_detail AND soi.parent = dni.against_sales_order
-		WHERE
-			dn.docstatus = 1
-			{conditions}
-		ORDER BY
-			dn.posting_date desc
-	""", filters, as_dict=1)
+
+	data = frappe.db.sql(
+		f"""
+			SELECT
+				dni.item_code,
+				dni.item_name,
+				dni.item_group,
+				dni.brand,
+				dni.uom AS uom_qty,
+				dn.customer,
+				dn.customer_name,
+				dn.customer_group,
+				dn.territory,
+				dn.project,
+				(SELECT GROUP_CONCAT(sales_person SEPARATOR ', ') FROM `tabSales Team` WHERE parent = dn.name) as sales_person,
+				dn.posting_date,
+				dni.qty,
+				{STOCK_ORDERED_QTY_SQL} AS stock_ordered_qty,
+				{STOCK_DELIVERED_QTY_SQL} AS stock_delivered_qty,
+				COALESCE(bin.actual_qty, 0) AS stock_available_qty,
+				item.stock_uom AS production_uom,
+				GREATEST(
+					{STOCK_ORDERED_QTY_SQL}
+						- {STOCK_DELIVERED_QTY_SQL}
+						- COALESCE(bin.actual_qty, 0),
+					0
+				) AS stock_shortfall_qty,
+				dn.name as delivery_note,
+				dn.company
+			FROM
+				`tabDelivery Note Item` dni
+			INNER JOIN
+				`tabDelivery Note` dn ON dni.parent = dn.name
+			INNER JOIN
+				`tabItem` item ON item.name = dni.item_code
+			LEFT JOIN
+				`tabBin` bin ON bin.item_code = dni.item_code AND bin.warehouse = %(warehouse)s
+			LEFT JOIN
+				`tabSales Order Item` soi
+					ON soi.name = dni.so_detail AND soi.parent = dni.against_sales_order
+			WHERE
+				dn.docstatus = 1
+				{conditions}
+			ORDER BY
+				dn.posting_date desc
+		""",
+		filters,
+		as_dict=1,
+	)
 
 	return data
+
 
 def get_conditions(filters):
 	conditions = ""
@@ -212,10 +226,7 @@ def get_conditions(filters):
 	if filters.get("sales_person"):
 		conditions += " AND EXISTS (SELECT name FROM `tabSales Team` WHERE parent = dn.name AND sales_person = %(sales_person)s)"
 	if cint(filters.get("pending_only")):
-		conditions += (
-			" AND COALESCE(soi.stock_qty, dni.stock_qty)"
-			" > COALESCE(soi.delivered_qty, dni.stock_qty)"
-		)
+		conditions += f" AND {STOCK_ORDERED_QTY_SQL} > {STOCK_DELIVERED_QTY_SQL}"
 	return conditions
 
 
