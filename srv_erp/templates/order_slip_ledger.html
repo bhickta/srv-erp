@@ -6,25 +6,28 @@
 	<style>
 		@page { size: A4 portrait; margin: 9mm; }
 		* { box-sizing: border-box; }
-		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 9px; }
+		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 10.8px; }
 		.header { margin-bottom: 8px; text-align: center; }
-		.header h1 { margin: 0 0 2px; font-size: 15px; }
-		.header .period { font-size: 10px; }
+		.header h1 { margin: 0 0 2px; font-size: 18px; }
+		.header .period { font-size: 12px; }
 		table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 		th, td { border: 1px solid #777; padding: 4px 5px; vertical-align: top; }
-		th { background: #f2f2f2; font-size: 8.5px; text-align: center; }
-		.date { width: 11%; text-align: center; }
-		.particulars { width: 43%; }
-		.quantity { width: 11%; text-align: right; white-space: nowrap; }
-		.rate { width: 13%; text-align: right; white-space: nowrap; }
-		.total { width: 11%; text-align: right; white-space: nowrap; font-weight: 700; }
-		.order-slip { width: 11%; text-align: right; white-space: nowrap; font-weight: 700; }
-		.customer { margin-bottom: 4px; font-size: 9.5px; font-weight: 700; }
-		.customer-meta { color: #444; font-size: 8px; font-weight: normal; }
-		.item { min-height: 14px; padding: 2px 0; overflow-wrap: anywhere; }
-		.item-code { color: #444; font-size: 8px; }
+		th { background: #f2f2f2; font-size: 10.2px; text-align: center; }
+		.date { width: 9%; text-align: center; }
+		.particulars { width: 35%; overflow-wrap: anywhere; }
+		.quantity { width: 12%; text-align: right; }
+		.rate { width: 15%; text-align: right; }
+		.total { width: 14%; text-align: right; font-weight: 700; }
+		.order-slip { width: 15%; text-align: right; font-weight: 700; }
+		.order-number { margin-bottom: 3px; font-weight: 700; line-height: 1.2; }
+		.order-number-spacer { margin-bottom: 3px; line-height: 1.2; }
+		.item-cell { border-top: 1px dotted #bbb; border-bottom: 1px dotted #bbb; line-height: 1.25; }
+		.order-first-item .item-cell { border-top: 1px solid #777; }
+		.order-last-item .item-cell { border-bottom: 1px solid #777; }
+		.number-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+		.order-cell { vertical-align: top; font-variant-numeric: tabular-nums; }
 		.amount-cell { vertical-align: top; }
-		.grand-total td { padding: 7px 5px; font-size: 10px; font-weight: 700; }
+		.grand-total td { padding: 7px 5px; font-size: 12px; font-weight: 700; }
 		.no-border-right { border-right: 0; }
 		@media print {
 			.no-print { display: none !important; }
@@ -53,23 +56,41 @@
 		</thead>
 		<tbody>
 		{% for order in orders %}
-			<tr>
-				<td class="date">{{ frappe.utils.format_date(order.transaction_date) }}</td>
-				<td class="particulars">
-					<div class="customer">{{ order.customer_name or order.customer }}
-						<div class="customer-meta">{{ order.customer }} · {{ order.name }}{% if order.contact_mobile %} · {{ order.contact_mobile }}{% endif %}</div>
-					</div>
-					{% for item in order.items %}<div class="item">{{ item.item_name or item.item_code }} <span class="item-code">— {{ item.item_code }}</span></div>{% endfor %}
+			{% set item_count = order.items|length %}
+			{% if item_count %}
+			{% for item in order.items %}
+			<tr class="{% if loop.first %}order-first-item {% endif %}{% if loop.last %}order-last-item{% endif %}">
+				{% if loop.first %}<td class="date order-cell" rowspan="{{ item_count }}">{{ frappe.utils.format_date(order.transaction_date) }}</td>{% endif %}
+				<td class="particulars item-cell">
+					{% if loop.first %}<div class="order-number">{{ order.name }}</div>{% endif %}
+					<div>{{ item.item_code }}: {{ item.item_name or item.item_code }}</div>
 				</td>
-				<td class="quantity">{% for item in order.items %}<div class="item">{{ frappe.utils.fmt_money(item.qty, precision=2) }} {{ item.uom or item.stock_uom }}</div>{% endfor %}</td>
-				<td class="rate">{% for item in order.items %}<div class="item">{{ frappe.utils.fmt_money(item.rate, currency=order.currency) }}/{{ item.uom or item.stock_uom }}</div>{% endfor %}</td>
-				<td class="total amount-cell">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>
-				<td class="order-slip amount-cell">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>
+				<td class="quantity item-cell number-cell">
+					{% if loop.first %}<div class="order-number-spacer">&nbsp;</div>{% endif %}
+					<div>{{ frappe.utils.fmt_money(item.qty, precision=2) }} {{ item.uom or item.stock_uom }}</div>
+				</td>
+				<td class="rate item-cell number-cell">
+					{% if loop.first %}<div class="order-number-spacer">&nbsp;</div>{% endif %}
+					<div>{{ frappe.utils.fmt_money(item.rate, currency=order.currency) }}/{{ item.uom or item.stock_uom }}</div>
+				</td>
+				{% if loop.first %}<td class="total amount-cell order-cell number-cell" rowspan="{{ item_count }}">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>{% endif %}
+				{% if loop.first %}<td class="order-slip amount-cell order-cell number-cell" rowspan="{{ item_count }}">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>{% endif %}
 			</tr>
+			{% endfor %}
+			{% else %}
+			<tr>
+				<td class="date order-cell">{{ frappe.utils.format_date(order.transaction_date) }}</td>
+				<td class="particulars"><div class="order-number">{{ order.name }}</div></td>
+				<td class="quantity"></td>
+				<td class="rate"></td>
+				<td class="total amount-cell number-cell">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>
+				<td class="order-slip amount-cell number-cell">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>
+			</tr>
+			{% endif %}
 		{% endfor %}
 			<tr class="grand-total">
 				<td colspan="5" style="text-align:right">{{ _("Grand Total") }}</td>
-				<td class="order-slip">{{ frappe.utils.fmt_money(grand_total, currency=currency) }}</td>
+				<td class="order-slip number-cell">{{ frappe.utils.fmt_money(grand_total, currency=currency) }}</td>
 			</tr>
 		</tbody>
 	</table>
