@@ -15,7 +15,7 @@ class TestOrderSlipHelpers(FrappeTestCase):
 			total=300,
 			grand_total=354,
 			customer="CUST-0001",
-			customer_name="Customer Name Must Not Print",
+			customer_name="Customer Name",
 			items=[
 				SimpleNamespace(
 					item_code="ITEM-001", item_name="First Item", qty=1, uom="Nos", stock_uom="Nos", rate=100
@@ -38,8 +38,8 @@ class TestOrderSlipHelpers(FrappeTestCase):
 
 		self.assertIn("SO-0001", html)
 		self.assertIn("ITEM-001: First Item", html)
-		self.assertIn('rowspan="2"', html)
-		self.assertNotIn("Customer Name Must Not Print", html)
+		self.assertIn('rowspan="3"', html)
+		self.assertEqual(html.count("Customer Name"), 1)
 		self.assertNotIn("CUST-0001", html)
 
 	def test_parse_order_names_preserves_selection_order_and_removes_duplicates(self):

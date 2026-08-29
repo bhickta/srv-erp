@@ -19,10 +19,10 @@
 		.rate { width: 15%; text-align: right; }
 		.total { width: 14%; text-align: right; font-weight: 700; }
 		.order-slip { width: 15%; text-align: right; font-weight: 700; }
-		.order-number { margin-bottom: 3px; font-weight: 700; line-height: 1.2; }
-		.order-number-spacer { margin-bottom: 3px; line-height: 1.2; }
+		.order-number { font-weight: 700; line-height: 1.2; }
+		.customer-name { margin-top: 2px; line-height: 1.2; }
+		.order-heading-cell { border-bottom: 1px dotted #bbb; }
 		.item-cell { border-top: 1px dotted #bbb; border-bottom: 1px dotted #bbb; line-height: 1.25; }
-		.order-first-item .item-cell { border-top: 1px solid #777; }
 		.order-last-item .item-cell { border-bottom: 1px solid #777; }
 		.number-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
 		.order-cell { vertical-align: top; font-variant-numeric: tabular-nums; }
@@ -58,29 +58,37 @@
 		{% for order in orders %}
 			{% set item_count = order.items|length %}
 			{% if item_count %}
+			<tr>
+				<td class="date order-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.format_date(order.transaction_date) }}</td>
+				<td class="particulars order-heading-cell">
+					<div class="order-number">{{ order.name }}</div>
+					{% if order.customer_name %}<div class="customer-name">{{ order.customer_name }}</div>{% endif %}
+				</td>
+				<td class="quantity order-heading-cell"></td>
+				<td class="rate order-heading-cell"></td>
+				<td class="total amount-cell order-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>
+				<td class="order-slip amount-cell order-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>
+			</tr>
 			{% for item in order.items %}
-			<tr class="{% if loop.first %}order-first-item {% endif %}{% if loop.last %}order-last-item{% endif %}">
-				{% if loop.first %}<td class="date order-cell" rowspan="{{ item_count }}">{{ frappe.utils.format_date(order.transaction_date) }}</td>{% endif %}
+			<tr class="{% if loop.last %}order-last-item{% endif %}">
 				<td class="particulars item-cell">
-					{% if loop.first %}<div class="order-number">{{ order.name }}</div>{% endif %}
 					<div>{{ item.item_code }}: {{ item.item_name or item.item_code }}</div>
 				</td>
 				<td class="quantity item-cell number-cell">
-					{% if loop.first %}<div class="order-number-spacer">&nbsp;</div>{% endif %}
 					<div>{{ frappe.utils.fmt_money(item.qty, precision=2) }} {{ item.uom or item.stock_uom }}</div>
 				</td>
 				<td class="rate item-cell number-cell">
-					{% if loop.first %}<div class="order-number-spacer">&nbsp;</div>{% endif %}
 					<div>{{ frappe.utils.fmt_money(item.rate, currency=order.currency) }}/{{ item.uom or item.stock_uom }}</div>
 				</td>
-				{% if loop.first %}<td class="total amount-cell order-cell number-cell" rowspan="{{ item_count }}">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>{% endif %}
-				{% if loop.first %}<td class="order-slip amount-cell order-cell number-cell" rowspan="{{ item_count }}">{{ frappe.utils.fmt_money(order.grand_total, currency=order.currency) }}</td>{% endif %}
 			</tr>
 			{% endfor %}
 			{% else %}
 			<tr>
 				<td class="date order-cell">{{ frappe.utils.format_date(order.transaction_date) }}</td>
-				<td class="particulars"><div class="order-number">{{ order.name }}</div></td>
+				<td class="particulars">
+					<div class="order-number">{{ order.name }}</div>
+					{% if order.customer_name %}<div class="customer-name">{{ order.customer_name }}</div>{% endif %}
+				</td>
 				<td class="quantity"></td>
 				<td class="rate"></td>
 				<td class="total amount-cell number-cell">{{ frappe.utils.fmt_money(order.total, currency=order.currency) }}</td>
