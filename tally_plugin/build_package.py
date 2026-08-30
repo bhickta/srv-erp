@@ -20,6 +20,7 @@ def build():
 			"README.md",
 			"SRVERPBridge.tdl",
 			"start-bridge.cmd",
+			"start-bridge.sh",
 			"tally-bridge.example.json",
 		):
 			archive.write(PLUGIN_DIR / filename, filename)

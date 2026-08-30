@@ -1,3 +1,6 @@
+import json
+import threading
+import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from unittest import TestCase
@@ -9,7 +12,8 @@ from srv_erp.tally_bridge.json_gateway import (
 	build_voucher_import,
 	parse_import_response,
 )
-from srv_erp.tally_bridge.service import SyncService
+from srv_erp.tally_bridge.http_server import BridgeHTTPServer
+from srv_erp.tally_bridge.service import SyncService, SyncSummary
 from srv_erp.tally_bridge.xml_gateway import ImportResult as XMLImportResult
 from srv_erp.tally_bridge.xml_gateway import build_voucher_import as build_xml_voucher_import
 
@@ -246,3 +250,40 @@ class TestSyncService(TestCase):
 		voucher = ET.fromstring(tally_client.import_xml.call_args.args[0]).find(".//VOUCHER")
 		self.assertEqual(voucher.findtext("DATE"), "20260801")
 		self.assertIn("original date 2026-08-28", voucher.findtext("NARRATION"))
+
+
+class TestBridgeHTTPServer(TestCase):
+	def test_click_returns_before_background_sync_finishes(self):
+		entered = threading.Event()
+		release = threading.Event()
+		service = Mock()
+
+		def slow_sync(limit=None):
+			entered.set()
+			release.wait(2)
+			return SyncSummary(fetched=1, succeeded=1)
+
+		service.sync_once.side_effect = slow_sync
+		server = BridgeHTTPServer(("127.0.0.1", 0), service)
+		server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+		server_thread.start()
+		base_url = f"http://127.0.0.1:{server.server_port}"
+		try:
+			with urllib.request.urlopen(f"{base_url}/sync", timeout=1) as response:
+				payload = json.loads(response.read())
+			self.assertEqual(response.status, 202)
+			self.assertTrue(payload["started"])
+			self.assertTrue(entered.wait(1))
+
+			with urllib.request.urlopen(f"{base_url}/sync", timeout=1) as response:
+				second_payload = json.loads(response.read())
+			self.assertFalse(second_payload["started"])
+
+			with urllib.request.urlopen(f"{base_url}/sync-status", timeout=1) as response:
+				status = json.loads(response.read())
+			self.assertTrue(status["running"])
+		finally:
+			release.set()
+			server.shutdown()
+			server.server_close()
+			server_thread.join(2)

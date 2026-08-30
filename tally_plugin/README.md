@@ -43,6 +43,23 @@ current `SRVERPBridge.tdl`, reload the TDL, and restart TallyPrime.
 the Tally menu. API credentials never appear in the TDL source. To enable
 automatic polling instead, run the `serve` command without `--no-poll`.
 
+### Bottles/Wine on Linux
+
+Do not run `start-bridge.cmd` inside Wine. Open a normal Linux terminal in the
+extracted bridge directory and run:
+
+```bash
+cp tally-bridge.example.json tally-bridge.json
+# Edit tally-bridge.json with the production URL, credentials, and Tally company.
+chmod +x start-bridge.sh
+./start-bridge.sh
+```
+
+Leave that terminal running. Confirm `http://127.0.0.1:8765/health` opens from
+the Linux host before clicking the Tally menu. The click returns immediately
+and synchronization continues in the background; view progress at
+`http://127.0.0.1:8765/sync-status`.
+
 ## Check and operate from Command Prompt
 
 From the extracted folder:
