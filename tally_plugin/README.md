@@ -55,6 +55,10 @@ chmod +x start-bridge.sh
 ./start-bridge.sh
 ```
 
+The extracted directory must contain both `start-bridge.sh` and the
+`srv_erp/tally_bridge` directory. A folder containing only the TDL and launcher
+files is incomplete; extract the generated `SRV-Tally-Bridge-1.0.0.zip` instead.
+
 Leave that terminal running. Confirm `http://127.0.0.1:8765/health` opens from
 the Linux host before clicking the Tally menu. The click returns immediately
 and synchronization continues in the background; view progress at
