@@ -34,8 +34,14 @@ The old manual Tally JSON exporter is not used by this bridge.
    `SRVERPBridge.tdl`, and restart TallyPrime. The Gateway menu then includes
    **ERPNext Sales Sync**.
 
-The bridge polls automatically every 60 seconds. The TDL action is only a
-manual trigger; API credentials never appear in the TDL source.
+Before clicking the menu option, keep `start-bridge.cmd` running. Confirm the
+local trigger is available by opening `http://127.0.0.1:8765/health` in a
+browser. If an older TDL reports **Description not found**, replace it with the
+current `SRVERPBridge.tdl`, reload the TDL, and restart TallyPrime.
+
+`start-bridge.cmd` runs in click-only mode: synchronization starts only from
+the Tally menu. API credentials never appear in the TDL source. To enable
+automatic polling instead, run the `serve` command without `--no-poll`.
 
 ## Check and operate from Command Prompt
 
@@ -44,6 +50,12 @@ From the extracted folder:
 ```bat
 py -3 -m srv_erp.tally_bridge --config tally-bridge.json status
 py -3 -m srv_erp.tally_bridge --config tally-bridge.json sync --limit 5
+py -3 -m srv_erp.tally_bridge --config tally-bridge.json serve --no-poll
+```
+
+For automatic polling every configured interval, use:
+
+```bat
 py -3 -m srv_erp.tally_bridge --config tally-bridge.json serve
 ```
 

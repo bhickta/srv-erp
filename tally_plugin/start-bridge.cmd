@@ -15,7 +15,7 @@ if not exist "tally-bridge.json" (
   exit /b 2
 )
 
-py -3 -m srv_erp.tally_bridge --config "tally-bridge.json" serve
+py -3 -m srv_erp.tally_bridge --config "tally-bridge.json" serve --no-poll
 set EXIT_CODE=%ERRORLEVEL%
 echo.
 echo Tally Bridge stopped with exit code %EXIT_CODE%.
