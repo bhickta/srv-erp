@@ -4,6 +4,9 @@ frappe.listview_settings["Sales Order"] = {
 	...standard_sales_order_listview_settings,
 	onload(listview) {
 		standard_sales_order_listview_settings.onload?.(listview);
+		srv_erp.list_view.setup_tree_group_filters(listview, [
+			{ fieldname: "customer_group" },
+		]);
 
 		listview.page.add_actions_menu_item(__("Print Order Slip Ledger"), () => {
 			const names = listview.get_checked_items(true);
