@@ -1,6 +1,6 @@
 # SRV ERPNext–TallyPrime Bridge
 
-This package runs on the Windows computer where TallyPrime is open. It pulls
+This Windows-only package runs on the computer where TallyPrime is open. It pulls
 submitted, unacknowledged Sales Orders and Delivery Notes from ERPNext, creates their required
 Tally masters, imports inventory **Sales vouchers** through Tally's local HTTP gateway,
 and acknowledges each confirmed result back to ERPNext.
@@ -15,7 +15,8 @@ The old manual Tally JSON exporter is not used by this bridge.
   type in TallyPrime.
 - Tally HTTP Server enabled on port 9000: **F1 → Settings → Advanced
   Configuration → Enable HTTP Server**.
-- Python 3.10 or newer on the Tally Windows computer.
+- No Python installation is required on Windows when the package contains
+  `SRVTallyBridge.exe`.
 - An ERPNext API user with the **Tally Sync User** role, API key, and API
   secret. Give that user additional roles only if the generic API command must
   call other protected ERPNext methods.
@@ -23,12 +24,15 @@ The old manual Tally JSON exporter is not used by this bridge.
 
 ## Install on the Tally computer
 
-1. Extract `SRV-Tally-Bridge-1.0.0.zip` to a fixed folder such as
+1. Download `SRV-Tally-Bridge-Windows-x64.zip` from the
+   [Tally Bridge Latest](https://github.com/bhickta/srv-erp/releases/tag/tally-bridge-latest)
+   GitHub release, then extract it to a fixed folder such as
    `C:\SRV-Tally-Bridge`.
 2. Copy `tally-bridge.example.json` to `tally-bridge.json`.
 3. Set `frappe_url`, API credentials, ERPNext company, and the exact loaded
    Tally company. Keep `target_id` stable and unique for this Tally data set.
-4. Double-click `start-bridge.cmd`. It checks the loaded Tally company before
+4. Confirm the extracted folder contains `SRVTallyBridge.exe`, then double-click
+   `start-bridge.cmd`. It checks the loaded Tally company before
    every batch and refuses to write if it does not match.
 5. Optional: in TallyPrime, open **F1 → TDL & Add-On → Manage Local TDL**, load
    `SRVERPBridge.tdl`, and restart TallyPrime. The Gateway menu then includes
@@ -43,25 +47,9 @@ current `SRVERPBridge.tdl`, reload the TDL, and restart TallyPrime.
 the Tally menu. API credentials never appear in the TDL source. To enable
 automatic polling instead, run the `serve` command without `--no-poll`.
 
-### Bottles/Wine on Linux
-
-Do not run `start-bridge.cmd` inside Wine. Open a normal Linux terminal in the
-extracted bridge directory and run:
-
-```bash
-cp tally-bridge.example.json tally-bridge.json
-# Edit tally-bridge.json with the production URL, credentials, and Tally company.
-chmod +x start-bridge.sh
-./start-bridge.sh
-```
-
-The extracted directory must contain both `start-bridge.sh` and the
-`srv_erp/tally_bridge` directory. A folder containing only the TDL and launcher
-files is incomplete; extract the generated `SRV-Tally-Bridge-1.0.0.zip` instead.
-
-Leave that terminal running. Confirm `http://127.0.0.1:8765/health` opens from
-the Linux host before clicking the Tally menu. The click returns immediately
-and synchronization continues in the background; view progress at
+Leave the launcher window running. Confirm `http://127.0.0.1:8765/health` opens
+before clicking the Tally menu. The click returns immediately and synchronization
+continues in the background; view progress at
 `http://127.0.0.1:8765/sync-status`.
 
 ## Check and operate from Command Prompt
@@ -69,26 +57,43 @@ and synchronization continues in the background; view progress at
 From the extracted folder:
 
 ```bat
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json status
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json sync --limit 5
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json serve --no-poll
+SRVTallyBridge.exe --config tally-bridge.json status
+SRVTallyBridge.exe --config tally-bridge.json sync --limit 5
+SRVTallyBridge.exe --config tally-bridge.json serve --no-poll
 ```
 
 For automatic polling every configured interval, use:
 
 ```bat
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json serve
+SRVTallyBridge.exe --config tally-bridge.json serve
 ```
 
 The bridge also provides a generic authenticated Frappe API caller:
 
 ```bat
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json api GET /api/resource/Company
-py -3 -m srv_erp.tally_bridge --config tally-bridge.json api POST /api/method/my_app.api.run --data "{\"name\":\"value\"}"
+SRVTallyBridge.exe --config tally-bridge.json api GET /api/resource/Company
+SRVTallyBridge.exe --config tally-bridge.json api POST /api/method/my_app.api.run --data "{\"name\":\"value\"}"
 ```
 
 Frappe permissions still apply. The generic caller does not bypass the API
 user's assigned roles.
+
+## Build the standalone Windows package
+
+Push bridge or plugin changes to the `version-15` branch. GitHub Actions builds
+the executable on Windows, stores the ZIP as a workflow artifact, and updates
+the rolling **Tally Bridge Latest** prerelease asset. The workflow can also be
+run manually from the repository's **Actions** page without publishing a release.
+
+For a local Windows build from a repository checkout, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tally_plugin\build-windows.ps1
+```
+
+The generated package is `dist\SRV-Tally-Bridge-Windows-x64.zip`. Python and
+PyInstaller are build-time requirements only; they are not required on the
+Tally computer.
 
 ## Sync behavior
 

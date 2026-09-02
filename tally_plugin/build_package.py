@@ -1,5 +1,6 @@
-"""Build the dependency-free Windows bridge distribution zip."""
+"""Build the Tally bridge distribution zip."""
 
+import argparse
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -7,25 +8,34 @@ from zipfile import ZIP_DEFLATED, ZipFile
 PLUGIN_DIR = Path(__file__).resolve().parent
 APP_DIR = PLUGIN_DIR.parent
 OUTPUT_DIR = APP_DIR / "dist"
-OUTPUT_FILE = OUTPUT_DIR / "SRV-Tally-Bridge-1.0.0.zip"
+OUTPUT_FILE = OUTPUT_DIR / "SRV-Tally-Bridge-Windows-x64.zip"
 
 
-def build():
-	OUTPUT_DIR.mkdir(exist_ok=True)
-	with ZipFile(OUTPUT_FILE, "w", ZIP_DEFLATED) as archive:
-		archive.write(APP_DIR / "srv_erp" / "__init__.py", "srv_erp/__init__.py")
-		for source in sorted((APP_DIR / "srv_erp" / "tally_bridge").glob("*.py")):
-			archive.write(source, f"srv_erp/tally_bridge/{source.name}")
+def build(executable, output_file=OUTPUT_FILE):
+	output_file = Path(output_file).resolve()
+	executable = Path(executable).resolve()
+	if not executable.is_file():
+		raise FileNotFoundError(f"Windows executable not found: {executable}")
+	output_file.parent.mkdir(parents=True, exist_ok=True)
+	with ZipFile(output_file, "w", ZIP_DEFLATED) as archive:
+		archive.write(executable, "SRVTallyBridge.exe")
 		for filename in (
 			"README.md",
 			"SRVERPBridge.tdl",
 			"start-bridge.cmd",
-			"start-bridge.sh",
 			"tally-bridge.example.json",
 		):
 			archive.write(PLUGIN_DIR / filename, filename)
-	return OUTPUT_FILE
+	return output_file
+
+
+def _parser():
+	parser = argparse.ArgumentParser(description="Build the SRV Tally Bridge ZIP")
+	parser.add_argument("--output", default=str(OUTPUT_FILE), help="Output ZIP path")
+	parser.add_argument("--executable", required=True, help="Standalone Windows executable")
+	return parser
 
 
 if __name__ == "__main__":
-	print(build())
+	args = _parser().parse_args()
+	print(build(args.executable, args.output))
