@@ -32,14 +32,17 @@ Pre-commit is configured to use the following tools for checking and formatting 
 
 mit
 
-### TallyPrime Bridge
+### TallyPrime Control Centre
 
-The automated ERPNext-to-TallyPrime Sales Order and Delivery Note bridge is independent of the
-legacy manual JSON exporter. Build its Windows package with:
+The reusable `express_tally` app supplies a single Windows Control Centre for
+manual and automatic ERPNext ↔ TallyPrime flows. SRV registers its Sales Order
+and Delivery Note policy with that connector. Build the Windows package from the
+`erpnext-tally-connector` app with:
 
 ```bash
-python tally_plugin/build_package.py
+npm --prefix ../erpnext-tally-connector/control-centre run build
+powershell -ExecutionPolicy Bypass -File ../erpnext-tally-connector/tally_plugin/build-windows.ps1
 ```
 
 Installation, security, TDL loading, and operating instructions are in
-[`tally_plugin/README.md`](tally_plugin/README.md).
+`apps/erpnext-tally-connector/tally_plugin/README.md`.
