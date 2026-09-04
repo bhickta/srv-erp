@@ -19,12 +19,10 @@ from srv_erp.tree_group_filters import configure_tree_group_list_filters
 
 def before_migrate():
 	ensure_dsr_roles()
-	ensure_tally_sync_role()
 
 
 def after_install():
 	ensure_dsr_roles()
-	ensure_tally_sync_role()
 	create_brand_custom_fields()
 	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()
@@ -45,7 +43,6 @@ def after_install():
 
 def after_migrate():
 	ensure_dsr_roles()
-	ensure_tally_sync_role()
 	create_brand_custom_fields()
 	create_variant_price_custom_fields()
 	create_package_barcode_custom_fields()
@@ -209,18 +206,6 @@ def ensure_dsr_roles():
 					"desk_access": 1,
 				}
 			).insert(ignore_permissions=True)
-
-
-def ensure_tally_sync_role():
-	"""Create the narrow role used by API-only Tally bridge users."""
-	if not frappe.db.exists("Role", "Tally Sync User"):
-		frappe.get_doc(
-			{
-				"doctype": "Role",
-				"role_name": "Tally Sync User",
-				"desk_access": 0,
-			}
-		).insert(ignore_permissions=True)
 
 
 def migrate_legacy_dsr_configuration():

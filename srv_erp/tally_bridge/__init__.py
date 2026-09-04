@@ -1,7 +1,4 @@
-"""Local ERPNext-to-TallyPrime Sales voucher bridge.
+"""Compatibility namespace for the bridge now maintained by express_tally."""
 
-The package intentionally uses only the Python standard library so it can run
-on the Windows machine that hosts TallyPrime without installing Frappe.
-"""
-
-__version__ = "1.0.0"
+from express_tally.bridge import *  # noqa: F401,F403
+from express_tally.bridge import __version__

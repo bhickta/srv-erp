@@ -5,10 +5,15 @@ app_description = "Custom frappe application for SRV Electricals."
 app_email = "nishantbhickta@gmail.com"
 app_license = "mit"
 
+# Company policy contributed to the reusable Express Tally Integration framework.
+tally_integration_flows = [
+	"srv_erp.integrations.tally_flow.SRVSalesDocumentsToTally",
+]
+
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext", "express_tally"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
