@@ -44,5 +44,5 @@ npm --prefix ../erpnext-tally-connector/control-centre run build
 powershell -ExecutionPolicy Bypass -File ../erpnext-tally-connector/tally_plugin/build-windows.ps1
 ```
 
-Installation, security, TDL loading, and operating instructions are in
+Installation, security, and operating instructions are in
 `apps/erpnext-tally-connector/tally_plugin/README.md`.
