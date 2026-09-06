@@ -34,7 +34,10 @@ app_include_css = "/assets/srv_erp/css/srv_erp.css"
 app_include_js = [
 	"/assets/srv_erp/js/sales_person_defaults.js",
 	"/assets/srv_erp/js/dynamic_item_request.js",
+	"/assets/srv_erp/js/grid_column_templates.js",
 ]
+
+boot_session = "srv_erp.grid_column_templates.add_grid_column_templates_to_boot"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/srv_erp/css/srv_erp.css"
