@@ -1,8 +1,11 @@
+/* global erpnext */
+
 const sales_order_attribute_fields = ["branding_type", "color", "marketed_by"];
 const sales_order_rate_discount_field = "srv_discount_percentage";
 const sales_order_base_rate_field = "srv_rate_before_discount";
 const sales_order_last_discount_field = "srv_last_discount_percentage";
 const sales_order_pending_qty_field = "srv_pending_qty";
+const sales_order_current_stock_field = "srv_current_stock";
 const hide_fully_delivered_label = "Hide Fully Delivered Items";
 const show_fully_delivered_label = "Show Fully Delivered Items";
 const sales_order_discount_refresh_fields = [
@@ -173,7 +176,7 @@ function setup_delivery_item_filter(frm) {
 	}
 
 	grid.__srv_unfiltered_get_data = grid.get_data.bind(grid);
-	grid.get_data = function(filter_field) {
+	grid.get_data = function (filter_field) {
 		const data = grid.__srv_unfiltered_get_data(filter_field) || [];
 		if (!frm.__srv_hide_fully_delivered_items) {
 			return data;
@@ -229,6 +232,51 @@ function refresh_pending_qty(frm, cdt, cdn) {
 	}
 }
 
+function current_stock_is_enabled() {
+	const field = frappe.meta.get_docfield("Sales Order Item", sales_order_current_stock_field);
+	return Boolean(field && !cint(field.hidden) && cint(field.in_list_view));
+}
+
+function refresh_current_stock(frm) {
+	if (!current_stock_is_enabled()) {
+		return;
+	}
+
+	const rows = (frm.doc.items || [])
+		.filter((row) => row.name && row.item_code && row.warehouse)
+		.map((row) => ({
+			name: row.name,
+			item_code: row.item_code,
+			warehouse: row.warehouse,
+		}));
+	if (!rows.length) {
+		return;
+	}
+
+	const request_id = (frm.__srv_current_stock_request_id || 0) + 1;
+	frm.__srv_current_stock_request_id = request_id;
+	frappe.call({
+		method: "srv_erp.selling.sales_order_ui.get_sales_order_item_stock",
+		args: { rows },
+		callback: (response) => {
+			if (request_id !== frm.__srv_current_stock_request_id) {
+				return;
+			}
+
+			const stock_by_row = response.message || {};
+			(frm.doc.items || []).forEach((row) => {
+				row[sales_order_current_stock_field] = flt(stock_by_row[row.name]);
+				refresh_field(sales_order_current_stock_field, row.name, "items");
+			});
+		},
+	});
+}
+
+function schedule_current_stock_refresh(frm) {
+	clearTimeout(frm.__srv_current_stock_timer);
+	frm.__srv_current_stock_timer = setTimeout(() => refresh_current_stock(frm), 250);
+}
+
 frappe.ui.form.on("Sales Order", {
 	onload(frm) {
 		frm.__srv_hide_fully_delivered_items = false;
@@ -238,6 +286,7 @@ frappe.ui.form.on("Sales Order", {
 	refresh(frm) {
 		setup_delivery_item_filter(frm);
 		refresh_sales_order_items_grid(frm);
+		refresh_current_stock(frm);
 		add_delivery_item_filter_button(frm);
 	},
 
@@ -261,6 +310,11 @@ frappe.ui.form.on("Sales Order Item", {
 
 	item_code(frm, cdt, cdn) {
 		set_item_attribute_defaults(frm, cdt, cdn);
+		schedule_current_stock_refresh(frm);
+	},
+
+	warehouse(frm) {
+		schedule_current_stock_refresh(frm);
 	},
 
 	branding_type(frm, cdt, cdn) {

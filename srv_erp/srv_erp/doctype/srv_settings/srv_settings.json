@@ -12,6 +12,7 @@
   "sales_order_tab",
   "sales_order_items_section",
   "show_pending_qty_in_sales_order",
+  "show_current_stock_in_sales_order",
   "dsr_settings_tab",
   "dsr_submission_section",
   "dsr_submission_rules"
@@ -66,6 +67,13 @@
    "fieldname": "show_pending_qty_in_sales_order",
    "fieldtype": "Check",
    "label": "Show Pending Qty in Sales Order"
+  },
+  {
+   "default": "0",
+   "description": "Show live stock for each item and warehouse in the Sales Order Items grid. The value is calculated when the form loads and is not stored in Sales Order Item.",
+   "fieldname": "show_current_stock_in_sales_order",
+   "fieldtype": "Check",
+   "label": "Show Current Stock in Sales Order"
   },
   {
    "fieldname": "dsr_settings_tab",

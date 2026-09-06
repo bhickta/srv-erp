@@ -1,14 +1,15 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 from srv_erp.item.variant_auto_creation import (
 	set_srv_settings_defaults,
 	sync_brand_master_values_to_attribute,
 )
+from srv_erp.package_barcode.service import DEFAULT_BARCODE_NAMING_SERIES, QTY_RULE_ALLOW_MANUAL
 from srv_erp.selling.sales_order_attributes import create_sales_order_attribute_custom_fields
 from srv_erp.selling.sales_order_discount import set_sales_order_item_discount_grid_columns
 from srv_erp.selling.sales_order_ui import (
+	configure_sales_order_current_stock_field,
 	configure_sales_order_pending_qty_field,
 	set_sales_order_ui_defaults,
 )
@@ -34,6 +35,7 @@ def after_install():
 	set_sales_order_item_discount_grid_columns()
 	set_sales_order_ui_defaults()
 	configure_sales_order_pending_qty_field()
+	configure_sales_order_current_stock_field()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
 	set_package_barcode_settings_defaults()
@@ -54,6 +56,7 @@ def after_migrate():
 	set_sales_order_item_discount_grid_columns()
 	set_sales_order_ui_defaults()
 	configure_sales_order_pending_qty_field()
+	configure_sales_order_current_stock_field()
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
 	migrate_legacy_dsr_configuration()
