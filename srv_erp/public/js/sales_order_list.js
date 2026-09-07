@@ -1,58 +1,35 @@
 const standard_sales_order_listview_settings = frappe.listview_settings["Sales Order"] || {};
 
 function setup_live_customer_group_filter(listview) {
-	const original_get_filters = listview.get_filters_for_args.bind(listview);
-	const original_refresh = listview.refresh.bind(listview);
-	let resolved_filter = null;
-
-	const get_group_filter = () =>
-		listview.filter_area
-			?.get()
-			.map((filter) => filter.slice(0, 4))
-			.find(
-				(filter) =>
-					filter[0] === "Sales Order" &&
-					filter[1] === "customer_group" &&
-					filter[2] === "descendants of (inclusive)"
-			);
-
-	listview.get_filters_for_args = function () {
-		const filters = original_get_filters();
-		if (!resolved_filter) {
-			return filters;
-		}
-
-		return filters.map((filter) => {
-			if (
-				filter[0] === "Sales Order" &&
-				filter[1] === "customer_group" &&
-				filter[2] === "descendants of (inclusive)" &&
-				filter[3] === resolved_filter.customer_group
-			) {
-				return ["Sales Order", "customer", "in", resolved_filter.customers.length
-					? resolved_filter.customers
-					: [""]];
-			}
-			return filter;
+	listview.method = "srv_erp.selling.sales_order_list.get";
+	listview.get_count_str = async function () {
+		const current_count = this.data.length;
+		const count_without_children = this.data.uniqBy((doc) => doc.name).length;
+		const total_count = await frappe.xcall("srv_erp.selling.sales_order_list.get_count", {
+			doctype: this.doctype,
+			filters: this.get_filters_for_args(),
+			fields: [],
+			distinct: count_without_children !== current_count,
+			limit: this.count_upper_bound,
 		});
-	};
 
-	listview.refresh = async function (...args) {
-		const group_filter = get_group_filter();
-		resolved_filter = null;
+		this.total_count = total_count || current_count;
+		this.count_without_children =
+			count_without_children !== current_count ? count_without_children : undefined;
 
-		if (group_filter?.[3]) {
-			const response = await frappe.call({
-				method: "srv_erp.selling.sales_order_list.get_customers_in_group",
-				args: { customer_group: group_filter[3] },
-			});
-			resolved_filter = {
-				customer_group: group_filter[3],
-				customers: response.message || [],
-			};
+		const total =
+			this.total_count === this.count_upper_bound
+				? `${format_number(this.total_count - 1, null, 0)}+`
+				: format_number(this.total_count, null, 0);
+		let count = __("{0} of {1}", [format_number(current_count, null, 0), total]);
+		if (this.count_without_children) {
+			count = __("{0} of {1} ({2} rows with children)", [
+				this.count_without_children,
+				total,
+				current_count,
+			]);
 		}
-
-		return original_refresh(...args);
+		return count;
 	};
 }
 

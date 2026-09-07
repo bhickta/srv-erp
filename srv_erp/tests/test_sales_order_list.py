@@ -1,31 +1,53 @@
 from unittest import TestCase
 from unittest.mock import patch
 
-from srv_erp.selling.sales_order_list import _get_customers_in_group
+from frappe import _dict
+
+from srv_erp.selling.sales_order_list import (
+	LiveCustomerGroupSalesOrderQuery,
+	_extract_live_group_bounds,
+)
 
 
 class TestSalesOrderList(TestCase):
-	@patch("srv_erp.selling.sales_order_list.get_descendants_of")
 	@patch("srv_erp.selling.sales_order_list.frappe")
-	def test_resolves_customers_from_current_group_tree(self, frappe, get_descendants):
-		frappe.db.exists.return_value = True
-		get_descendants.return_value = ["Child A", "Child B"]
-		frappe.get_list.return_value = ["CUST-0001", "CUST-0002"]
+	def test_extracts_live_group_filter_without_expanding_customers(self, frappe):
+		frappe.db.get_value.return_value = (10, 25)
+		args = _dict({
+			"filters": [
+				["Sales Order", "customer_group", "descendants of (inclusive)", "Tour"],
+				["Sales Order", "docstatus", "=", 0],
+			]
+		})
 
-		customers = _get_customers_in_group("Parent")
+		bounds = _extract_live_group_bounds(args)
 
-		get_descendants.assert_called_once_with("Customer Group", "Parent")
-		frappe.get_list.assert_called_once_with(
-			"Customer",
-			filters={"customer_group": ("in", ["Parent", "Child A", "Child B"])},
-			pluck="name",
-			limit_page_length=0,
-		)
-		self.assertEqual(customers, ["CUST-0001", "CUST-0002"])
+		self.assertEqual(bounds, [(10, 25)])
+		self.assertEqual(args.filters, [["Sales Order", "docstatus", "=", 0]])
+		frappe.db.get_value.assert_called_once_with("Customer Group", "Tour", ["lft", "rgt"])
 
-	@patch("srv_erp.selling.sales_order_list.frappe")
-	def test_unknown_group_returns_no_customers(self, frappe):
-		frappe.db.exists.return_value = False
+	@patch("frappe.model.db_query.DatabaseQuery.build_conditions")
+	def test_adds_server_side_live_customer_exists_condition(self, build_conditions):
+		query = LiveCustomerGroupSalesOrderQuery.__new__(LiveCustomerGroupSalesOrderQuery)
+		query.group_bounds = [(10, 25)]
+		query.conditions = []
 
-		self.assertEqual(_get_customers_in_group("Unknown"), [])
-		frappe.get_list.assert_not_called()
+		query.build_conditions()
+
+		build_conditions.assert_called_once()
+		condition = query.conditions[0]
+		self.assertIn("EXISTS", condition)
+		self.assertIn("live_customer_0.name = `tabSales Order`.customer", condition)
+		self.assertIn("live_customer_group_0.lft >= 10", condition)
+		self.assertIn("live_customer_group_0.rgt <= 25", condition)
+		self.assertNotIn(" IN ", condition)
+
+	@patch("frappe.model.db_query.DatabaseQuery.build_conditions")
+	def test_unknown_group_matches_nothing(self, build_conditions):
+		query = LiveCustomerGroupSalesOrderQuery.__new__(LiveCustomerGroupSalesOrderQuery)
+		query.group_bounds = [None]
+		query.conditions = []
+
+		query.build_conditions()
+
+		self.assertEqual(query.conditions, ["1 = 0"])
