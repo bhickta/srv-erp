@@ -12,13 +12,13 @@ Dynamic Item Approval is designed to create only variants that are actually requ
 - which transaction Item tables expose the user action;
 - whether direct and bulk variant creation remain blocked.
 
-## Safe defaults after installation or migration
+## Automatic setup after installation or migration
 
-The feature is installed conservatively:
+The deployment patch makes the feature operational without a separate setup step:
 
-| Setting                               | Initial value          | Reason                                                       |
+| Setting                               | Initial value          | Effect                                                       |
 | ------------------------------------- | ---------------------- | ------------------------------------------------------------ |
-| Enable Dynamic Item Requests          | Off                    | Roles, profiles, and grids must be reviewed first.           |
+| Enable Dynamic Item Requests          | On                     | Makes the request actions available immediately.             |
 | Enforce Approval for New Variants     | On                     | New variants must follow maker-checker control.              |
 | Allow Bulk Variant Creation           | Off                    | Prevents uncontrolled Cartesian-product creation.            |
 | Allow New Categorical Attributes      | On                     | Permits controlled on-demand extension through approval.     |
@@ -26,21 +26,16 @@ The feature is installed conservatively:
 | Approver Role                         | Masters Item Approver  | Provides a dedicated approval role.                          |
 | Requester Roles                       | Masters Item Requester | Provides a dedicated request role.                           |
 
-Existing Items and variants are not changed by rollout.
+The patch also creates profiles for existing eligible templates, discovers editable Item grids,
+assigns the requester role to all enabled System Users, and assigns the approver role to enabled
+System Managers. At least two enabled System Managers are required so maker-checker approval is
+always possible. Existing Items and variants are not changed by rollout.
 
-## Recommended rollout sequence
+## Post-deployment verification
 
-1. Review Item templates and clean duplicate Item Attribute values.
-2. Confirm required UOM masters exist.
-3. Assign requester and approver roles to different enabled System Users.
-4. Open **Masters > Masters Settings**.
-5. Leave **Enable Dynamic Item Requests** off during configuration.
-6. Review all settings and enabled Item grids.
-7. Select **Refresh Profiles and Item Grids**.
-8. Review every Dynamic Variant Profile that users will access.
-9. Confirm direct/bulk Item creation policy.
-10. Enable **Dynamic Item Requests**.
-11. Run the rollout acceptance test at the end of this guide.
+No activation step is required. After deployment, verify the generated Dynamic Variant Profiles
+and run the rollout acceptance test at the end of this guide. Administrators may subsequently
+narrow requester roles, approvers, profiles, or enabled grids to match a stricter local policy.
 
 ## Roles and separation of duties
 
@@ -72,7 +67,7 @@ Open **Masters > Masters Settings**.
 
 | Setting                               | Effect                                                                                                               | Recommended production value                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Enable Dynamic Item Requests          | Shows the requester actions and permits new resolve/request operations. Turning it off pauses new requests.          | On after rollout checks.                      |
+| Enable Dynamic Item Requests          | Shows the requester actions and permits new resolve/request operations. Turning it off pauses new requests.          | On.                                           |
 | Enforce Approval for New Variants     | Blocks direct variant insertion, protects pending Items, and prevents pending Items from being used in transactions. | On.                                           |
 | Allow Bulk Variant Creation           | Enables ERPNext bulk variant generation only when approval enforcement is off.                                       | Off for on-demand governance.                 |
 | Allow New Categorical Attributes      | Shows **Additional Categorical Attributes** and allows missing non-numeric Item Attributes to be staged.             | On only when approvers govern new attributes. |

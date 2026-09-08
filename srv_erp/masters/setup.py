@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import frappe
+from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.masters.dynamic_item.configuration import APPROVER_ROLE, REQUESTER_ROLE, clear_settings_cache
+
+SYSTEM_MANAGER_ROLE = "System Manager"
 
 
 def ensure_masters_roles():
@@ -16,6 +19,62 @@ def ensure_masters_roles():
 					"desk_access": 1,
 				}
 			).insert(ignore_permissions=True)
+
+
+def provision_masters_user_roles() -> dict[str, int]:
+	"""Make the approval workflow usable without manual user-role setup.
+
+	Every enabled Desk user may request an Item. Approval stays restricted to
+	System Managers, and at least two are required so a manager can never strand
+	their own request under the maker-checker rule.
+	"""
+	ensure_masters_roles()
+	system_users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User"},
+		pluck="name",
+		order_by="name",
+	)
+	system_user_set = set(system_users)
+	system_managers = sorted(
+		set(
+			frappe.get_all(
+				"Has Role",
+				filters={"role": SYSTEM_MANAGER_ROLE, "parenttype": "User"},
+				pluck="parent",
+			)
+		).intersection(system_user_set)
+	)
+	if len(system_managers) < 2:
+		frappe.throw(
+			_(
+				"Dynamic Item Creation requires at least two enabled System Managers "
+				"so requests can follow maker-checker approval."
+			)
+		)
+
+	manager_set = set(system_managers)
+	for user_name in system_users:
+		roles = [REQUESTER_ROLE]
+		if user_name in manager_set:
+			roles.append(APPROVER_ROLE)
+		frappe.get_doc("User", user_name).add_roles(*roles)
+
+	return {"requesters": len(system_users), "approvers": len(system_managers)}
+
+
+def activate_dynamic_item_creation() -> dict[str, int]:
+	"""Provision and enable the production-safe dynamic Item workflow."""
+	setup_masters_module()
+	role_counts = provision_masters_user_roles()
+	settings = frappe.get_single("Masters Settings")
+	settings.enable_dynamic_item_requests = 1
+	settings.enforce_variant_approval = 1
+	settings.allow_bulk_variant_creation = 0
+	settings.save(ignore_permissions=True)
+	frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 0)
+	clear_settings_cache()
+	return role_counts
 
 
 def create_dynamic_item_custom_fields():

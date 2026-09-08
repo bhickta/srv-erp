@@ -23,3 +23,4 @@ srv_erp.patches.add_brand_abbreviation
 srv_erp.patches.add_brand_disabled
 srv_erp.patches.disable_bulk_variant_creation
 srv_erp.patches.ensure_dynamic_item_indexes
+srv_erp.patches.activate_dynamic_item_creation
