@@ -1,12 +1,26 @@
 import ast
+import importlib
 import unittest
 from pathlib import Path
 
 DYNAMIC_ITEM_PACKAGE = Path(__file__).resolve().parents[1] / "masters" / "dynamic_item"
+APP_PACKAGE = DYNAMIC_ITEM_PACKAGE.parents[1]
 MAX_MODULE_LINES = 250
 
 
 class TestDynamicItemArchitecture(unittest.TestCase):
+	def test_every_declared_app_module_is_importable_from_a_real_package(self):
+		for module_label in (APP_PACKAGE / "modules.txt").read_text(encoding="utf-8").splitlines():
+			module_name = module_label.strip().lower().replace(" ", "_").replace("-", "_")
+			if not module_name:
+				continue
+			with self.subTest(module=module_label):
+				module = importlib.import_module(f"srv_erp.{module_name}")
+				self.assertIsNotNone(
+					module.__file__,
+					f"{module_label} resolves to a namespace package and cannot be synced",
+				)
+
 	def test_service_is_an_import_only_compatibility_facade(self):
 		tree = parse_module(DYNAMIC_ITEM_PACKAGE / "service.py")
 		definitions = [
