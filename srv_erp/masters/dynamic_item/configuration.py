@@ -12,6 +12,7 @@ REJECTED = "Rejected"
 CANCELLED = "Cancelled"
 CREATE_VARIANT = "Create Variant"
 ADD_PACKAGING = "Add Packaging"
+SETTINGS_CHILD_DOCTYPES = ("Dynamic Item Grid", "Dynamic Item Requester Role")
 
 
 def get_settings():
@@ -21,7 +22,11 @@ def get_settings():
 def masters_settings_available() -> bool:
 	"""Return whether the settings DocType is usable in the current migration phase."""
 	# Single DocTypes store values in tabSingles and intentionally have no own table.
-	return bool(frappe.db.exists("DocType", "Masters Settings"))
+	if not frappe.db.exists("DocType", "Masters Settings"):
+		return False
+	# Hooks can run while sync_all is still creating these child tables. Loading the
+	# Single before both exist makes Frappe query a table that has not been created.
+	return all(frappe.db.table_exists(doctype, cached=False) for doctype in SETTINGS_CHILD_DOCTYPES)
 
 
 def clear_settings_cache():
