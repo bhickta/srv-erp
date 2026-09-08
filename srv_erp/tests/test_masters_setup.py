@@ -1,11 +1,32 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from srv_erp.masters.dynamic_item.configuration import APPROVER_ROLE, REQUESTER_ROLE
+from srv_erp.masters.dynamic_item.configuration import (
+	APPROVER_ROLE,
+	REQUESTER_ROLE,
+	masters_settings_available,
+)
 from srv_erp.masters.setup import activate_dynamic_item_creation, provision_masters_user_roles
 
 
 class TestMastersSetup(unittest.TestCase):
+	@patch("srv_erp.masters.dynamic_item.configuration.frappe")
+	def test_settings_are_unavailable_until_every_child_table_exists(self, frappe):
+		frappe.db.exists.return_value = "Masters Settings"
+		frappe.db.table_exists.side_effect = [True, False]
+
+		self.assertFalse(masters_settings_available())
+		self.assertEqual(frappe.db.table_exists.call_count, 2)
+		for table_call in frappe.db.table_exists.call_args_list:
+			self.assertFalse(table_call.kwargs["cached"])
+
+	@patch("srv_erp.masters.dynamic_item.configuration.frappe")
+	def test_settings_are_available_after_every_child_table_exists(self, frappe):
+		frappe.db.exists.return_value = "Masters Settings"
+		frappe.db.table_exists.return_value = True
+
+		self.assertTrue(masters_settings_available())
+
 	@patch("srv_erp.masters.setup.ensure_masters_roles")
 	@patch("srv_erp.masters.setup.frappe.get_doc")
 	@patch("srv_erp.masters.setup.frappe.get_all")
