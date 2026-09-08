@@ -41,9 +41,7 @@ def get_dynamic_variant_options(template_item: str, source_doctype=None, source_
 	template_rows = {
 		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
 	}
-	attribute_names = list(template_rows)
-	attribute_names.extend(attribute for attribute in rules if attribute not in template_rows)
-	for attribute in attribute_names:
+	for attribute in rules:
 		row = template_rows.get(attribute)
 		item_attribute = frappe.get_doc("Item Attribute", attribute)
 		rule = rules.get(attribute)
@@ -51,7 +49,7 @@ def get_dynamic_variant_options(template_item: str, source_doctype=None, source_
 			{
 				"attribute": attribute,
 				"required": bool(rule and cint(rule.required_parameter)),
-				"allow_new_values": bool(not rule or cint(rule.allow_new_values)),
+				"allow_new_values": False,
 				"numeric_values": bool(item_attribute.numeric_values),
 				"values": []
 				if item_attribute.numeric_values
@@ -65,7 +63,7 @@ def get_dynamic_variant_options(template_item: str, source_doctype=None, source_
 		"template_item": template.name,
 		"stock_uom": template.stock_uom,
 		"attributes": attributes,
-		"allow_dynamic_attributes": bool(cint(get_settings().allow_dynamic_attributes)),
+		"allow_dynamic_attributes": False,
 		"uoms": frappe.get_all("UOM", pluck="name", order_by="name"),
 	}
 

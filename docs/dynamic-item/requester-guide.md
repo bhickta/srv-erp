@@ -34,20 +34,11 @@ If the Item already exists, its Item form opens. If a request is needed, an **Ap
 Profile parameters appear in their configured order.
 
 - A required parameter must have a value.
-- A categorical parameter uses an autocomplete list.
-- If its description says **Select an existing value or type a new categorical value**, you may enter a new value.
-- If its description says **Select an existing value**, use only a listed value.
+- A categorical parameter uses a select list populated from its predefined Item Attribute values.
+- Requesters cannot type new attributes or categorical values. Ask a Masters administrator to define them first.
 - A numeric attribute appears as a number field and must follow the range and increment configured on the Item template.
 
 Attribute and value matching is case-insensitive. For example, an existing `Blue` value is reused if `blue` is entered.
-
-### Additional categorical attributes
-
-The **Additional Categorical Attributes** table appears only when **Allow New Categorical Attributes** is enabled.
-
-Use it for a genuine new identity parameter that is not already shown in the dialog. Enter each attribute only once. Do not use it for descriptions, notes, packaging, rates, or other non-identity data.
-
-New numeric attributes cannot be introduced here. A Masters administrator must first configure numeric attributes on the Item template and its Dynamic Variant Profile.
 
 ### Packaging UOMs
 

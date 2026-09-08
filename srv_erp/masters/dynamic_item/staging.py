@@ -56,7 +56,7 @@ def stage_requested_schema(request, template, profile) -> dict[str, str]:
 				{
 					"item_attribute": attribute,
 					"required_parameter": 0,
-					"allow_new_values": 1,
+					"allow_new_values": 0,
 				},
 			)
 			profile_attributes.add(attribute)

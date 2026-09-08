@@ -6,7 +6,7 @@ from frappe import _
 from frappe.utils import cint
 
 from srv_erp.item.variant_auto_creation import is_brand_disabled
-from srv_erp.masters.dynamic_item.configuration import get_settings, is_grid_enabled
+from srv_erp.masters.dynamic_item.configuration import is_grid_enabled
 from srv_erp.masters.dynamic_item.lookups import (
 	get_case_insensitive_attribute_value,
 	get_case_insensitive_name,
@@ -69,17 +69,20 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 			)
 		)
 
-	settings = get_settings()
 	template_attributes = {row.attribute for row in template.get("attributes") or []}
 	for attribute, value in attributes.items():
 		rule = rules.get(attribute)
 		attribute_exists = frappe.db.exists("Item Attribute", attribute)
+		if not rule:
+			frappe.throw(
+				_("Attribute {0} is not configured for Item template {1}.").format(
+					frappe.bold(attribute), frappe.bold(template.name)
+				)
+			)
 		if attribute.casefold() == "brand":
 			brand = get_case_insensitive_name("Brand", value)
 			if brand and is_brand_disabled(brand):
 				frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(brand)))
-		if not rule and not cint(settings.allow_dynamic_attributes):
-			frappe.throw(_("Attribute {0} is not allowed by this profile.").format(frappe.bold(attribute)))
 		if attribute_exists and cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")):
 			if not rule or attribute not in template_attributes:
 				frappe.throw(
@@ -88,11 +91,10 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 					)
 				)
 			validate_numeric_value(template.name, attribute, value)
-		elif attribute_exists and not get_case_insensitive_attribute_value(attribute, value):
-			if rule and not cint(rule.allow_new_values):
-				frappe.throw(
-					_("New values are not allowed for attribute {0}.").format(frappe.bold(attribute))
-				)
+		elif not attribute_exists or not get_case_insensitive_attribute_value(attribute, value):
+			frappe.throw(
+				_("Select a predefined value for attribute {0}.").format(frappe.bold(attribute))
+			)
 
 
 def validate_numeric_value(template_item: str, attribute: str, value: str):

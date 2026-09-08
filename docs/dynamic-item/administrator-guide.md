@@ -21,7 +21,7 @@ The deployment patch makes the feature operational without a separate setup step
 | Enable Dynamic Item Requests          | On                     | Makes the request actions available immediately.             |
 | Enforce Approval for New Variants     | On                     | New variants must follow maker-checker control.              |
 | Allow Bulk Variant Creation           | Off                    | Prevents uncontrolled Cartesian-product creation.            |
-| Allow New Categorical Attributes      | On                     | Permits controlled on-demand extension through approval.     |
+| Allow New Categorical Attributes      | Off                    | Requesters select only administrator-defined attributes.     |
 | Use Template Image on Staged Variants | Off                    | Avoids copying template images unless intentionally enabled. |
 | Approver Role                         | Masters Item Approver  | Provides a dedicated approval role.                          |
 | Requester Roles                       | Masters Item Requester | Provides a dedicated request role.                           |
@@ -70,7 +70,7 @@ Open **Masters > Masters Settings**.
 | Enable Dynamic Item Requests          | Shows the requester actions and permits new resolve/request operations. Turning it off pauses new requests.          | On.                                           |
 | Enforce Approval for New Variants     | Blocks direct variant insertion, protects pending Items, and prevents pending Items from being used in transactions. | On.                                           |
 | Allow Bulk Variant Creation           | Enables ERPNext bulk variant generation only when approval enforcement is off.                                       | Off for on-demand governance.                 |
-| Allow New Categorical Attributes      | Shows **Additional Categorical Attributes** and allows missing non-numeric Item Attributes to be staged.             | On only when approvers govern new attributes. |
+| Allow New Categorical Attributes      | Legacy compatibility field; hidden and disabled for select-only requests.                                           | Off.                                          |
 | Use Template Image on Staged Variants | Copies the Item template image while constructing the staged variant.                                                | Based on media policy.                        |
 
 **Enforce Approval for New Variants** and **Allow Bulk Variant Creation** cannot both be enabled.
@@ -128,14 +128,13 @@ Open **Masters > Dynamic Variant Profiles**. There is at most one profile per It
 | Enabled            | Whether users may resolve/request against this template.                                                                    |
 | Variant Parameters | The ordered list of attributes shown in the request dialog.                                                                 |
 | Required           | Whether the requester must supply this attribute.                                                                           |
-| Allow New Values   | Whether a requester may type a new categorical value instead of selecting an existing one.                                  |
 
 ### Profile design guidance
 
 - Include only attributes that genuinely determine Item identity.
 - Keep packaging, rate, supplier, description, and transaction-specific details out of identity.
 - Mark an attribute Required only when every valid future variant must contain it.
-- Disable **Allow New Values** for controlled vocabularies.
+- Define every selectable categorical value on its Item Attribute before requesters need it.
 - Use clear Item Attribute names and maintain consistent abbreviations.
 - Disable the profile when the template should no longer accept on-demand requests.
 
@@ -177,21 +176,9 @@ The system also maintains an internal unique variant signature to prevent duplic
 
 ## Brand and categorical master governance
 
-When allowed, a request may stage:
-
-- a new categorical Item Attribute;
-- a new Item Attribute Value and abbreviation;
-- a new Brand when the attribute is Brand;
-- the attribute link on the Item template;
-- the corresponding profile row.
-
-These master records may become visible while the request is pending because they are needed to construct and review the staged Item. Treat them as provisional:
-
-- do not manually rename, delete, or adopt them while approval is pending;
-- do not create spelling variations of an existing Brand or value;
-- reject requests that violate master naming standards.
-
-On rejection or cancellation, request-owned artifacts are removed only when no approved request, Item variant, other pending request, or master reference has adopted them.
+Masters administrators must define categorical Item Attributes, their values and abbreviations,
+and any Brand records before requesters need them. They must then attach the attributes to the Item
+template and its Dynamic Variant Profile. Requesters cannot introduce or type new master values.
 
 ## Pausing or changing the process
 

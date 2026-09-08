@@ -71,6 +71,7 @@ def activate_dynamic_item_creation() -> dict[str, int]:
 	settings.enable_dynamic_item_requests = 1
 	settings.enforce_variant_approval = 1
 	settings.allow_bulk_variant_creation = 0
+	settings.allow_dynamic_attributes = 0
 	settings.save(ignore_permissions=True)
 	frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 0)
 	clear_settings_cache()
@@ -155,7 +156,7 @@ def set_masters_settings_defaults():
 		"enable_dynamic_item_requests": 0,
 		"enforce_variant_approval": 1,
 		"allow_bulk_variant_creation": 0,
-		"allow_dynamic_attributes": 1,
+		"allow_dynamic_attributes": 0,
 		"use_template_image": 0,
 		"approver_role": APPROVER_ROLE,
 	}
@@ -205,7 +206,7 @@ def bootstrap_dynamic_variant_profiles():
 				{
 					"item_attribute": attribute,
 					"required_parameter": 0,
-					"allow_new_values": 1,
+					"allow_new_values": 0,
 				},
 			)
 		profile.insert(ignore_permissions=True)

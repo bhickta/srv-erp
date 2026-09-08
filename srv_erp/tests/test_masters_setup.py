@@ -7,6 +7,7 @@ from srv_erp.masters.dynamic_item.configuration import (
 	masters_settings_available,
 )
 from srv_erp.masters.setup import activate_dynamic_item_creation, provision_masters_user_roles
+from srv_erp.patches.enforce_predefined_dynamic_item_attributes import execute as enforce_predefined
 
 
 class TestMastersSetup(unittest.TestCase):
@@ -26,6 +27,19 @@ class TestMastersSetup(unittest.TestCase):
 		frappe.db.table_exists.return_value = True
 
 		self.assertTrue(masters_settings_available())
+
+	@patch("srv_erp.patches.enforce_predefined_dynamic_item_attributes.clear_settings_cache")
+	@patch("srv_erp.patches.enforce_predefined_dynamic_item_attributes.frappe")
+	def test_predefined_attribute_patch_disables_free_text_configuration(
+		self, frappe, clear_cache
+	):
+		enforce_predefined()
+
+		frappe.db.set_single_value.assert_called_once_with(
+			"Masters Settings", "allow_dynamic_attributes", 0
+		)
+		self.assertIn("set allow_new_values = 0", frappe.db.sql.call_args.args[0])
+		clear_cache.assert_called_once_with()
 
 	@patch("srv_erp.masters.setup.ensure_masters_roles")
 	@patch("srv_erp.masters.setup.frappe.get_doc")
@@ -91,6 +105,7 @@ class TestMastersSetup(unittest.TestCase):
 		self.assertEqual(settings.enable_dynamic_item_requests, 1)
 		self.assertEqual(settings.enforce_variant_approval, 1)
 		self.assertEqual(settings.allow_bulk_variant_creation, 0)
+		self.assertEqual(settings.allow_dynamic_attributes, 0)
 		settings.save.assert_called_once_with(ignore_permissions=True)
 		frappe.db.set_single_value.assert_called_once_with(
 			"SRV Settings", "auto_create_variants_on_brand_update", 0
