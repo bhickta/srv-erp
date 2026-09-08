@@ -3,23 +3,26 @@ from erpnext.controllers.item_variant import create_variant
 from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.tests.utils import ERPNextTestSuite
 
-from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
-	create_missing_variants,
-	execute,
-)
 from srv_erp.item.variant_auto_creation import (
 	ensure_brand_attribute_value,
 	get_item_attribute_variant_sync_status,
 	handle_brand_update,
-	sync_missing_brand_variants,
 	sync_attribute_brand_values_to_master,
+	sync_missing_brand_variants,
 	validate_item_attribute_brand_source,
+)
+from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
+	create_missing_variants,
+	execute,
 )
 
 
 class TestVariantCoverage(ERPNextTestSuite):
 	def setUp(self):
 		super().setUp()
+		frappe.db.set_single_value("Masters Settings", "enforce_variant_approval", 0)
+		frappe.db.set_single_value("Masters Settings", "allow_bulk_variant_creation", 1)
+		frappe.clear_document_cache("Masters Settings", "Masters Settings")
 		self.brand_attribute = "_Test VC Brand"
 		self.size_attribute = "_Test VC Size"
 		self.template = "_Test VC Template"

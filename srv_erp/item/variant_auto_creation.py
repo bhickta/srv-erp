@@ -13,6 +13,7 @@ from srv_erp.srv_erp.report.variant_coverage.variant_coverage import (
 	create_missing_variants_job,
 )
 
+
 def handle_item_attribute_update(doc, method=None):
 	if not should_sync_for_item_attribute(doc):
 		return
@@ -21,7 +22,7 @@ def handle_item_attribute_update(doc, method=None):
 
 
 def handle_brand_update(doc, method=None):
-	if frappe.flags.syncing_brand_master_values:
+	if frappe.flags.syncing_brand_master_values or getattr(frappe.flags, "dynamic_item_service", False):
 		return
 
 	if is_brand_disabled(doc.get("brand") or doc.name):
@@ -34,6 +35,8 @@ def handle_brand_update(doc, method=None):
 
 
 def handle_brand_delete(doc, method=None):
+	if getattr(frappe.flags, "dynamic_item_service", False):
+		return
 	remove_brand_attribute_value(doc.get("brand") or doc.name)
 
 
@@ -62,7 +65,7 @@ def validate_item_attribute_brand_source(doc, method=None):
 	if not is_auto_create_variant_attribute(doc.name):
 		return
 
-	if frappe.flags.syncing_brand_attribute_values:
+	if frappe.flags.syncing_brand_attribute_values or getattr(frappe.flags, "dynamic_item_service", False):
 		return
 
 	if item_attribute_values_changed(doc):
@@ -192,11 +195,7 @@ def get_attribute_value_row(doc, attribute_value):
 
 
 def get_existing_attribute_abbrs(doc, exclude_row=None):
-	return {
-		row.abbr.lower()
-		for row in doc.item_attribute_values
-		if row.abbr and row != exclude_row
-	}
+	return {row.abbr.lower() for row in doc.item_attribute_values if row.abbr and row != exclude_row}
 
 
 def sync_brand_abbreviation_from_attribute(brand, abbr):
@@ -462,6 +461,8 @@ def sync_missing_brand_variants_job(
 	attribute_value=None,
 	limit=SYNC_CREATE_LIMIT,
 ):
+	if not is_auto_create_variants_enabled():
+		return {"created": 0, "skipped": 0, "queued": 0, "disabled": 1}
 	attribute = attribute or get_auto_create_variant_attribute()
 	filters = {"variant_attribute": attribute}
 	if attribute_value:
@@ -520,7 +521,9 @@ def sync_item_attribute_and_get_status(attribute):
 @frappe.whitelist()
 def create_missing_variants_for_item_attribute(attribute, use_template_image=None):
 	if not is_auto_create_variant_attribute(attribute):
-		frappe.throw(_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute()))
+		frappe.throw(
+			_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute())
+		)
 
 	if use_template_image is None:
 		use_template_image = frappe.db.get_single_value(
@@ -598,14 +601,21 @@ def is_auto_create_variant_attribute(attribute) -> bool:
 
 
 def is_auto_create_variants_enabled() -> bool:
-	return cint(frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update"))
+	from srv_erp.masters.dynamic_item.configuration import (
+		is_approval_enforced,
+		is_bulk_variant_creation_enabled,
+	)
+
+	return bool(
+		cint(frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update"))
+		and is_bulk_variant_creation_enabled()
+		and not is_approval_enforced()
+	)
 
 
 def set_srv_settings_defaults():
 	if not frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute"):
-		frappe.db.set_single_value(
-			"SRV Settings", "variant_auto_create_attribute", DEFAULT_VARIANT_ATTRIBUTE
-		)
+		frappe.db.set_single_value("SRV Settings", "variant_auto_create_attribute", DEFAULT_VARIANT_ATTRIBUTE)
 
 	if frappe.db.get_single_value("SRV Settings", "auto_create_variants_on_brand_update") is None:
 		frappe.db.set_single_value("SRV Settings", "auto_create_variants_on_brand_update", 0)
