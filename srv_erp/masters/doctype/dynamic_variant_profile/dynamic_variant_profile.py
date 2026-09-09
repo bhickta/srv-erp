@@ -21,28 +21,31 @@ class DynamicVariantProfile(Document):
 		if len(attributes) != len(set(attributes)):
 			frappe.throw(_("Variant Parameters cannot contain duplicate Item Attributes."))
 
+		template_doc = frappe.get_doc("Item", self.item_template)
+		template_attributes = {row.attribute for row in template_doc.get("attributes") or []}
+		template_changed = False
 		for row in self.get("attributes") or []:
-			is_attached = frappe.db.exists(
-				"Item Variant Attribute",
-				{"parent": self.item_template, "attribute": row.item_attribute},
-			)
-			if (
-				cint(frappe.db.get_value("Item Attribute", row.item_attribute, "numeric_values"))
-				and not is_attached
-			):
-				frappe.throw(
-					_("Numeric attribute {0} must be configured on the template first.").format(
-						frappe.bold(row.item_attribute)
-					)
-				)
-			if not cint(row.required_parameter):
+			if row.item_attribute in template_attributes:
 				continue
-			if not is_attached:
+			if cint(frappe.db.get_value("Item Attribute", row.item_attribute, "numeric_values")):
 				frappe.throw(
-					_("Required attribute {0} is not attached to template {1}.").format(
+					_(
+						"Numeric attribute {0} must be configured with its range on Item template {1} first."
+					).format(
 						frappe.bold(row.item_attribute), frappe.bold(self.item_template)
 					)
 				)
+			template_doc.append("attributes", {"attribute": row.item_attribute, "numeric_values": 0})
+			template_attributes.add(row.item_attribute)
+			template_changed = True
+
+		if template_changed:
+			template_doc.flags.dont_update_variants = True
+			template_doc.save(ignore_permissions=True)
+
+		for row in self.get("attributes") or []:
+			if not cint(row.required_parameter):
+				continue
 			missing_count = frappe.db.sql(
 				"""
 				select count(*)

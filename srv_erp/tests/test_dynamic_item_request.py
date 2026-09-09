@@ -149,6 +149,34 @@ class TestDynamicItemRequest(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			resolve_or_request(self._payload("_Test Dynamic Undefined"))
 
+	def test_profile_attaches_existing_categorical_attribute_to_template(self):
+		attribute_name = "_Test Dynamic Finish"
+		if not frappe.db.exists("Item Attribute", attribute_name):
+			attribute = frappe.get_doc(
+				{"doctype": "Item Attribute", "attribute_name": attribute_name, "numeric_values": 0}
+			)
+			attribute.append("item_attribute_values", {"attribute_value": "Matte", "abbr": "MAT"})
+			attribute.insert(ignore_permissions=True)
+
+		profile = frappe.get_doc("Dynamic Variant Profile", self.TEMPLATE)
+		if attribute_name not in {row.item_attribute for row in profile.attributes}:
+			profile.append(
+				"attributes",
+				{
+					"item_attribute": attribute_name,
+					"required_parameter": 0,
+					"allow_new_values": 0,
+				},
+			)
+			profile.save(ignore_permissions=True)
+
+		self.assertTrue(
+			frappe.db.exists(
+				"Item Variant Attribute",
+				{"parent": self.TEMPLATE, "attribute": attribute_name},
+			)
+		)
+
 	def test_packaging_is_a_separate_approval_without_new_item_identity(self):
 		result = self._request("_Test Dynamic Violet")
 		frappe.set_user(self.APPROVER)

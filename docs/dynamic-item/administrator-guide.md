@@ -132,6 +132,8 @@ Open **Masters > Dynamic Variant Profiles**. There is at most one profile per It
 ### Profile design guidance
 
 - Include only attributes that genuinely determine Item identity.
+- Saving an existing categorical attribute in a profile automatically attaches it to the Item template.
+- Numeric attributes must be configured on the Item template first because they require range and increment values.
 - Keep packaging, rate, supplier, description, and transaction-specific details out of identity.
 - Mark an attribute Required only when every valid future variant must contain it.
 - Define every selectable categorical value on its Item Attribute before requesters need it.
@@ -144,8 +146,7 @@ The system prevents:
 
 - profiles for Items that are not Item Attribute-based templates;
 - duplicate Item Attributes in one profile;
-- new numeric attributes that are not already configured on the template;
-- making an unattached attribute Required;
+- numeric attributes that are not already configured on the template;
 - making an attribute Required when existing variants of that template do not contain it.
 
 ### Numeric attributes
