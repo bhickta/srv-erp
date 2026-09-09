@@ -22,11 +22,12 @@
    "label": "Required"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "allow_new_values",
    "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Allow New Values"
+   "hidden": 1,
+   "label": "Allow New Values",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

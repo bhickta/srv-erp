@@ -49,11 +49,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "1",
-   "description": "Allow requests to propose missing categorical Item Attributes and values. Numeric ranges must be configured manually.",
+   "default": "0",
+   "description": "Legacy compatibility setting. Requesters must select attributes and values defined by Masters administrators.",
    "fieldname": "allow_dynamic_attributes",
    "fieldtype": "Check",
-   "label": "Allow New Categorical Attributes"
+   "hidden": 1,
+   "label": "Allow New Categorical Attributes",
+   "read_only": 1
   },
   {
    "default": "0",

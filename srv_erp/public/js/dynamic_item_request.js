@@ -111,13 +111,13 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 		attribute_field_map[fieldname] = attribute.attribute;
 		attribute_fields.push({
 			fieldname,
-			fieldtype: attribute.numeric_values ? "Float" : "Autocomplete",
+			fieldtype: attribute.numeric_values ? "Float" : "Select",
 			label: attribute.attribute,
-			options: attribute.values || [],
+			options: attribute.numeric_values ? null : ["", ...(attribute.values || [])],
 			reqd: attribute.required ? 1 : 0,
-			description: attribute.allow_new_values
-				? __("Select an existing value or type a new categorical value.")
-				: __("Select an existing value."),
+			description: attribute.numeric_values
+				? __("Enter a value allowed by the configured numeric range.")
+				: __("Select a predefined value."),
 		});
 	});
 
@@ -135,31 +135,6 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 			},
 			{ fieldtype: "Section Break", label: __("Variant Identity") },
 			...attribute_fields,
-			options.allow_dynamic_attributes
-				? {
-						fieldname: "additional_attributes",
-						fieldtype: "Table",
-						label: __("Additional Categorical Attributes"),
-						cannot_add_rows: false,
-						in_place_edit: true,
-						fields: [
-							{
-								fieldname: "attribute",
-								fieldtype: "Data",
-								label: __("Attribute"),
-								in_list_view: 1,
-								reqd: 1,
-							},
-							{
-								fieldname: "attribute_value",
-								fieldtype: "Data",
-								label: __("Value"),
-								in_list_view: 1,
-								reqd: 1,
-							},
-						],
-				  }
-				: null,
 			{ fieldtype: "Section Break", label: __("Packaging UOMs") },
 			{
 				fieldname: "uoms",
@@ -196,11 +171,6 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 					values[fieldname] !== ""
 				) {
 					attributes[attribute] = values[fieldname];
-				}
-			});
-			(values.additional_attributes || []).forEach((row) => {
-				if (row.attribute && row.attribute_value) {
-					attributes[row.attribute] = row.attribute_value;
 				}
 			});
 			const payload = {

@@ -31,7 +31,7 @@ Use either route:
 
 In **Configure LED Lamp**, enter the requested values under **Variant Identity**.
 
-The form indicates which fields are required. For a categorical field, either select an existing value or type a new value only when the field description says new values are allowed.
+The form indicates which fields are required. For a categorical field, select one of the predefined Item Attribute values.
 
 ### 3. Enter packaging if required
 

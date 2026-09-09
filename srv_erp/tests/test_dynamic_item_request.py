@@ -23,6 +23,18 @@ class TestDynamicItemRequest(IntegrationTestCase):
 	APPROVER = "dynamic.item.approver@example.com"
 	ATTRIBUTE = "_Test Dynamic Colour"
 	TEMPLATE = "_Test Dynamic Item Template"
+	PREDEFINED_VALUES = (
+		"_Test Dynamic Amber",
+		"_Test Dynamic Copper",
+		"_Test Dynamic Existing",
+		"_Test Dynamic Immutable",
+		"_Test Dynamic Navy",
+		"_Test Dynamic Red",
+		"_Test Dynamic Rejected",
+		"_Test Dynamic Silver",
+		"_Test Dynamic Teal",
+		"_Test Dynamic Violet",
+	)
 
 	def setUp(self):
 		super().setUp()
@@ -111,84 +123,57 @@ class TestDynamicItemRequest(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			validate_no_unapproved_items(material_request)
 
-	def test_rejection_deletes_staged_item_and_request_only_schema(self):
+	def test_attribute_outside_profile_is_rejected(self):
 		attribute = "_Test Dynamic Request Only Finish"
 		frappe.set_user(self.REQUESTER)
-		result = resolve_or_request(
-			{
-				"template_item": self.TEMPLATE,
-				"attributes": {self.ATTRIBUTE: "_Test Dynamic Red", attribute: "Matte"},
-			}
-		)
-		item_code = result["item_code"]
+		with self.assertRaises(frappe.ValidationError):
+			resolve_or_request(
+				{
+					"template_item": self.TEMPLATE,
+					"attributes": {self.ATTRIBUTE: "_Test Dynamic Red", attribute: "Matte"},
+				}
+			)
+		self.assertFalse(frappe.db.exists("Item Attribute", attribute))
+
+	def test_rejection_deletes_the_staged_item(self):
+		result = self._request("_Test Dynamic Rejected")
 
 		frappe.set_user(self.APPROVER)
-		rejected = reject_request(result["request"], "Not an approved finish")
+		rejected = reject_request(result["request"], "Combination not approved")
 
 		self.assertEqual(rejected["outcome"], "rejected")
-		self.assertFalse(frappe.db.exists("Item", item_code))
-		self.assertFalse(frappe.db.exists("Item Attribute", attribute))
-		self.assertFalse(
-			frappe.db.exists(
-				"Item Variant Attribute",
-				{"parent": self.TEMPLATE, "attribute": attribute},
-			)
-		)
+		self.assertFalse(frappe.db.exists("Item", result["item_code"]))
 
-	def test_last_rejection_cleans_schema_shared_by_pending_requests(self):
-		attribute = "_Test Dynamic Shared Finish"
+	def test_value_outside_predefined_attribute_values_is_rejected(self):
 		frappe.set_user(self.REQUESTER)
-		first = resolve_or_request(
-			{
-				"template_item": self.TEMPLATE,
-				"attributes": {self.ATTRIBUTE: "_Test Dynamic First", attribute: "Satin"},
-			}
-		)
-		second = resolve_or_request(
-			{
-				"template_item": self.TEMPLATE,
-				"attributes": {self.ATTRIBUTE: "_Test Dynamic Second", attribute: "Satin"},
-			}
-		)
+		with self.assertRaises(frappe.ValidationError):
+			resolve_or_request(self._payload("_Test Dynamic Undefined"))
 
-		frappe.set_user(self.APPROVER)
-		reject_request(first["request"], "Reject first")
-		self.assertTrue(frappe.db.exists("Item Attribute", attribute))
-		self.assertTrue(frappe.db.exists("Item", second["item_code"]))
-
-		reject_request(second["request"], "Reject second")
-		self.assertFalse(frappe.db.exists("Item Attribute", attribute))
-		self.assertFalse(
-			frappe.db.exists(
-				"Item Variant Attribute",
-				{"parent": self.TEMPLATE, "attribute": attribute},
+	def test_profile_attaches_existing_categorical_attribute_to_template(self):
+		attribute_name = "_Test Dynamic Finish"
+		if not frappe.db.exists("Item Attribute", attribute_name):
+			attribute = frappe.get_doc(
+				{"doctype": "Item Attribute", "attribute_name": attribute_name, "numeric_values": 0}
 			)
-		)
+			attribute.append("item_attribute_values", {"attribute_value": "Matte", "abbr": "MAT"})
+			attribute.insert(ignore_permissions=True)
 
-	def test_dynamic_brand_is_staged_and_removed_on_rejection(self):
-		brand = "_Test Dynamic Request Brand"
-		frappe.set_user(self.REQUESTER)
-		result = resolve_or_request(
-			{
-				"template_item": self.TEMPLATE,
-				"attributes": {self.ATTRIBUTE: "_Test Dynamic Brand Colour", "Brand": brand},
-			}
-		)
-		self.assertTrue(frappe.db.exists("Brand", brand))
+		profile = frappe.get_doc("Dynamic Variant Profile", self.TEMPLATE)
+		if attribute_name not in {row.item_attribute for row in profile.attributes}:
+			profile.append(
+				"attributes",
+				{
+					"item_attribute": attribute_name,
+					"required_parameter": 0,
+					"allow_new_values": 0,
+				},
+			)
+			profile.save(ignore_permissions=True)
+
 		self.assertTrue(
 			frappe.db.exists(
-				"Item Attribute Value",
-				{"parent": "Brand", "attribute_value": brand},
-			)
-		)
-
-		frappe.set_user(self.APPROVER)
-		reject_request(result["request"], "Brand not approved")
-		self.assertFalse(frappe.db.exists("Brand", brand))
-		self.assertFalse(
-			frappe.db.exists(
-				"Item Attribute Value",
-				{"parent": "Brand", "attribute_value": brand},
+				"Item Variant Attribute",
+				{"parent": self.TEMPLATE, "attribute": attribute_name},
 			)
 		)
 
@@ -303,7 +288,7 @@ class TestDynamicItemRequest(IntegrationTestCase):
 		settings.enable_dynamic_item_requests = 1
 		settings.enforce_variant_approval = 1
 		settings.allow_bulk_variant_creation = 0
-		settings.allow_dynamic_attributes = 1
+		settings.allow_dynamic_attributes = 0
 		settings.approver_role = APPROVER_ROLE
 		settings.set("requester_roles", [])
 		settings.append("requester_roles", {"role": REQUESTER_ROLE})
@@ -334,15 +319,22 @@ class TestDynamicItemRequest(IntegrationTestCase):
 
 	def _ensure_attribute(self):
 		if frappe.db.exists("Item Attribute", self.ATTRIBUTE):
-			return
-		attribute = frappe.get_doc(
-			{"doctype": "Item Attribute", "attribute_name": self.ATTRIBUTE, "numeric_values": 0}
-		)
-		attribute.append(
-			"item_attribute_values",
-			{"attribute_value": "_Test Dynamic Red", "abbr": "RED"},
-		)
-		attribute.insert(ignore_permissions=True)
+			attribute = frappe.get_doc("Item Attribute", self.ATTRIBUTE)
+		else:
+			attribute = frappe.get_doc(
+				{"doctype": "Item Attribute", "attribute_name": self.ATTRIBUTE, "numeric_values": 0}
+			)
+		existing_values = {row.attribute_value for row in attribute.item_attribute_values}
+		for index, value in enumerate(self.PREDEFINED_VALUES, start=1):
+			if value not in existing_values:
+				attribute.append(
+					"item_attribute_values",
+					{"attribute_value": value, "abbr": f"DV{index:02d}"},
+				)
+		if attribute.is_new():
+			attribute.insert(ignore_permissions=True)
+		else:
+			attribute.save(ignore_permissions=True)
 
 	def _ensure_template_and_profile(self):
 		if not frappe.db.exists("Item", self.TEMPLATE):
@@ -372,10 +364,15 @@ class TestDynamicItemRequest(IntegrationTestCase):
 				{
 					"item_attribute": self.ATTRIBUTE,
 					"required_parameter": 1,
-					"allow_new_values": 1,
+					"allow_new_values": 0,
 				},
 			)
 			profile.insert(ignore_permissions=True)
+		else:
+			profile = frappe.get_doc("Dynamic Variant Profile", self.TEMPLATE)
+			for row in profile.attributes:
+				row.allow_new_values = 0
+			profile.save(ignore_permissions=True)
 
 	def _ensure_basic_masters(self):
 		for uom in ("Nos", "Box"):

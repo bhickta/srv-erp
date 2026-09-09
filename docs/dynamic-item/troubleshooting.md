@@ -85,22 +85,11 @@ The request is still valid even if assignment creation or notification failed.
 - Ask an administrator to check the Error Log for **Dynamic Item Approval Assignment Failed**.
 - Review email/notification configuration separately from the request workflow.
 
-## A staged Brand, attribute, or value is visible before approval
+## An attribute or value is missing from the request dialog
 
-This is expected for new categorical master data. It is provisionally created so the system can construct and display the staged Item.
-
-Do not rename, delete, or reuse provisional data while the request is pending. Approval adopts it. Rejection/cancellation removes it only when it remains unapproved and unreferenced.
-
-## Rejection did not remove a categorical master
-
-Cleanup deliberately preserves data when it is:
-
-- used by an Item variant;
-- adopted by an approved request;
-- shared by another pending request;
-- referenced by another master or Item.
-
-An administrator should review references before removing it manually. Also check the Error Log for **Dynamic Item Schema Cleanup Failed**.
+Requesters can select only predefined values. A Masters administrator must add the Item Attribute
+to the template's Dynamic Variant Profile and maintain its categorical values in **Item Attribute**.
+Reload the transaction or Item form after the master data is updated.
 
 ## Approve, Reject, or Cancel is not visible
 

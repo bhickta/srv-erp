@@ -88,14 +88,14 @@ Consequences:
 
 - At least one variant attribute is required.
 - A request supports at most 20 attributes.
-- An attribute may appear only once, including across profile and additional-attribute inputs.
+- An attribute may appear only once in a request.
 - Names and values are trimmed and Unicode-normalized.
 - Master lookup is case-insensitive.
 - Required profile attributes must have values.
-- Attributes outside the profile require **Allow New Categorical Attributes**.
-- A new value is blocked when its profile row has **Allow New Values** off.
+- Attributes outside the template's Dynamic Variant Profile are blocked.
+- Categorical values must already exist in the corresponding Item Attribute.
 - Disabled Brands cannot be used.
-- New categorical attributes may be staged; new numeric attributes may not.
+- Requesters cannot stage new attributes or attribute values.
 
 ## Numeric attribute rules
 
@@ -161,9 +161,6 @@ These controls preserve on-demand creation and prevent reintroducing Item prolif
 For Create Variant, termination attempts to remove:
 
 - the disabled staged Item;
-- categorical values created only for the rejected request;
-- a new Brand created only for the rejected request;
-- a new categorical Item Attribute;
-- request-created links on the template and Dynamic Variant Profile.
+- any legacy request-created schema artifacts recorded by an older pending request.
 
 Cleanup never removes an artifact that has been adopted by an approved request, used by an Item variant, shared by another pending request, or referenced elsewhere. Cleanup errors are recorded for administrators without deleting the request audit.
