@@ -57,41 +57,51 @@ frappe.query_reports["Variant Coverage"] = {
 			return;
 		}
 
-		report.page.add_inner_button(__("Create Missing Variants"), () => {
-			const filters = report.get_values();
-
-			frappe.confirm(
-				__(
-					"Create all missing variants from the current filters? Please review the report before continuing."
-				),
-				() => {
-					frappe.call({
-						method: "srv_erp.srv_erp.report.variant_coverage.variant_coverage.create_missing_variants",
-						args: { filters },
-						freeze: true,
-						freeze_message: __("Creating missing variants..."),
-						callback(response) {
-							const result = response.message || {};
-							if (result.queued) {
-								frappe.show_alert({
-									message: __("{0} variants queued for creation", [result.queued]),
-									indicator: "blue",
-								});
-							} else {
-								frappe.show_alert({
-									message: __("{0} variants created, {1} skipped", [
-										result.created || 0,
-										result.skipped || 0,
-									]),
-									indicator: "green",
-								});
-							}
-
-							report.refresh();
-						},
-					});
+		frappe.call({
+			method: "srv_erp.masters.dynamic_item.api.get_dynamic_item_client_settings",
+			callback(response) {
+				if (!response.message?.bulk_variant_creation_enabled) {
+					return;
 				}
-			);
+				report.page.add_inner_button(__("Create Missing Variants"), () => {
+					const filters = report.get_values();
+
+					frappe.confirm(
+						__(
+							"Create all missing variants from the current filters? Please review the report before continuing."
+						),
+						() => {
+							frappe.call({
+								method: "srv_erp.srv_erp.report.variant_coverage.variant_coverage.create_missing_variants",
+								args: { filters },
+								freeze: true,
+								freeze_message: __("Creating missing variants..."),
+								callback(response) {
+									const result = response.message || {};
+									if (result.queued) {
+										frappe.show_alert({
+											message: __("{0} variants queued for creation", [
+												result.queued,
+											]),
+											indicator: "blue",
+										});
+									} else {
+										frappe.show_alert({
+											message: __("{0} variants created, {1} skipped", [
+												result.created || 0,
+												result.skipped || 0,
+											]),
+											indicator: "green",
+										});
+									}
+
+									report.refresh();
+								},
+							});
+						}
+					);
+				});
+			},
 		});
 	},
 

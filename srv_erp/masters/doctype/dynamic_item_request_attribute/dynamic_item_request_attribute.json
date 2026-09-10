@@ -1,0 +1,97 @@
+{
+ "actions": [],
+ "creation": "2026-08-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_attribute",
+  "attribute_value",
+  "abbreviation",
+  "artifact_section",
+  "attribute_was_created",
+  "value_was_created",
+  "template_link_was_created",
+  "profile_row_was_created",
+  "master_was_created"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_attribute",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Attribute",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "attribute_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Attribute Value",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "abbreviation",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Abbreviation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "artifact_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Staged Artifacts"
+  },
+  {
+   "default": "0",
+   "fieldname": "attribute_was_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "value_was_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "template_link_was_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "profile_row_was_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "master_was_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Masters",
+ "name": "Dynamic Item Request Attribute",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

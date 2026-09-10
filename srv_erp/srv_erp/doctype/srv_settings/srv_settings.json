@@ -12,6 +12,11 @@
   "sales_order_tab",
   "sales_order_items_section",
   "show_pending_qty_in_sales_order",
+  "show_current_stock_in_sales_order",
+  "grid_columns_tab",
+  "grid_column_templates_section",
+  "grid_column_manager_role",
+  "grid_column_templates",
   "dsr_settings_tab",
   "dsr_submission_section",
   "dsr_submission_rules"
@@ -66,6 +71,37 @@
    "fieldname": "show_pending_qty_in_sales_order",
    "fieldtype": "Check",
    "label": "Show Pending Qty in Sales Order"
+  },
+  {
+   "default": "0",
+   "description": "Show live stock for each item and warehouse in the Sales Order Items grid. The value is calculated when the form loads and is not stored in Sales Order Item.",
+   "fieldname": "show_current_stock_in_sales_order",
+   "fieldtype": "Check",
+   "label": "Show Current Stock in Sales Order"
+  },
+  {
+   "fieldname": "grid_columns_tab",
+   "fieldtype": "Tab Break",
+   "label": "Grid Columns"
+  },
+  {
+   "fieldname": "grid_column_templates_section",
+   "fieldtype": "Section Break",
+   "label": "Shared Child Table Columns"
+  },
+  {
+   "description": "Users with this role can publish their child-table column layout to every user from the Configure Columns dialog.",
+   "fieldname": "grid_column_manager_role",
+   "fieldtype": "Link",
+   "label": "Grid Column Manager Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "grid_column_templates",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Grid Column Templates",
+   "read_only": 1
   },
   {
    "fieldname": "dsr_settings_tab",

@@ -10,3 +10,12 @@
 	padding-top: 7px;
 	padding-bottom: 7px;
 }
+
+/* Make Sales Order list data and headings 20% larger than the Desk base. */
+body[data-route^="List/Sales Order"] .list-row {
+	font-size: 120% !important;
+}
+
+body[data-route^="List/Sales Order"] .list-row * {
+	font-size: inherit !important;
+}
