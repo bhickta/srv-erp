@@ -7,7 +7,7 @@ app_license = "mit"
 
 # Company policy contributed to the reusable Express Tally Integration framework.
 tally_integration_flows = [
-    "srv_erp.integrations.tally_flow.SRVSalesDocumentsToTally",
+	"srv_erp.integrations.tally_flow.SRVSalesDocumentsToTally",
 ]
 
 # Apps
@@ -46,59 +46,59 @@ app_include_js = "/assets/srv_erp/js/sales_person_defaults.js"
 
 # include js in page
 page_js = {
-    "package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js",
-    "zero-stock-reconciliation": "srv_erp/page/zero_stock_reconciliation/zero_stock_reconciliation.js",
+	"package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js",
+	"zero-stock-reconciliation": "srv_erp/page/zero_stock_reconciliation/zero_stock_reconciliation.js",
 }
 
 # include js in doctype views
 doctype_js = {
-    "Item": [
-        "public/js/item.js",
-        "public/js/item/variant_select_all_dialog.js",
-        "public/js/item_uom_conversion.js",
-    ],
-    "Item Attribute": "public/js/item_attribute_variant_sync.js",
-    "Brand": "public/js/item_attribute_variant_sync.js",
-    "Item Price": "public/js/item_price.js",
-    "Sales Order": "public/js/sales_order.js",
-    "Stock Entry": [
-        "public/js/package_barcode/namespace.js",
-        "public/js/package_barcode/stock_table_display.js",
-        "public/js/package_barcode/scan_review.js",
-        "public/js/package_barcode/quantity_control.js",
-        "public/js/package_barcode/stock_scanner.js",
-        "public/js/package_barcode_stock.js",
-    ],
-    "Delivery Note": [
-        "public/js/package_barcode/namespace.js",
-        "public/js/package_barcode/stock_table_display.js",
-        "public/js/package_barcode/scan_review.js",
-        "public/js/package_barcode/quantity_control.js",
-        "public/js/package_barcode/stock_scanner.js",
-        "public/js/package_barcode_stock.js",
-    ],
-    "Stock Reconciliation": [
-        "public/js/package_barcode/namespace.js",
-        "public/js/package_barcode/stock_table_display.js",
-        "public/js/package_barcode/scan_review.js",
-        "public/js/package_barcode/quantity_control.js",
-        "public/js/package_barcode/stock_scanner.js",
-        "public/js/package_barcode_stock.js",
-    ],
+	"Item": [
+		"public/js/item.js",
+		"public/js/item/variant_select_all_dialog.js",
+		"public/js/item_uom_conversion.js",
+	],
+	"Item Attribute": "public/js/item_attribute_variant_sync.js",
+	"Brand": "public/js/item_attribute_variant_sync.js",
+	"Item Price": "public/js/item_price.js",
+	"Sales Order": "public/js/sales_order.js",
+	"Stock Entry": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
+	"Delivery Note": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
+	"Stock Reconciliation": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_list_js = {
-    "Package Barcode": "public/js/package_barcode_list.js",
-    "Package Barcode Batch": "public/js/package_barcode_batch_list.js",
-    "Brand": "public/js/item_attribute_variant_sync.js",
-    "Sales Order": [
-        "public/js/tree_group_list_filters.js",
-        "public/js/sales_order_list.js",
-    ],
-    "Delivery Note": [
-        "public/js/tree_group_list_filters.js",
-        "public/js/delivery_note_list.js",
-    ],
+	"Package Barcode": "public/js/package_barcode_list.js",
+	"Package Barcode Batch": "public/js/package_barcode_batch_list.js",
+	"Brand": "public/js/item_attribute_variant_sync.js",
+	"Sales Order": [
+		"public/js/tree_group_list_filters.js",
+		"public/js/sales_order_list.js",
+	],
+	"Delivery Note": [
+		"public/js/tree_group_list_filters.js",
+		"public/js/delivery_note_list.js",
+	],
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -196,51 +196,51 @@ after_migrate = ["srv_erp.install.after_migrate"]
 # Hook on document methods and events
 
 doc_events = {
-    "*": {
-        "before_validate": "srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
-    },
-    "Item": {
-        "validate": "srv_erp.item.variant_field_sync.validate_item_group_sync",
-        "on_update": [
-            "srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
-            "srv_erp.item.variant_price_sync.sync_prices_to_new_variant",
-        ],
-    },
-    "Item Price": {
-        "before_validate": "srv_erp.item.variant_price_sync.protect_managed_variant_price",
-        "on_update": "srv_erp.item.variant_price_sync.sync_template_price_to_variants",
-        "on_trash": "srv_erp.item.variant_price_sync.delete_managed_variant_prices",
-    },
-    "Item Attribute": {
-        "validate": "srv_erp.item.variant_auto_creation.validate_item_attribute_brand_source",
-        "on_update": "srv_erp.item.variant_auto_creation.handle_item_attribute_update",
-    },
-    "Brand": {
-        "validate": "srv_erp.item.variant_auto_creation.validate_brand_abbreviation",
-        "on_update": "srv_erp.item.variant_auto_creation.handle_brand_update",
-        "on_trash": "srv_erp.item.variant_auto_creation.handle_brand_delete",
-    },
-    "Sales Order": {
-        "validate": [
-            "srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
+	"*": {
+		"before_validate": "srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
+	},
+	"Item": {
+		"validate": "srv_erp.item.variant_field_sync.validate_item_group_sync",
+		"on_update": [
+			"srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
+			"srv_erp.item.variant_price_sync.sync_prices_to_new_variant",
+		],
+	},
+	"Item Price": {
+		"before_validate": "srv_erp.item.variant_price_sync.protect_managed_variant_price",
+		"on_update": "srv_erp.item.variant_price_sync.sync_template_price_to_variants",
+		"on_trash": "srv_erp.item.variant_price_sync.delete_managed_variant_prices",
+	},
+	"Item Attribute": {
+		"validate": "srv_erp.item.variant_auto_creation.validate_item_attribute_brand_source",
+		"on_update": "srv_erp.item.variant_auto_creation.handle_item_attribute_update",
+	},
+	"Brand": {
+		"validate": "srv_erp.item.variant_auto_creation.validate_brand_abbreviation",
+		"on_update": "srv_erp.item.variant_auto_creation.handle_brand_update",
+		"on_trash": "srv_erp.item.variant_auto_creation.handle_brand_delete",
+	},
+	"Sales Order": {
+		"validate": [
+      		"srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
             "srv_erp.selling.sales_order_uom.validate_sales_order_uom",
         ],
-    },
-    "Sales Person": {
-        "validate": "srv_erp.selling.sales_person_user_mapping.validate_sales_person_user_mapping",
-        "on_update": "srv_erp.selling.sales_person_user_mapping.sync_sales_person_user_permission",
-        "on_trash": "srv_erp.selling.sales_person_user_mapping.delete_sales_person_user_permission",
-    },
-    "Stock Entry": {
-        "validate": "srv_erp.package_barcode.service.validate_stock_transaction",
-    },
-    "Delivery Note": {
-        "validate": "srv_erp.package_barcode.service.validate_stock_transaction",
-    },
-    "Stock Reconciliation": {
-        "before_validate": "srv_erp.package_barcode.service.sync_stock_transaction_package_quantities",
-        "validate": "srv_erp.package_barcode.service.validate_stock_transaction",
-    },
+	},
+	"Sales Person": {
+		"validate": "srv_erp.selling.sales_person_user_mapping.validate_sales_person_user_mapping",
+		"on_update": "srv_erp.selling.sales_person_user_mapping.sync_sales_person_user_permission",
+		"on_trash": "srv_erp.selling.sales_person_user_mapping.delete_sales_person_user_permission",
+	},
+	"Stock Entry": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+	"Delivery Note": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+	"Stock Reconciliation": {
+		"before_validate": "srv_erp.package_barcode.service.sync_stock_transaction_package_quantities",
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
 }
 
 # Scheduled Tasks
@@ -274,7 +274,7 @@ doc_events = {
 # Frappe v15 does not apply extend_doctype_class, so Item Price uses a small
 # subclass that only relaxes ERPNext's template-item restriction.
 override_doctype_class = {
-    "Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
+	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
 }
 
 # Overriding Methods
