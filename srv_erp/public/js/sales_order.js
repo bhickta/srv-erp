@@ -17,6 +17,117 @@ const sales_order_discount_refresh_fields = [
 	"base_amount",
 ];
 
+function set_sales_order_uom_editability(frm, cdt, cdn, editable) {
+	const grid = frm.fields_dict.items && frm.fields_dict.items.grid;
+
+	if (!grid) {
+		return;
+	}
+
+	const grid_row = grid.get_row(cdn);
+
+	if (!grid_row) {
+		return;
+	}
+
+	if (typeof grid_row.toggle_editable === "function") {
+		grid_row.toggle_editable("uom", editable);
+	}
+}
+
+async function get_sales_order_uom(item_group) {
+	if (!item_group) {
+		return null;
+	}
+
+	const hierarchy = [];
+	let current_group = item_group;
+
+	while (current_group) {
+		hierarchy.push(current_group);
+
+		const response = await frappe.db.get_value(
+			"Item Group",
+			current_group,
+			"parent_item_group"
+		);
+
+		current_group = response.message?.parent_item_group || null;
+	}
+
+	for (let i = hierarchy.length - 1; i >= 0; i--) {
+		const group_name = hierarchy[i];
+
+		const response = await frappe.db.get_value(
+			"Item Group",
+			group_name,
+			"custom_sales_order_uom"
+		);
+
+		const sales_order_uom =
+			response.message?.custom_sales_order_uom;
+
+		if (sales_order_uom) {
+			return sales_order_uom;
+		}
+	}
+
+	return null;
+}
+
+
+async function get_item_sales_order_uom(item_code) {
+	if (!item_code) {
+		return null;
+	}
+
+	const response = await frappe.db.get_value(
+		"Item",
+		item_code,
+		"item_group"
+	);
+
+	const item_group = response.message?.item_group;
+
+	if (!item_group) {
+		return null;
+	}
+
+	return await get_sales_order_uom(item_group);
+}
+
+
+async function apply_sales_order_uom(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+
+	if (!row || !row.item_code) {
+		return;
+	}
+
+	const allowed_uom = await get_item_sales_order_uom(row.item_code);
+
+	if (!allowed_uom) {
+		row.__srv_sales_order_uom = null;
+		set_sales_order_uom_editability(frm, cdt, cdn, true);
+		return;
+	}
+
+	row.__srv_sales_order_uom = allowed_uom;
+
+	if (row.uom !== allowed_uom) {
+		await frappe.model.set_value(
+			cdt,
+			cdn,
+			"uom",
+			allowed_uom
+		);
+	}
+
+	set_sales_order_uom_editability(frm, cdt, cdn, false);
+	refresh_field("uom", cdn, "items");
+}
+
+
 function copy_parent_value_to_items(frm, fieldname) {
 	if (!frm.doc[fieldname]) {
 		return;
@@ -308,8 +419,11 @@ frappe.ui.form.on("Sales Order Item", {
 		refresh_pending_qty(frm, cdt, cdn);
 	},
 
-	item_code(frm, cdt, cdn) {
+	async item_code(frm, cdt, cdn) {
 		set_item_attribute_defaults(frm, cdt, cdn);
+		frappe.after_ajax(() => {
+			apply_sales_order_uom(frm, cdt, cdn);
+		});
 		schedule_current_stock_refresh(frm);
 	},
 
@@ -317,6 +431,29 @@ frappe.ui.form.on("Sales Order Item", {
 		schedule_current_stock_refresh(frm);
 	},
 
+	uom(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+
+		if (!row || !row.__srv_sales_order_uom) {
+			return;
+		}
+
+		const allowed_uom = row.__srv_sales_order_uom;
+
+		if (row.uom !== allowed_uom) {
+			frappe.model.set_value(
+				cdt,
+				cdn,
+				"uom",
+				allowed_uom
+			);
+		}
+
+		// Make sure the field remains locked
+		set_sales_order_uom_editability(frm, cdt, cdn, false);
+
+	},
+	
 	branding_type(frm, cdt, cdn) {
 		copy_item_value_to_all_rows(frm, cdt, cdn, "branding_type");
 	},

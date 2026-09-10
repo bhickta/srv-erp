@@ -234,7 +234,10 @@ doc_events = {
 		"on_trash": "srv_erp.item.variant_auto_creation.handle_brand_delete",
 	},
 	"Sales Order": {
-		"validate": "srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
+		"validate": [
+      		"srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
+            "srv_erp.selling.sales_order_uom.validate_sales_order_uom",
+        ],
 	},
 	"Sales Person": {
 		"validate": "srv_erp.selling.sales_person_user_mapping.validate_sales_person_user_mapping",
