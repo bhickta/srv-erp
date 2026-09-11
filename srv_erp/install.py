@@ -2,6 +2,7 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.item.variant_auto_creation import (
+	ensure_brand_item_attribute,
 	set_srv_settings_defaults,
 	sync_brand_master_values_to_attribute,
 )
@@ -46,6 +47,7 @@ def after_install():
 	sync_all_sales_person_user_permissions()
 	use_srv_stock_balance_report()
 	set_package_barcode_settings_defaults()
+	ensure_brand_item_attribute()
 	set_srv_settings_defaults()
 	sync_brand_master_values_to_attribute()
 
@@ -69,6 +71,7 @@ def after_migrate():
 	use_srv_stock_balance_report()
 	migrate_legacy_dsr_configuration()
 	set_package_barcode_settings_defaults()
+	ensure_brand_item_attribute()
 	set_srv_settings_defaults()
 	sync_brand_master_values_to_attribute()
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import frappe
-from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.masters.dynamic_item.configuration import APPROVER_ROLE, REQUESTER_ROLE, clear_settings_cache
@@ -45,14 +44,6 @@ def provision_masters_user_roles() -> dict[str, int]:
 			)
 		).intersection(system_user_set)
 	)
-	if len(system_managers) < 2:
-		frappe.throw(
-			_(
-				"Dynamic Item Creation requires at least two enabled System Managers "
-				"so requests can follow maker-checker approval."
-			)
-		)
-
 	manager_set = set(system_managers)
 	for user_name in system_users:
 		roles = [REQUESTER_ROLE]
@@ -68,8 +59,9 @@ def activate_dynamic_item_creation() -> dict[str, int]:
 	setup_masters_module()
 	role_counts = provision_masters_user_roles()
 	settings = frappe.get_single("Masters Settings")
-	settings.enable_dynamic_item_requests = 1
-	settings.enforce_variant_approval = 1
+	approvals_ready = role_counts["approvers"] >= 2
+	settings.enable_dynamic_item_requests = int(approvals_ready)
+	settings.enforce_variant_approval = int(approvals_ready)
 	settings.allow_bulk_variant_creation = 0
 	settings.allow_dynamic_attributes = 0
 	settings.save(ignore_permissions=True)

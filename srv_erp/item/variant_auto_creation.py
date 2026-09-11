@@ -102,6 +102,24 @@ def item_attribute_values_changed(doc) -> bool:
 	return old_values != new_values
 
 
+def ensure_brand_item_attribute():
+	"""Create the default Brand item attribute before SRV Settings is saved."""
+	if frappe.db.exists("Item Attribute", DEFAULT_VARIANT_ATTRIBUTE):
+		return
+
+	frappe.flags.syncing_brand_attribute_values = True
+	try:
+		frappe.get_doc(
+			{
+				"doctype": "Item Attribute",
+				"attribute_name": DEFAULT_VARIANT_ATTRIBUTE,
+			}
+		).insert(ignore_permissions=True)
+		frappe.db.commit()
+	finally:
+		frappe.flags.syncing_brand_attribute_values = False
+
+
 def ensure_brand_attribute_value(brand):
 	attribute = get_auto_create_variant_attribute()
 	if not brand or not attribute:

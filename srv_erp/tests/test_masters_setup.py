@@ -69,20 +69,17 @@ class TestMastersSetup(unittest.TestCase):
 		)
 
 	@patch("srv_erp.masters.setup.ensure_masters_roles")
-	@patch("srv_erp.masters.setup._", side_effect=lambda message: message)
-	@patch("srv_erp.masters.setup.frappe.throw")
+	@patch("srv_erp.masters.setup.frappe.get_doc")
 	@patch("srv_erp.masters.setup.frappe.get_all")
-	def test_provision_requires_two_system_managers(
-		self, get_all, throw, _translate, _ensure_roles
-	):
+	def test_provision_allows_initial_single_system_manager(self, get_all, get_doc, _ensure_roles):
 		get_all.side_effect = [
 			["requester@example.com", "manager@example.com"],
 			["manager@example.com"],
 		]
-		throw.side_effect = RuntimeError
+		get_doc.return_value = MagicMock()
+		result = provision_masters_user_roles()
 
-		with self.assertRaises(RuntimeError):
-			provision_masters_user_roles()
+		self.assertEqual(result, {"requesters": 2, "approvers": 1})
 
 	@patch("srv_erp.masters.setup.clear_settings_cache")
 	@patch("srv_erp.masters.setup.provision_masters_user_roles")
