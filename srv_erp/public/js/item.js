@@ -14,8 +14,8 @@ frappe.ui.form.on("Item", {
 			frm.toggle_enable("attributes", true);
 			const grid = frm.fields_dict.attributes.grid;
 			grid.toggle_enable("attribute_value", true);
-			grid.toggle_enable("attribute", false);
-			grid.cannot_add_rows = true;
+			grid.toggle_enable("attribute", true);
+			grid.cannot_add_rows = false;
 			grid.cannot_delete_rows = true;
 			grid.refresh();
 		}
