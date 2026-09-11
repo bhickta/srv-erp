@@ -31,8 +31,10 @@ class EditableVariantItem(Item):
 		if self.is_child_table_same("attributes"):
 			return
 		previous = self.get_doc_before_save()
-		if {row.attribute for row in self.attributes} != {row.attribute for row in previous.attributes}:
-			frappe.throw(_("Only existing variant attribute values can be changed."))
+		if not {row.attribute for row in previous.attributes}.issubset(
+			{row.attribute for row in self.attributes}
+		):
+			frappe.throw(_("Existing variant attributes cannot be removed."))
 		args = {row.attribute: row.attribute_value for row in self.attributes}
 		if any(value is None or not str(value).strip() for value in args.values()):
 			frappe.throw(_("A value is required for each variant attribute."))
@@ -42,6 +44,8 @@ class EditableVariantItem(Item):
 			frappe.throw(
 				_("Item variant {0} exists with same attributes").format(existing), ItemVariantExistsError
 			)
+		for row in self.attributes:
+			row.variant_of = self.variant_of
 
 
 def sync_variant_signature(doc, method=None):

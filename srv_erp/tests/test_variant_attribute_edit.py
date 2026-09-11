@@ -66,6 +66,18 @@ class TestVariantAttributeEdit(TestCase):
 		with self.assertRaises(ValueError):
 			item.validate_variant_attributes()
 
+	@patch("srv_erp.item.variant_attribute_edit.Item.validate_variant_attributes")
+	@patch("srv_erp.item.variant_attribute_edit.validate_item_variant_attributes")
+	@patch("srv_erp.item.variant_attribute_edit.get_variant", return_value=None)
+	def test_adding_attribute_validates_combination_and_sets_template(self, lookup, validate, parent):
+		item = self.make_item()
+		item.attributes.append(SimpleNamespace(attribute="Color", attribute_value="Red"))
+		item.validate_variant_attributes()
+		args = {"Size": "12", "Color": "Red"}
+		validate.assert_called_once_with(item, args)
+		lookup.assert_called_once_with("TEMPLATE", args, "VARIANT")
+		self.assertTrue(all(row.variant_of == "TEMPLATE" for row in item.attributes))
+
 	def test_signature_tracks_edited_values(self):
 		item = self.make_item()
 		item.dynamic_variant_signature = "old-signature"
