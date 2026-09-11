@@ -10,6 +10,15 @@ frappe.ui.form.on("Item", {
 	setup: srv_erp.item.toggle_variant_item_group,
 	refresh(frm) {
 		srv_erp.item.toggle_variant_item_group(frm);
+		if (!frm.is_new() && frm.doc.variant_of && frm.doc.variant_based_on === "Item Attribute") {
+			frm.toggle_enable("attributes", true);
+			const grid = frm.fields_dict.attributes.grid;
+			grid.toggle_enable("attribute_value", true);
+			grid.toggle_enable("attribute", false);
+			grid.cannot_add_rows = true;
+			grid.cannot_delete_rows = true;
+			grid.refresh();
+		}
 		if (!frm.is_new() && frm.doc.has_variants) {
 			frm.add_custom_button(__("Manage Variant Prices"), () => {
 				frappe.route_options = { item_code: frm.doc.name };

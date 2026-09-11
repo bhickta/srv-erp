@@ -213,6 +213,7 @@ doc_events = {
 		"validate": [
 			"srv_erp.item.variant_field_sync.validate_item_group_sync",
 			"srv_erp.masters.dynamic_item.guard.protect_dynamic_item_state",
+			"srv_erp.item.variant_attribute_edit.sync_variant_signature",
 		],
 		"on_update": [
 			"srv_erp.item.variant_field_sync.sync_template_item_group_to_variants",
@@ -287,6 +288,7 @@ doc_events = {
 # Frappe v15 does not apply extend_doctype_class, so Item Price uses a small
 # subclass that only relaxes ERPNext's template-item restriction.
 override_doctype_class = {
+	"Item": "srv_erp.item.variant_attribute_edit.EditableVariantItem",
 	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
 }
 
