@@ -74,6 +74,7 @@ doctype_js = {
 		"public/js/package_barcode/quantity_control.js",
 		"public/js/package_barcode/stock_scanner.js",
 		"public/js/package_barcode_stock.js",
+		"public/js/stock_entry_price_list.js",
 	],
 	"Delivery Note": [
 		"public/js/package_barcode/namespace.js",
@@ -290,6 +291,7 @@ doc_events = {
 override_doctype_class = {
 	"Item": "srv_erp.item.variant_attribute_edit.EditableVariantItem",
 	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
+	"Stock Entry": "srv_erp.stock.stock_entry.SRVStockEntry",
 }
 
 # Overriding Methods

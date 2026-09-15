@@ -17,6 +17,9 @@
   "grid_column_templates_section",
   "grid_column_manager_role",
   "grid_column_templates",
+  "stock_entry_tab",
+  "stock_entry_rate_section",
+  "stock_entry_price_list",
   "dsr_settings_tab",
   "dsr_submission_section",
   "dsr_submission_rules"
@@ -102,6 +105,23 @@
    "hidden": 1,
    "label": "Grid Column Templates",
    "read_only": 1
+  },
+  {
+   "fieldname": "stock_entry_tab",
+   "fieldtype": "Tab Break",
+   "label": "Stock Entry"
+  },
+  {
+   "fieldname": "stock_entry_rate_section",
+   "fieldtype": "Section Break",
+   "label": "Incoming Item Rates"
+  },
+  {
+   "description": "Fetch Basic Rate for incoming-only Stock Entry rows from this Price List. Source warehouse rows continue to use stock valuation. Leave empty to use standard ERPNext rate calculation.",
+   "fieldname": "stock_entry_price_list",
+   "fieldtype": "Link",
+   "label": "Stock Entry Price List",
+   "options": "Price List"
   },
   {
    "fieldname": "dsr_settings_tab",
