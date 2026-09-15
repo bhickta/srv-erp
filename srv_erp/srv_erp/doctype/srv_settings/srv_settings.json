@@ -20,6 +20,10 @@
   "stock_entry_tab",
   "stock_entry_rate_section",
   "stock_entry_price_list",
+  "dynamic_items_tab",
+  "dynamic_item_approval_section",
+  "dynamic_item_approver_role",
+  "allow_dynamic_item_requester_self_approval",
   "dsr_settings_tab",
   "dsr_submission_section",
   "dsr_submission_rules"
@@ -34,6 +38,13 @@
    "fieldname": "brand_variant_creation_section",
    "fieldtype": "Section Break",
    "label": "Brand Variant Creation"
+  },
+  {
+   "description": "Role permitted to approve Dynamic Item Requests. Leave empty to use the Approver Role configured in Masters Settings.",
+   "fieldname": "dynamic_item_approver_role",
+   "fieldtype": "Link",
+   "label": "Dynamic Item Approver Role",
+   "options": "Role"
   },
   {
    "default": "0",
@@ -122,6 +133,23 @@
    "fieldtype": "Link",
    "label": "Stock Entry Price List",
    "options": "Price List"
+  },
+  {
+   "fieldname": "dynamic_items_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dynamic Items"
+  },
+  {
+   "fieldname": "dynamic_item_approval_section",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "default": "0",
+   "description": "Allow a requester who also has the configured Dynamic Item approver role to approve their own request. Keep disabled to enforce maker-checker approval.",
+   "fieldname": "allow_dynamic_item_requester_self_approval",
+   "fieldtype": "Check",
+   "label": "Allow Requester Self-Approval"
   },
   {
    "fieldname": "dsr_settings_tab",

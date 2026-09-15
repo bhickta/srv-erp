@@ -1,27 +1,33 @@
 import frappe
 from frappe import _
 
-from srv_erp.masters.dynamic_item.configuration import get_approver_users, get_settings
+from srv_erp.masters.dynamic_item.configuration import (
+	get_approver_role,
+	get_approver_users,
+	is_requester_self_approval_allowed,
+)
 
 
 def require_available_approver():
-	if get_approver_users(exclude_user=frappe.session.user):
+	exclude_user = None if is_requester_self_approval_allowed() else frappe.session.user
+	if get_approver_users(exclude_user=exclude_user):
 		return
 	frappe.throw(
 		_("No other enabled System User has the configured approver role {0}.").format(
-			frappe.bold(get_settings().approver_role)
+			frappe.bold(get_approver_role())
 		)
 	)
 
 
 def assign_request_to_approvers(request):
-	from frappe.desk.form.assign_to import add
+	from frappe.desk.form.assign_to import _add
 
-	approvers = get_approver_users(exclude_user=request.requested_by)
+	exclude_user = None if is_requester_self_approval_allowed() else request.requested_by
+	approvers = get_approver_users(exclude_user=exclude_user)
 	if not approvers:
 		return
 	try:
-		add(
+		_add(
 			{
 				"assign_to": approvers,
 				"doctype": request.doctype,
@@ -42,7 +48,7 @@ def assign_request_to_approvers(request):
 
 
 def close_approval_assignments(request):
-	from frappe.desk.form.assign_to import remove
+	from frappe.desk.form.assign_to import _remove
 
 	assignments = frappe.get_all(
 		"ToDo",
@@ -54,4 +60,4 @@ def close_approval_assignments(request):
 		pluck="allocated_to",
 	)
 	for user in assignments:
-		remove(request.doctype, request.name, user, ignore_permissions=True)
+		_remove(request.doctype, request.name, user, ignore_permissions=True)

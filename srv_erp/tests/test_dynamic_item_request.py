@@ -32,6 +32,7 @@ class TestDynamicItemRequest(IntegrationTestCase):
 		"_Test Dynamic Red",
 		"_Test Dynamic Rejected",
 		"_Test Dynamic Silver",
+		"_Test Dynamic Self Approved",
 		"_Test Dynamic Teal",
 		"_Test Dynamic Violet",
 	)
@@ -109,6 +110,28 @@ class TestDynamicItemRequest(IntegrationTestCase):
 
 		with self.assertRaises(frappe.PermissionError):
 			approve_request(result["request"])
+
+	def test_requester_can_approve_own_request_when_enabled(self):
+		fieldname = "allow_dynamic_item_requester_self_approval"
+		previous_value = frappe.db.get_single_value("SRV Settings", fieldname)
+		try:
+			frappe.db.set_single_value("SRV Settings", fieldname, 1)
+			frappe.clear_document_cache("SRV Settings", "SRV Settings")
+			frappe.set_user(self.REQUESTER)
+			frappe.get_doc("User", self.REQUESTER).add_roles(APPROVER_ROLE)
+			result = resolve_or_request(self._payload("_Test Dynamic Self Approved"))
+
+			approved = approve_request(result["request"])
+
+			self.assertEqual(approved["outcome"], "approved")
+			self.assertEqual(
+				frappe.db.get_value("Dynamic Item Request", result["request"], "approved_by"),
+				self.REQUESTER,
+			)
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.set_single_value("SRV Settings", fieldname, previous_value or 0)
+			frappe.clear_document_cache("SRV Settings", "SRV Settings")
 
 	def test_pending_item_is_blocked_from_transaction(self):
 		result = self._request("_Test Dynamic Silver")

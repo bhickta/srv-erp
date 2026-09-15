@@ -13,6 +13,7 @@ from srv_erp.masters.dynamic_item.configuration import (
 	CREATE_VARIANT,
 	PENDING,
 	REJECTED,
+	is_requester_self_approval_allowed,
 	require_approver,
 	user_has_approver_role,
 )
@@ -34,7 +35,7 @@ def approve_request(name: str) -> dict:
 		return approved_result(request)
 	if request.status != PENDING:
 		frappe.throw(_("Only Pending Approval requests can be approved."))
-	if request.requested_by == frappe.session.user:
+	if request.requested_by == frappe.session.user and not is_requester_self_approval_allowed():
 		frappe.throw(_("Requesters cannot approve their own Dynamic Item Request."), frappe.PermissionError)
 
 	if request.request_type == CREATE_VARIANT:
@@ -111,12 +112,15 @@ def get_request_status(name: str) -> dict:
 	):
 		frappe.throw(_("Not permitted to view this request."), frappe.PermissionError)
 	can_review = request.status == PENDING and user_has_approver_role()
+	can_self_approve = (
+		request.requested_by != frappe.session.user or is_requester_self_approval_allowed()
+	)
 	return {
 		"name": request.name,
 		"request_type": request.request_type,
 		"status": request.status,
 		"item_code": request.resolved_item or request.staged_item_code,
-		"can_approve": can_review and request.requested_by != frappe.session.user,
+		"can_approve": can_review and can_self_approve,
 		"can_reject": can_review,
 		"can_cancel": request.status == PENDING and request.requested_by == frappe.session.user,
 	}

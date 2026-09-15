@@ -56,7 +56,11 @@ def get_requester_roles() -> set[str]:
 
 
 def get_approver_role() -> str:
-	return get_settings().approver_role or APPROVER_ROLE
+	return (
+		frappe.get_cached_doc("SRV Settings").get("dynamic_item_approver_role")
+		or get_settings().approver_role
+		or APPROVER_ROLE
+	)
 
 
 def get_approver_users(exclude_user: str | None = None, role: str | None = None) -> list[str]:
@@ -93,6 +97,11 @@ def user_has_approver_role(user: str | None = None) -> bool:
 	if user == "Administrator":
 		return True
 	return get_approver_role() in frappe.get_roles(user)
+
+
+def is_requester_self_approval_allowed() -> bool:
+	settings = frappe.get_cached_doc("SRV Settings")
+	return bool(cint(settings.get("allow_dynamic_item_requester_self_approval")))
 
 
 def require_requester(user: str | None = None):
