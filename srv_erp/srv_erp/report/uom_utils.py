@@ -29,28 +29,18 @@ def add_selected_uom_columns(columns, data, include_uom):
 	]
 	add_additional_uom_columns(columns, data, include_uom, conversion_factors)
 
-	for fieldname in convertible_fields:
-		alternate_fieldname = f"{fieldname}_alt"
-		uom_fieldname = f"uom_{fieldname}"
-		alternate_uom_fieldname = f"uom_{alternate_fieldname}"
-		alternate_index = next(
-			index
-			for index, column in enumerate(columns)
-			if column.get("fieldname") == alternate_fieldname
-		)
-		alternate_column = columns.pop(alternate_index)
-		uom_index = next(
-			index for index, column in enumerate(columns) if column.get("fieldname") == uom_fieldname
-		)
-		columns[uom_index + 1 : uom_index + 1] = [
-			alternate_column,
-			{
-				"label": f"{alternate_column.get('label')} UOM",
-				"fieldname": alternate_uom_fieldname,
-				"fieldtype": "Link",
-				"options": "UOM",
-				"width": alternate_column.get("width", 120),
-			},
-		]
-		for row in data:
-			row[alternate_uom_fieldname] = include_uom
+	# for fieldname in convertible_fields:
+	# 	alternate_fieldname = f"{fieldname}_alt"
+	# 	alternate_index = next(
+	# 		index
+	# 		for index, column in enumerate(columns)
+	# 		if column.get("fieldname") == alternate_fieldname
+	# 	)
+	# 	alternate_column = columns.pop(alternate_index)
+	# 	print(alternate_column)
+	# 	uom_index = next(
+	# 		index for index, column in enumerate(columns) if column.get("fieldname") == fieldname
+	# 	)
+	# 	columns[uom_index + 1 : uom_index + 1] = [
+	# 		alternate_column,
+	# 	]
