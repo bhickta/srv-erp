@@ -10,6 +10,7 @@ from srv_erp.masters.dynamic_item.artifact_usage import (
 	get_request_artifact_history,
 )
 from srv_erp.masters.dynamic_item.context import dynamic_item_service_context
+from srv_erp.masters.dynamic_item.profile_lookup import get_dynamic_variant_profile_name
 
 
 def delete_staged_item(request):
@@ -66,14 +67,12 @@ def cleanup_template_link(template_name, attribute, history, used_by_other_reque
 
 
 def cleanup_profile_row(template_name, attribute, history, used_by_other_request):
-	if (
-		not history.profile_row_created
-		or history.template_adopted
-		or used_by_other_request
-		or not frappe.db.exists("Dynamic Variant Profile", template_name)
-	):
+	if not history.profile_row_created or history.template_adopted or used_by_other_request:
 		return
-	profile = frappe.get_doc("Dynamic Variant Profile", template_name)
+	profile_name = get_dynamic_variant_profile_name(template_name)
+	if not profile_name:
+		return
+	profile = frappe.get_doc("Dynamic Variant Profile", profile_name)
 	profile_row = next((d for d in profile.attributes if d.item_attribute == attribute), None)
 	if not profile_row or cint(profile_row.required_parameter) or not cint(profile_row.allow_new_values):
 		return

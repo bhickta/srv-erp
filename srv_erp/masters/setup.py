@@ -5,6 +5,7 @@ from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.masters.dynamic_item.configuration import APPROVER_ROLE, REQUESTER_ROLE, clear_settings_cache
+from srv_erp.masters.dynamic_item.profile_lookup import get_dynamic_variant_profile_name
 
 SYSTEM_MANAGER_ROLE = "System Manager"
 
@@ -185,7 +186,7 @@ def bootstrap_dynamic_variant_profiles():
 		pluck="name",
 		order_by="name",
 	):
-		if frappe.db.exists("Dynamic Variant Profile", template):
+		if get_dynamic_variant_profile_name(template):
 			continue
 
 		profile = frappe.get_doc(
