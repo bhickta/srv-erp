@@ -12,6 +12,7 @@ from srv_erp.masters.dynamic_item.lookups import (
 	get_case_insensitive_name,
 )
 from srv_erp.masters.dynamic_item.normalization import normalize_text
+from srv_erp.masters.dynamic_item.profile_lookup import get_dynamic_variant_profile_name
 
 
 def validate_source(source):
@@ -41,11 +42,12 @@ def get_template_and_profile(template_item: str):
 		frappe.throw(_("Item template {0} is disabled.").format(frappe.bold(template_item)))
 	if not cint(template.has_variants) or template.variant_based_on != "Item Attribute":
 		frappe.throw(_("{0} is not an Item Attribute-based template.").format(frappe.bold(template_item)))
-	if not frappe.db.exists("Dynamic Variant Profile", template_item):
+	profile_name = get_dynamic_variant_profile_name(template_item)
+	if not profile_name:
 		frappe.throw(
 			_("Dynamic Variant Profile is not configured for {0}.").format(frappe.bold(template_item))
 		)
-	profile = frappe.get_doc("Dynamic Variant Profile", template_item)
+	profile = frappe.get_doc("Dynamic Variant Profile", profile_name)
 	if not cint(profile.enabled):
 		frappe.throw(_("Dynamic Variant Profile is disabled for {0}.").format(frappe.bold(template_item)))
 	return template, profile
@@ -92,9 +94,7 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 				)
 			validate_numeric_value(template.name, attribute, value)
 		elif not attribute_exists or not get_case_insensitive_attribute_value(attribute, value):
-			frappe.throw(
-				_("Select a predefined value for attribute {0}.").format(frappe.bold(attribute))
-			)
+			frappe.throw(_("Select a predefined value for attribute {0}.").format(frappe.bold(attribute)))
 
 
 def validate_numeric_value(template_item: str, attribute: str, value: str):

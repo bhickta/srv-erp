@@ -6,11 +6,27 @@ from srv_erp.masters.dynamic_item.configuration import (
 	REQUESTER_ROLE,
 	masters_settings_available,
 )
-from srv_erp.masters.setup import activate_dynamic_item_creation, provision_masters_user_roles
+from srv_erp.masters.setup import (
+	activate_dynamic_item_creation,
+	bootstrap_dynamic_variant_profiles,
+	provision_masters_user_roles,
+)
 from srv_erp.patches.enforce_predefined_dynamic_item_attributes import execute as enforce_predefined
 
 
 class TestMastersSetup(unittest.TestCase):
+	@patch("srv_erp.masters.setup.get_dynamic_variant_profile_name", return_value="APL  562")
+	@patch("srv_erp.masters.setup.frappe")
+	def test_profile_bootstrap_is_idempotent_after_template_rename(self, frappe, get_profile_name):
+		frappe.db.exists.return_value = True
+		frappe.get_all.return_value = ["APL 562"]
+
+		created = bootstrap_dynamic_variant_profiles()
+
+		self.assertEqual(created, 0)
+		get_profile_name.assert_called_once_with("APL 562")
+		frappe.get_doc.assert_not_called()
+
 	@patch("srv_erp.masters.dynamic_item.configuration.frappe")
 	def test_settings_are_unavailable_until_every_child_table_exists(self, frappe):
 		frappe.db.exists.return_value = "Masters Settings"
@@ -30,14 +46,10 @@ class TestMastersSetup(unittest.TestCase):
 
 	@patch("srv_erp.patches.enforce_predefined_dynamic_item_attributes.clear_settings_cache")
 	@patch("srv_erp.patches.enforce_predefined_dynamic_item_attributes.frappe")
-	def test_predefined_attribute_patch_disables_free_text_configuration(
-		self, frappe, clear_cache
-	):
+	def test_predefined_attribute_patch_disables_free_text_configuration(self, frappe, clear_cache):
 		enforce_predefined()
 
-		frappe.db.set_single_value.assert_called_once_with(
-			"Masters Settings", "allow_dynamic_attributes", 0
-		)
+		frappe.db.set_single_value.assert_called_once_with("Masters Settings", "allow_dynamic_attributes", 0)
 		self.assertIn("set allow_new_values = 0", frappe.db.sql.call_args.args[0])
 		clear_cache.assert_called_once_with()
 
@@ -61,20 +73,14 @@ class TestMastersSetup(unittest.TestCase):
 
 		self.assertEqual(result, {"requesters": 3, "approvers": 2})
 		users["requester@example.com"].add_roles.assert_called_once_with(REQUESTER_ROLE)
-		users["manager.one@example.com"].add_roles.assert_called_once_with(
-			REQUESTER_ROLE, APPROVER_ROLE
-		)
-		users["manager.two@example.com"].add_roles.assert_called_once_with(
-			REQUESTER_ROLE, APPROVER_ROLE
-		)
+		users["manager.one@example.com"].add_roles.assert_called_once_with(REQUESTER_ROLE, APPROVER_ROLE)
+		users["manager.two@example.com"].add_roles.assert_called_once_with(REQUESTER_ROLE, APPROVER_ROLE)
 
 	@patch("srv_erp.masters.setup.ensure_masters_roles")
 	@patch("srv_erp.masters.setup._", side_effect=lambda message: message)
 	@patch("srv_erp.masters.setup.frappe.throw")
 	@patch("srv_erp.masters.setup.frappe.get_all")
-	def test_provision_requires_two_system_managers(
-		self, get_all, throw, _translate, _ensure_roles
-	):
+	def test_provision_requires_two_system_managers(self, get_all, throw, _translate, _ensure_roles):
 		get_all.side_effect = [
 			["requester@example.com", "manager@example.com"],
 			["manager@example.com"],
