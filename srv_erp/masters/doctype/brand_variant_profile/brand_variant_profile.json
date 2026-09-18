@@ -1,0 +1,141 @@
+{
+ "actions": [],
+ "autoname": "field:brand",
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "brand", "publication_status", "published_revision", "published_on", "published_by",
+  "attributes", "allowed_values", "previous_configuration", "published_configuration", "draft_hash", "sync_section",
+  "sync_status", "last_synced_revision", "last_sync_on", "last_sync_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Brand",
+   "options": "Brand",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "publication_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Publication Status",
+   "options": "Draft\nPublished\nChanges Pending",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "published_revision",
+   "fieldtype": "Int",
+   "label": "Published Revision",
+   "read_only": 1
+  },
+  {
+   "fieldname": "published_on",
+   "fieldtype": "Datetime",
+   "label": "Published On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "published_by",
+   "fieldtype": "Link",
+   "label": "Published By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attributes",
+   "fieldtype": "Table",
+   "label": "Draft Attribute Rules",
+   "options": "Brand Variant Profile Attribute"
+  },
+  {
+   "fieldname": "allowed_values",
+   "fieldtype": "Table",
+   "label": "Draft Allowed Values",
+   "options": "Brand Variant Profile Value"
+  },
+  {
+   "fieldname": "previous_configuration",
+   "fieldtype": "Long Text",
+   "hidden": 1,
+   "label": "Previous Published Configuration",
+   "read_only": 1
+  },
+  {
+   "fieldname": "published_configuration",
+   "fieldtype": "Long Text",
+   "hidden": 1,
+   "label": "Published Configuration",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draft_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Draft Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_section",
+   "fieldtype": "Section Break",
+   "label": "Synchronization"
+  },
+  {
+   "default": "Not Queued",
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sync Status",
+   "options": "Not Queued\nPending\nRunning\nCompleted\nCompleted with Conflicts\nFailed\nDisabled",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "last_synced_revision",
+   "fieldtype": "Int",
+   "label": "Last Synced Revision",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_on",
+   "fieldtype": "Datetime",
+   "label": "Last Sync On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_message",
+   "fieldtype": "Small Text",
+   "label": "Last Sync Message",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Masters",
+ "name": "Brand Variant Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Masters Item Approver", "share": 1, "write": 1},
+  {"read": 1, "role": "Masters Item Requester"}
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

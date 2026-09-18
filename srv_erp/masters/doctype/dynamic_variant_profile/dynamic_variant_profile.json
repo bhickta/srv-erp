@@ -4,7 +4,7 @@
  "creation": "2026-08-14 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": ["item_template", "enabled", "attributes"],
+ "field_order": ["item_template", "enabled", "configuration_mode", "attributes", "allowed_values"],
  "fields": [
   {
    "fieldname": "item_template",
@@ -26,10 +26,26 @@
    "label": "Enabled"
   },
   {
+   "default": "Inherit Brand Rules",
+   "description": "Brand rules are used only while the Brand Variant Rules feature is enabled. Template Override is a complete replacement.",
+   "fieldname": "configuration_mode",
+   "fieldtype": "Select",
+   "label": "Configuration Mode",
+   "options": "Inherit Brand Rules\nTemplate Override",
+   "reqd": 1
+  },
+  {
    "fieldname": "attributes",
    "fieldtype": "Table",
    "label": "Variant Parameters",
    "options": "Dynamic Variant Profile Attribute"
+  },
+  {
+   "description": "Allowed categorical values used only in Template Override mode.",
+   "fieldname": "allowed_values",
+   "fieldtype": "Table",
+   "label": "Override Allowed Values",
+   "options": "Dynamic Variant Profile Value"
   }
  ],
  "grid_page_length": 50,
