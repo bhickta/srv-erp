@@ -145,6 +145,7 @@ frappe.query_reports["Stock Inward Register"] = {
 			fieldname: "group_by",
 			label: __("Group By"),
 			fieldtype: "Select",
+			default: "Item",
 			options:
 				"\nVoucher\nVoucher Type\nSupplier\nSupplier Group\nItem\nItem Group\nWarehouse\nPosting Date\nStock Entry Type",
 		},

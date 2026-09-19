@@ -4,6 +4,7 @@ from unittest.mock import patch
 from frappe import _dict
 
 from srv_erp.srv_erp.report.stock_inward_register.stock_inward_register import (
+	GROUP_BY,
 	add_group_rows,
 	get_conditions,
 	get_order_by,
@@ -88,6 +89,32 @@ class TestStockInwardRegister(TestCase):
 			get_order_by(filters),
 			"supplier.supplier_name ASC, supplier.name ASC, sle.actual_qty ASC",
 		)
+
+	def test_item_group_orders_by_template_for_contiguous_grouping(self):
+		filters = self.filters.copy()
+		filters.update({"group_by": "Item", "sort_by": "Posting Date", "sort_order": "Descending"})
+		self.assertEqual(
+			get_order_by(filters),
+			"item_template DESC, item.item_name DESC, sle.item_code DESC, "
+			"sle.posting_date DESC, sle.posting_time DESC",
+		)
+		self.assertEqual(GROUP_BY["Item"][0], "item_template")
+
+	def test_item_grouping_collapses_variants_under_template(self):
+		rows = [
+			_dict(item_template="TPL-1", in_qty=2, stock_uom="Kg", stock_value=20, company_currency="INR"),
+			_dict(item_template="TPL-1", in_qty=3, stock_uom="Kg", stock_value=30, company_currency="INR"),
+			_dict(item_template="TPL-2", in_qty=1, stock_uom="Kg", stock_value=5, company_currency="INR"),
+		]
+
+		grouped = add_group_rows(rows, "Item")
+
+		group_rows = [row for row in grouped if row.get("is_group")]
+		self.assertEqual([row.group_label for row in group_rows], ["TPL-1", "TPL-2"])
+		self.assertEqual(group_rows[0].in_qty, 5)
+		self.assertEqual(group_rows[0].stock_value, 50)
+		self.assertEqual(group_rows[1].in_qty, 1)
+		self.assertEqual(group_rows[1].stock_value, 5)
 
 	@patch("srv_erp.srv_erp.report.stock_inward_register.stock_inward_register.frappe.throw")
 	def test_rejects_unknown_sort_field(self, throw):
