@@ -239,6 +239,7 @@ doc_events = {
 		"validate": [
       		"srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
             "srv_erp.selling.sales_order_uom.validate_sales_order_uom",
+			"srv_erp.selling.sales_order.validate_no_pending_sales_order",
         ],
 	},
 	"Sales Person": {
