@@ -27,7 +27,7 @@ function set_stock_entry_price_list_rate(frm, cdt, cdn) {
 		.then((response) => {
 			const current_row = locals[cdt]?.[cdn];
 			if (
-				response.message &&
+				response.message?.rate != null &&
 				current_row?.item_code === row.item_code &&
 				flt(current_row.basic_rate) !== flt(response.message.rate)
 			) {
