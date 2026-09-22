@@ -128,7 +128,7 @@
    "label": "Incoming Item Rates"
   },
   {
-   "description": "Fetch Basic Rate for incoming-only Stock Entry rows from this Price List. Source warehouse rows continue to use stock valuation. Leave empty to use standard ERPNext rate calculation.",
+   "description": "Fetch Basic Rate for incoming-only Stock Entry rows from this Price List. Source warehouse rows continue to use stock valuation. If no matching rate is found in the Price List, the standard ERPNext rate calculation is used. Leave empty to always use standard ERPNext rate calculation.",
    "fieldname": "stock_entry_price_list",
    "fieldtype": "Link",
    "label": "Stock Entry Price List",

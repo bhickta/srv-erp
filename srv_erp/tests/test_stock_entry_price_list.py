@@ -10,28 +10,36 @@ class AttrDict(dict):
 
 
 class TestStockEntryPriceList(TestCase):
-	@patch("srv_erp.stock.stock_entry._", side_effect=lambda message: message)
-	@patch("srv_erp.stock.stock_entry.frappe.bold", side_effect=lambda value: value)
-	@patch("srv_erp.stock.stock_entry.frappe.throw", side_effect=RuntimeError)
-	@patch("srv_erp.stock.stock_entry.get_price_list_rate_for", return_value=None)
 	@patch("srv_erp.stock.stock_entry.frappe.get_cached_value")
-	def test_missing_item_price_stops_the_stock_entry(
+	@patch("srv_erp.stock.stock_entry.get_price_list_rate_for", return_value=None)
+	def test_missing_item_price_falls_back_to_standard_rate(
 		self,
-		get_cached_value,
 		_get_price_list_rate_for,
-		throw,
-		_bold,
-		_translate,
+		get_cached_value,
 	):
 		get_cached_value.side_effect = [
 			AttrDict(currency="INR", price_not_uom_dependent=0),
 			None,
 		]
 
-		with self.assertRaises(RuntimeError):
+		self.assertIsNone(
 			get_stock_entry_price_list_rate("ITEM-1", "Stock Rates", "Nos", 1, "2026-09-15", "SRV")
+		)
 
-		self.assertEqual(throw.call_args.kwargs["title"], "Stock Entry Price Missing")
+	@patch("srv_erp.stock.stock_entry.get_exchange_rate", return_value=None)
+	@patch("srv_erp.stock.stock_entry.erpnext.get_company_currency", return_value="INR")
+	@patch("srv_erp.stock.stock_entry.get_price_list_rate_for", return_value=125)
+	@patch("srv_erp.stock.stock_entry.frappe.get_cached_value")
+	def test_missing_exchange_rate_falls_back_to_standard_rate(
+		self, get_cached_value, _get_price_list_rate_for, _get_company_currency, get_exchange_rate
+	):
+		get_cached_value.return_value = AttrDict(currency="USD", price_not_uom_dependent=0)
+
+		self.assertIsNone(
+			get_stock_entry_price_list_rate("ITEM-1", "Stock Rates", "Nos", 1, "2026-09-15", "SRV")
+		)
+
+		get_exchange_rate.assert_called_once_with("USD", "INR", "2026-09-15")
 
 	@patch("srv_erp.stock.stock_entry.get_exchange_rate")
 	@patch("srv_erp.stock.stock_entry.erpnext.get_company_currency", return_value="INR")
@@ -111,6 +119,27 @@ class TestStockEntryPriceList(TestCase):
 		get_rate.assert_called_once()
 		self.assertEqual((incoming.basic_rate, incoming.basic_amount), (75, 150))
 		self.assertEqual((outgoing.basic_rate, zero_rate.basic_rate, manual.basic_rate), (40, 0, 22))
+
+	@patch("erpnext.stock.doctype.stock_entry.stock_entry.StockEntry.set_basic_rate")
+	@patch("srv_erp.stock.stock_entry.get_stock_entry_price_list_rate", return_value=None)
+	@patch("srv_erp.stock.stock_entry.get_configured_price_list", return_value="Stock Rates")
+	def test_missing_list_rate_keeps_standard_rate(
+		self, _get_price_list, _get_rate, base_set_basic_rate
+	):
+		incoming = self.make_item(t_warehouse="Stores - S", transfer_qty=2, basic_rate=30)
+		doc = object.__new__(SRVStockEntry)
+		doc.__dict__.update(
+			{
+				"posting_date": "2026-09-15",
+				"company": "SRV",
+				"items": [incoming],
+			}
+		)
+
+		SRVStockEntry.set_basic_rate(doc)
+
+		self.assertEqual(incoming.basic_rate, 30)
+		self.assertEqual(incoming.basic_amount, 0)
 
 	@patch("srv_erp.stock.stock_entry.get_configured_price_list", return_value=None)
 	@patch("erpnext.stock.doctype.stock_entry.stock_entry.StockEntry.set_basic_rate")
