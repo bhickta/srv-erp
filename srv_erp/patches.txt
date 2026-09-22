@@ -26,3 +26,4 @@ srv_erp.patches.disable_bulk_variant_creation
 srv_erp.patches.ensure_dynamic_item_indexes
 srv_erp.patches.activate_dynamic_item_creation
 srv_erp.patches.enforce_predefined_dynamic_item_attributes
+srv_erp.patches.add_sales_order_brand_filter
