@@ -15,6 +15,8 @@ STOCK_DELIVERED_QTY_SQL = (
 STOCK_PENDING_QTY_SQL = f"GREATEST(soi.stock_qty - ({STOCK_DELIVERED_QTY_SQL}), 0)"
 SO_UOM = "SO UOM"
 STOCK_UOM = "Stock UOM"
+CLOSED_SALES_ORDER_STATUS = "Closed"
+EXCLUDE_CLOSED_SALES_ORDERS_SQL = "so.status != %(closed_sales_order_status)s"
 STOCK_QUANTITY_FIELDS = (
 	"stock_ordered_qty",
 	"stock_delivered_qty",
@@ -126,6 +128,7 @@ def get_data(filters, group_by_item=False, subtotal_view=False):
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")
 		or DEFAULT_BRAND_VARIANT_ATTRIBUTE
 	)
+	filters["closed_sales_order_status"] = CLOSED_SALES_ORDER_STATUS
 	conditions = get_conditions(filters)
 	if subtotal_view:
 		return get_subtotal_data(filters, conditions)
@@ -598,6 +601,7 @@ def get_conditions(filters):
 		)
 	if cint(filters.get("pending_only")):
 		conditions.append("soi.qty > COALESCE(soi.delivered_qty, 0)")
+	conditions.append(EXCLUDE_CLOSED_SALES_ORDERS_SQL)
 
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
