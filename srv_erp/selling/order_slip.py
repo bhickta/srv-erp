@@ -2,7 +2,6 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import format_date
 import json
 from copy import deepcopy
 
@@ -119,9 +118,7 @@ def get_pending_order_slip_ledger_html(names: list[str] | str) -> str:
 			currency = None
 
 	if not orders:
-		frappe.throw(
-			_("None of the selected Sales Orders have pending items.")
-		)
+		frappe.throw(_("None of the selected Sales Orders have pending items."))
 
 	dates.sort()
 	date_heading = get_date_heading(dates)
@@ -136,6 +133,98 @@ def get_pending_order_slip_ledger_html(names: list[str] | str) -> str:
 			"pending_only": True,
 		},
 	)
+
+ 
+ 
+ 
+@frappe.whitelist()
+def get_required_stock_html(names: list[str] | str) -> str:
+	names = parse_order_names(names)
+
+	if not names:
+		frappe.throw(_("Select at least one Sales Order."))
+
+	if len(names) > MAX_ORDERS_PER_PRINT:
+		frappe.throw(
+			_("You can print up to {0} Sales Orders at a time.").format(MAX_ORDERS_PER_PRINT)
+		)
+
+	required_items = {}
+	dates = []
+
+	for name in names:
+		order = frappe.get_doc("Sales Order", name)
+		order.check_permission("print")
+
+		if order.transaction_date:
+			dates.append(order.transaction_date)
+
+		for item in order.items:
+			ordered_qty = flt(item.qty)
+			delivered_qty = flt(item.delivered_qty)
+			pending_qty = ordered_qty - delivered_qty
+
+			if pending_qty <= 0:
+				continue
+
+			uom = item.uom or item.stock_uom
+			key = (item.item_code, uom)
+
+			if key not in required_items:
+				required_items[key] = {
+					"item_code": item.item_code,
+					"item_name": item.item_name,
+					"item_group": item.item_group,
+					"uom": uom,
+					"qty": 0,
+				}
+
+			required_items[key]["qty"] += pending_qty
+
+	if not required_items:
+		frappe.throw(
+			_("None of the selected Sales Orders have pending items.")
+		)
+
+	print(f"required items: \n{required_items}")
+	item_groups = {}
+
+	for item in required_items.values():
+		item_group = item["item_group"] or _("No Item Group")
+		item_groups.setdefault(item_group, []).append(item)
+
+	for items in item_groups.values():
+		items.sort(
+			key=lambda item: (
+				(item["item_name"] or "").lower(),
+				item["item_code"],
+				item["uom"],
+			)
+		)
+
+	item_groups = dict(
+		sorted(
+			item_groups.items(),
+			key=lambda group: group[0].lower(),
+		)
+	)
+
+	dates.sort()
+	date_heading = get_date_heading(dates)
+	company = frappe.defaults.get_user_default("Company")
+	
+	return frappe.render_template(
+		"srv_erp/templates/required_stock.html",
+		{
+			"item_groups": item_groups,
+			"date_heading": date_heading,
+			"sales_orders": names,
+			"company": company,
+   			"required_items_count": len(required_items),
+		},
+	)
+	
+	
 
 
 def parse_order_names(names: list[str] | str) -> list[str]:

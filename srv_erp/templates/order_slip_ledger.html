@@ -4,30 +4,30 @@
 	<meta charset="utf-8">
 	<title>{{ _("Order Slip Ledger") }}</title>
 	<style>
-		@page { size: A4 portrait; margin: 9mm; }
+		@page { size: A4 portrait; margin: 12mm 8mm; }
 		* { box-sizing: border-box; }
-		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 10.8px; }
+		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 14px; }
 		.header { margin-bottom: 8px; text-align: center; }
-		.header h1 { margin: 0 0 2px; font-size: 18px; }
-		.header .period { font-size: 12px; }
+		.header h1 { margin: 0 0 2px; font-size: 20px; }
+		.header .period { font-size: 14px; }
 		table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 		th, td { border: 1px solid #777; padding: 4px 5px; vertical-align: top; }
-		th { background: #f2f2f2; font-size: 10.2px; text-align: center; }
-		.date { width: 9%; text-align: center; }
+		th { background: #f2f2f2; font-size: 12.5px; text-align: center; }
+		.date { font-weight: 700; width: 9%; text-align: center; }
 		.particulars { width: 35%; overflow-wrap: anywhere; }
 		.quantity { width: 12%; text-align: right; }
 		.rate { width: 15%; text-align: right; }
 		.total { width: 14%; text-align: right; font-weight: 700; }
 		.order-slip { width: 15%; text-align: right; font-weight: 700; }
-		.order-number { font-weight: 700; line-height: 1.2; }
-		.customer-name { margin-top: 2px; line-height: 1.2; }
+		.order-number { margin-top: 2px; line-height: 1.3; font-size: 12px; }
+		.customer-name { line-height: 1.3; font-weight: 700; }
 		.order-heading-cell { border-bottom: 1px dotted #bbb; }
-		.item-cell { border-top: 1px dotted #bbb; border-bottom: 1px dotted #bbb; line-height: 1.25; }
+		.item-cell { border-top: 1px dotted #bbb; border-bottom: 1px dotted #bbb; line-height: 1.35; }
 		.order-last-item .item-cell { border-bottom: 1px solid #777; }
 		.number-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
 		.order-cell { vertical-align: top; font-variant-numeric: tabular-nums; }
 		.amount-cell { vertical-align: top; }
-		.grand-total td { padding: 7px 5px; font-size: 12px; font-weight: 700; }
+		.grand-total td { padding: 7px 5px; font-size: 13px; font-weight: 700; }
 		.no-border-right { border-right: 0; }
 		@media print {
 			.no-print { display: none !important; }
@@ -61,8 +61,8 @@
 			<tr>
 				<td class="date order-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.format_date(order.transaction_date) }}</td>
 				<td class="particulars order-heading-cell">
-					<div class="order-number">{{ order.name }}</div>
 					{% if order.customer_name %}<div class="customer-name">{{ order.customer_name }}</div>{% endif %}
+					<div class="order-number">{{ order.name }}</div>
 				</td>
 				<td class="quantity order-heading-cell"></td>
 				<td class="rate order-heading-cell"></td>
