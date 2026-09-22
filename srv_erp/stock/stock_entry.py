@@ -3,7 +3,6 @@ import frappe
 from erpnext.setup.utils import get_exchange_rate
 from erpnext.stock.doctype.stock_entry.stock_entry import StockEntry
 from erpnext.stock.get_item_details import get_price_list_rate_for
-from frappe import _
 from frappe.utils import flt
 
 PRICE_LIST_SETTING = "stock_entry_price_list"
@@ -48,28 +47,14 @@ def get_stock_entry_price_list_rate(
 			rate = get_price_list_rate_for(args, variant_of)
 
 	if rate is None:
-		frappe.throw(
-			_("No valid Item Price was found for Item {0} in Price List {1} on {2}.").format(
-				frappe.bold(item_code),
-				frappe.bold(price_list),
-				frappe.bold(posting_date),
-			),
-			title=_("Stock Entry Price Missing"),
-		)
+		return None
 
 	company_currency = erpnext.get_company_currency(company)
 	price_list_currency = (price_list_details or {}).get("currency") or company_currency
 	if price_list_currency != company_currency:
 		exchange_rate = get_exchange_rate(price_list_currency, company_currency, posting_date)
 		if not exchange_rate:
-			frappe.throw(
-				_("Exchange Rate is required from {0} to {1} for Stock Entry Price List {2}.").format(
-					frappe.bold(price_list_currency),
-					frappe.bold(company_currency),
-					frappe.bold(price_list),
-				),
-				title=_("Stock Entry Exchange Rate Missing"),
-			)
+			return None
 		rate *= exchange_rate
 
 	return flt(rate)
@@ -119,7 +104,7 @@ class SRVStockEntry(StockEntry):
 			):
 				continue
 
-			item.basic_rate = get_stock_entry_price_list_rate(
+			rate = get_stock_entry_price_list_rate(
 				item_code=item.item_code,
 				price_list=price_list,
 				stock_uom=item.stock_uom,
@@ -128,7 +113,11 @@ class SRVStockEntry(StockEntry):
 				company=self.company,
 				batch_no=item.batch_no,
 			)
+			if rate is None:
+				continue
+
+			item.basic_rate = rate
 			item.basic_amount = flt(
-				flt(item.transfer_qty) * flt(item.basic_rate),
+				flt(item.transfer_qty) * flt(rate),
 				item.precision("basic_amount"),
 			)

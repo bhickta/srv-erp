@@ -5,6 +5,8 @@ from unittest.mock import patch
 import frappe
 
 from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range import (
+	CLOSED_SALES_ORDER_STATUS,
+	EXCLUDE_CLOSED_SALES_ORDERS_SQL,
 	SO_UOM,
 	STOCK_DELIVERED_QTY_SQL,
 	STOCK_PENDING_QTY_SQL,
@@ -13,6 +15,7 @@ from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_ra
 	convert_and_group_subtotal_rows,
 	convert_data_to_display_uom,
 	get_columns,
+	get_conditions,
 	get_grouped_data,
 	merge_sales_orders,
 )
@@ -26,6 +29,14 @@ class TestItemsOrderedInDateRange(TestCase):
 		)
 		translation_patcher.start()
 		self.addCleanup(translation_patcher.stop)
+
+	def test_closed_sales_orders_are_excluded(self):
+		self.assertEqual(CLOSED_SALES_ORDER_STATUS, "Closed")
+		self.assertEqual(EXCLUDE_CLOSED_SALES_ORDERS_SQL, "so.status != %(closed_sales_order_status)s")
+
+		conditions = get_conditions(frappe._dict())
+
+		self.assertTrue(conditions.endswith(EXCLUDE_CLOSED_SALES_ORDERS_SQL))
 
 	def test_sales_order_delivered_qty_is_converted_to_stock_uom_in_queries(self):
 		self.assertIn("soi.delivered_qty", STOCK_DELIVERED_QTY_SQL)

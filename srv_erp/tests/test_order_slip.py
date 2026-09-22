@@ -1,9 +1,40 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock, call, patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from srv_erp.selling.order_slip import get_date_heading, parse_order_names
+from srv_erp.selling.order_slip import (
+	ensure_print_permission,
+	get_date_heading,
+	parse_order_names,
+)
+
+
+class TestOrderSlipPermission(FrappeTestCase):
+	@patch("srv_erp.selling.order_slip.frappe")
+	def test_read_permission_allows_printing(self, frappe):
+		frappe.has_permission.side_effect = [False, True]
+		order = MagicMock(doctype="Sales Order")
+
+		ensure_print_permission(order)
+
+		self.assertEqual(
+			frappe.has_permission.call_args_list,
+			[
+				call("Sales Order", "read", order),
+				call("Sales Order", "print", order),
+			],
+		)
+
+	@patch("srv_erp.selling.order_slip.frappe")
+	def test_missing_read_and_print_permission_is_rejected(self, frappe):
+		frappe.has_permission.return_value = False
+		order = MagicMock(doctype="Sales Order")
+
+		ensure_print_permission(order)
+
+		order._handle_permission_failure.assert_called_once_with("print")
 
 
 class TestOrderSlipHelpers(FrappeTestCase):
