@@ -1,5 +1,6 @@
 /* global erpnext */
 
+const sales_order_brand_field = "brand_filter";
 const sales_order_attribute_fields = ["branding_type", "color", "marketed_by"];
 const sales_order_rate_discount_field = "srv_discount_percentage";
 const sales_order_base_rate_field = "srv_rate_before_discount";
@@ -64,8 +65,7 @@ async function get_sales_order_uom(item_group) {
 			"custom_sales_order_uom"
 		);
 
-		const sales_order_uom =
-			response.message?.custom_sales_order_uom;
+		const sales_order_uom = response.message?.custom_sales_order_uom;
 
 		if (sales_order_uom) {
 			return sales_order_uom;
@@ -74,7 +74,6 @@ async function get_sales_order_uom(item_group) {
 
 	return null;
 }
-
 
 async function get_item_sales_order_uom(item_code) {
 	if (!item_code) {
@@ -95,7 +94,6 @@ async function get_item_sales_order_uom(item_code) {
 
 	return await get_sales_order_uom(item_group);
 }
-
 
 async function apply_sales_order_uom(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
@@ -127,14 +125,18 @@ async function apply_sales_order_uom(frm, cdt, cdn) {
 	refresh_field("uom", cdn, "items");
 }
 
-
 function copy_parent_value_to_items(frm, fieldname) {
 	if (!frm.doc[fieldname]) {
 		return;
 	}
 
 	(frm.doc.items || []).forEach((row) => {
-		frappe.model.set_value(row.doctype, row.name, fieldname, frm.doc[fieldname]);
+		frappe.model.set_value(
+			row.doctype,
+			row.name,
+			fieldname,
+			frm.doc[fieldname]
+		);
 	});
 }
 
@@ -143,16 +145,31 @@ function set_item_attribute_defaults(frm, cdt, cdn) {
 
 	sales_order_attribute_fields.forEach((fieldname) => {
 		if (frm.doc[fieldname]) {
-			frappe.model.set_value(cdt, cdn, fieldname, frm.doc[fieldname]);
+			frappe.model.set_value(
+				cdt,
+				cdn,
+				fieldname,
+				frm.doc[fieldname]
+			);
 		} else {
-			frm.script_manager.copy_from_first_row("items", row, [fieldname]);
+			frm.script_manager.copy_from_first_row(
+				"items",
+				row,
+				[fieldname]
+			);
 		}
 	});
 }
 
 function copy_item_value_to_all_rows(frm, cdt, cdn, fieldname) {
 	if (!frm.doc[fieldname]) {
-		erpnext.utils.copy_value_in_all_rows(frm.doc, cdt, cdn, "items", fieldname);
+		erpnext.utils.copy_value_in_all_rows(
+			frm.doc,
+			cdt,
+			cdn,
+			"items",
+			fieldname
+		);
 	}
 }
 
@@ -161,8 +178,15 @@ function validate_discount_percentage(cdt, cdn) {
 	const discount_percentage = flt(row[sales_order_rate_discount_field]);
 
 	if (discount_percentage < 0 || discount_percentage > 100) {
-		frappe.model.set_value(cdt, cdn, sales_order_rate_discount_field, 0);
-		frappe.throw(__("Discount (%) on Rate must be between 0 and 100."));
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			sales_order_rate_discount_field,
+			0
+		);
+		frappe.throw(
+			__("Discount (%) on Rate must be between 0 and 100.")
+		);
 	}
 }
 
@@ -174,7 +198,10 @@ function get_previous_discounted_rate(row) {
 		return null;
 	}
 
-	return flt(base_rate * (1 - discount_percentage / 100), precision("rate", row));
+	return flt(
+		base_rate * (1 - discount_percentage / 100),
+		precision("rate", row)
+	);
 }
 
 function is_previous_discounted_rate(row) {
@@ -184,12 +211,15 @@ function is_previous_discounted_rate(row) {
 		return false;
 	}
 
-	return Math.abs(flt(row.rate) - previous_discounted_rate) <= 0.000001;
+	return (
+		Math.abs(flt(row.rate) - previous_discounted_rate) <= 0.000001
+	);
 }
 
 function calculate_discounted_rate(row, base_rate) {
 	return flt(
-		base_rate * (1 - flt(row[sales_order_rate_discount_field]) / 100),
+		base_rate *
+		(1 - flt(row[sales_order_rate_discount_field]) / 100),
 		precision("rate", row)
 	);
 }
@@ -209,6 +239,7 @@ function apply_rate_discount(frm, cdt, cdn) {
 		}
 
 		row.__applying_srv_rate_discount = true;
+
 		frappe.model
 			.set_value(cdt, cdn, {
 				[sales_order_base_rate_field]: base_rate,
@@ -219,11 +250,13 @@ function apply_rate_discount(frm, cdt, cdn) {
 				row.__applying_srv_rate_discount = false;
 				refresh_discount_calculated_fields(frm, cdt, cdn);
 			});
+
 		return;
 	}
 
 	if (base_rate && is_previous_discounted_rate(row)) {
 		row.__applying_srv_rate_discount = true;
+
 		frappe.model
 			.set_value(cdt, cdn, {
 				rate: base_rate,
@@ -234,6 +267,7 @@ function apply_rate_discount(frm, cdt, cdn) {
 				row.__applying_srv_rate_discount = false;
 				refresh_discount_calculated_fields(frm, cdt, cdn);
 			});
+
 		return;
 	}
 
@@ -241,6 +275,7 @@ function apply_rate_discount(frm, cdt, cdn) {
 		[sales_order_base_rate_field]: 0,
 		[sales_order_last_discount_field]: 0,
 	});
+
 	refresh_discount_calculated_fields(frm, cdt, cdn);
 }
 
@@ -250,13 +285,17 @@ function schedule_rate_discount(frm, cdt, cdn) {
 
 function refresh_discount_calculated_fields(frm, cdt, cdn) {
 	setTimeout(() => {
-		if (frm.cscript && frm.cscript.calculate_taxes_and_totals) {
+		if (
+			frm.cscript &&
+			frm.cscript.calculate_taxes_and_totals
+		) {
 			frm.cscript.calculate_taxes_and_totals();
 		}
 
 		sales_order_discount_refresh_fields.forEach((fieldname) => {
 			refresh_field(fieldname, cdn, "items");
 		});
+
 		frm.refresh_fields([
 			"total",
 			"net_total",
@@ -282,13 +321,16 @@ function update_pending_qty(row) {
 
 function setup_delivery_item_filter(frm) {
 	const grid = frm.fields_dict.items && frm.fields_dict.items.grid;
+
 	if (!grid || grid.__srv_unfiltered_get_data) {
 		return;
 	}
 
 	grid.__srv_unfiltered_get_data = grid.get_data.bind(grid);
 	grid.get_data = function (filter_field) {
-		const data = grid.__srv_unfiltered_get_data(filter_field) || [];
+		const data =
+			grid.__srv_unfiltered_get_data(filter_field) || [];
+
 		if (!frm.__srv_hide_fully_delivered_items) {
 			return data;
 		}
@@ -299,19 +341,25 @@ function setup_delivery_item_filter(frm) {
 
 function refresh_sales_order_items_grid(frm) {
 	const grid = frm.fields_dict.items && frm.fields_dict.items.grid;
+
 	if (!grid) {
 		return;
 	}
 
 	(frm.doc.items || []).forEach(update_pending_qty);
+
 	if (grid.grid_pagination) {
 		grid.grid_pagination.page_index = 1;
 	}
+
 	grid.refresh();
 }
 
 function add_delivery_item_filter_button(frm) {
-	[hide_fully_delivered_label, show_fully_delivered_label].forEach((label) => {
+	[
+		hide_fully_delivered_label,
+		show_fully_delivered_label,
+	].forEach((label) => {
 		frm.remove_custom_button(__(label), __("View"));
 	});
 
@@ -322,10 +370,13 @@ function add_delivery_item_filter_button(frm) {
 	const label = frm.__srv_hide_fully_delivered_items
 		? show_fully_delivered_label
 		: hide_fully_delivered_label;
+
 	frm.add_custom_button(
 		__(label),
 		() => {
-			frm.__srv_hide_fully_delivered_items = !frm.__srv_hide_fully_delivered_items;
+			frm.__srv_hide_fully_delivered_items =
+				!frm.__srv_hide_fully_delivered_items;
+
 			refresh_sales_order_items_grid(frm);
 			add_delivery_item_filter_button(frm);
 		},
@@ -335,8 +386,13 @@ function add_delivery_item_filter_button(frm) {
 
 function refresh_pending_qty(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
+
 	update_pending_qty(row);
-	refresh_field(sales_order_pending_qty_field, cdn, "items");
+	refresh_field(
+		sales_order_pending_qty_field,
+		cdn,
+		"items"
+	);
 
 	if (frm.__srv_hide_fully_delivered_items) {
 		refresh_sales_order_items_grid(frm);
@@ -344,8 +400,16 @@ function refresh_pending_qty(frm, cdt, cdn) {
 }
 
 function current_stock_is_enabled() {
-	const field = frappe.meta.get_docfield("Sales Order Item", sales_order_current_stock_field);
-	return Boolean(field && !cint(field.hidden) && cint(field.in_list_view));
+	const field = frappe.meta.get_docfield(
+		"Sales Order Item",
+		sales_order_current_stock_field
+	);
+
+	return Boolean(
+		field &&
+		!cint(field.hidden) &&
+		cint(field.in_list_view)
+	);
 }
 
 function refresh_current_stock(frm) {
@@ -354,30 +418,51 @@ function refresh_current_stock(frm) {
 	}
 
 	const rows = (frm.doc.items || [])
-		.filter((row) => row.name && row.item_code && row.warehouse)
+		.filter(
+			(row) =>
+				row.name &&
+				row.item_code &&
+				row.warehouse
+		)
 		.map((row) => ({
 			name: row.name,
 			item_code: row.item_code,
 			warehouse: row.warehouse,
 		}));
+
 	if (!rows.length) {
 		return;
 	}
 
-	const request_id = (frm.__srv_current_stock_request_id || 0) + 1;
+	const request_id =
+		(frm.__srv_current_stock_request_id || 0) + 1;
+
 	frm.__srv_current_stock_request_id = request_id;
+
 	frappe.call({
-		method: "srv_erp.selling.sales_order_ui.get_sales_order_item_stock",
+		method:
+			"srv_erp.selling.sales_order_ui.get_sales_order_item_stock",
 		args: { rows },
+
 		callback: (response) => {
-			if (request_id !== frm.__srv_current_stock_request_id) {
+			if (
+				request_id !==
+				frm.__srv_current_stock_request_id
+			) {
 				return;
 			}
 
 			const stock_by_row = response.message || {};
+
 			(frm.doc.items || []).forEach((row) => {
-				row[sales_order_current_stock_field] = flt(stock_by_row[row.name]);
-				refresh_field(sales_order_current_stock_field, row.name, "items");
+				row[sales_order_current_stock_field] =
+					flt(stock_by_row[row.name]);
+
+				refresh_field(
+					sales_order_current_stock_field,
+					row.name,
+					"items"
+				);
 			});
 		},
 	});
@@ -385,20 +470,99 @@ function refresh_current_stock(frm) {
 
 function schedule_current_stock_refresh(frm) {
 	clearTimeout(frm.__srv_current_stock_timer);
-	frm.__srv_current_stock_timer = setTimeout(() => refresh_current_stock(frm), 250);
+
+	frm.__srv_current_stock_timer = setTimeout(
+		() => refresh_current_stock(frm),
+		250
+	);
 }
+
+function setup_sales_order_brand_filter(frm) {
+	console.log("set callback on item code query")
+	frm.set_query("item_code", "items", function () {
+		const brand = frm.doc[sales_order_brand_field];
+		console.log("Brand to be set", brand)
+		if (!brand) {
+			return {};
+		}
+
+		return {
+			query: "srv_erp.selling.sales_order.get_brand_filtered_items",
+			filters: {
+				brand: brand,
+			},
+		};
+	});
+}
+
+
+async function validate_item_varient_brand(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+
+	if (!row || !row.item_code) {
+		return;
+	}
+
+	const brand = frm.doc[sales_order_brand_field];
+
+	if (brand) {
+		const response = await frappe.call({
+			method:
+				"srv_erp.selling.sales_order.validate_sales_order_item_brand",
+			args: {
+				item_code: row.item_code,
+				brand: brand,
+			},
+		});
+
+		const result = response.message;
+
+		if (!result || !result.allowed) {
+			const entered_item = row.item_code;
+
+			await frappe.model.set_value(
+				cdt,
+				cdn,
+				"item_code",
+				""
+			);
+
+			frappe.msgprint({
+				title: __("Invalid Item"),
+				message: __(
+					"Item <b>{0}</b> Is not Allowed <b>{1}</b>, Sale Order only allowed <b>{2}</b>.",
+					[
+						entered_item,
+						result?.reason || __("another brand"),
+						brand,
+					]
+				),
+				indicator: "red",
+			});
+
+			return;
+		}
+	}
+}
+
 
 frappe.ui.form.on("Sales Order", {
 	onload(frm) {
 		frm.__srv_hide_fully_delivered_items = false;
 		setup_delivery_item_filter(frm);
+		setup_sales_order_brand_filter(frm);
 	},
 
 	refresh(frm) {
 		setup_delivery_item_filter(frm);
+		setup_sales_order_brand_filter(frm);
 		refresh_sales_order_items_grid(frm);
 		refresh_current_stock(frm);
 		add_delivery_item_filter_button(frm);
+	},
+
+	brand_filter(frm) {
+		setup_sales_order_brand_filter(frm);
 	},
 
 	branding_type(frm) {
@@ -420,10 +584,13 @@ frappe.ui.form.on("Sales Order Item", {
 	},
 
 	async item_code(frm, cdt, cdn) {
+		await validate_item_varient_brand(frm, cdt, cdn)
 		set_item_attribute_defaults(frm, cdt, cdn);
+
 		frappe.after_ajax(() => {
 			apply_sales_order_uom(frm, cdt, cdn);
 		});
+
 		schedule_current_stock_refresh(frm);
 	},
 
@@ -449,21 +616,39 @@ frappe.ui.form.on("Sales Order Item", {
 			);
 		}
 
-		// Make sure the field remains locked
-		set_sales_order_uom_editability(frm, cdt, cdn, false);
-
+		set_sales_order_uom_editability(
+			frm,
+			cdt,
+			cdn,
+			false
+		);
 	},
-	
+
 	branding_type(frm, cdt, cdn) {
-		copy_item_value_to_all_rows(frm, cdt, cdn, "branding_type");
+		copy_item_value_to_all_rows(
+			frm,
+			cdt,
+			cdn,
+			"branding_type"
+		);
 	},
 
 	color(frm, cdt, cdn) {
-		copy_item_value_to_all_rows(frm, cdt, cdn, "color");
+		copy_item_value_to_all_rows(
+			frm,
+			cdt,
+			cdn,
+			"color"
+		);
 	},
 
 	marketed_by(frm, cdt, cdn) {
-		copy_item_value_to_all_rows(frm, cdt, cdn, "marketed_by");
+		copy_item_value_to_all_rows(
+			frm,
+			cdt,
+			cdn,
+			"marketed_by"
+		);
 	},
 
 	price_list_rate: schedule_rate_discount,
@@ -479,6 +664,7 @@ frappe.ui.form.on("Sales Order Item", {
 
 	rate(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
+
 		if (!row.__applying_srv_rate_discount) {
 			schedule_rate_discount(frm, cdt, cdn);
 		}

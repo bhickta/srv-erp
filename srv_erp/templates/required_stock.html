@@ -1,0 +1,485 @@
+<style>
+    /* =========================================================
+       MATERIAL REQUIREMENT
+       Tally-style A4 print format
+       ========================================================= */
+
+    @page {
+        size: A4 portrait;
+        margin: 10mm 10mm 11mm 10mm;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+    }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+
+    .required-stock {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        color: #000;
+    }
+
+    /* =========================================================
+       HEADER
+       ========================================================= */
+
+    .report-header {
+        position: relative;
+        width: 100%;
+        text-align: center;
+        margin-top: 2px;
+        margin-bottom: 18px;
+    }
+
+    .company-name {
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0 0 4px 0;
+    }
+
+    .document-title {
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0 0 3px 0;
+    }
+
+    .date-heading {
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.2;
+        margin: 0;
+    }
+
+    .page-number {
+        position: absolute;
+        right: 8px;
+        bottom: -15px;
+
+        font-size: 10px;
+        font-weight: 400;
+    }
+
+    /* =========================================================
+       SALES ORDERS
+       ========================================================= */
+
+    .orders {
+        width: calc(100% - 8px);
+
+        font-size: 10px;
+        margin-bottom: 6px;
+        line-height: 1.2;
+    }
+
+    .orders-label {
+        font-weight: 700;
+    }
+
+    /* =========================================================
+       TABLE
+       ========================================================= */
+
+    .stock-table {
+        width: calc(100% - 8px);
+        margin-right: 8px;
+
+        border-collapse: collapse;
+        border-spacing: 0;
+        table-layout: fixed;
+    }
+
+    .stock-table col.particulars {
+        width: 75%;
+    }
+
+    .stock-table col.quantity {
+        width: 25%;
+    }
+
+    /* =========================================================
+       TABLE HEADER
+       ========================================================= */
+
+    .stock-table thead {
+        display: table-header-group;
+    }
+
+    .stock-table thead tr {
+        border-top: 1px solid #d8d8d8;
+        border-bottom: 1px solid #d8d8d8;
+    }
+
+    .stock-table th {
+        padding: 4px 5px 5px 5px;
+        margin: 0;
+
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.1;
+
+        color: #000;
+        background: #fff;
+
+        vertical-align: middle;
+    }
+
+    .stock-table th.particulars {
+        text-align: left;
+        border-right: 1px solid #d8d8d8;
+    }
+
+    .stock-table th.quantity {
+        text-align: right;
+        padding-right: 8px;
+    }
+
+    /* =========================================================
+       TABLE BODY
+       ========================================================= */
+
+    .stock-table tbody tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .stock-table td {
+        padding: 3px 5px;
+        margin: 0;
+
+        font-size: 11px;
+        line-height: 1.2;
+
+        color: #000;
+        background: #fff;
+
+        vertical-align: middle;
+    }
+
+    .stock-table td.particulars {
+        border-right: 1px solid #d8d8d8;
+        text-align: left;
+    }
+
+    .stock-table td.quantity {
+        text-align: right;
+        white-space: nowrap;
+        padding-right: 8px;
+    }
+
+    /* =========================================================
+       ITEM GROUP
+       ========================================================= */
+
+    .item-group-row td {
+        padding-top: 6px;
+        padding-bottom: 3px;
+
+        font-size: 11px;
+        font-weight: 400;
+
+        border-bottom: none;
+    }
+
+    .item-group-row td.particulars {
+        padding-left: 5px;
+    }
+
+    .item-group-row td.quantity {
+        font-weight: 700;
+    }
+
+    /* =========================================================
+       ITEM ROW
+       ========================================================= */
+
+    .item-row td {
+        padding-top: 3px;
+        padding-bottom: 3px;
+
+        font-size: 11px;
+        font-style: italic;
+    }
+
+    .item-row td.particulars {
+        padding-left: 20px;
+    }
+
+    .item-name {
+        display: inline;
+    }
+
+    .item-code {
+        display: inline;
+        font-size: 10px;
+        font-style: italic;
+    }
+
+    /* =========================================================
+       ITEM LEVELS
+       ========================================================= */
+
+    .item-level-1 td.particulars {
+        padding-left: 20px;
+    }
+
+    .item-level-2 td.particulars {
+        padding-left: 35px;
+    }
+
+    .item-level-3 td.particulars {
+        padding-left: 50px;
+    }
+
+    /* =========================================================
+       FOOTER
+       ========================================================= */
+
+    .report-footer {
+        width: calc(100% - 8px);
+
+        margin-top: 6px;
+        padding-top: 5px;
+
+        border-top: 1px solid #d8d8d8;
+
+        display: table;
+        table-layout: fixed;
+
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .footer-label {
+        display: table-cell;
+
+        text-align: left;
+
+        padding: 0;
+    }
+
+    .footer-value {
+        display: table-cell;
+
+        text-align: right;
+
+        padding: 0 8px 0 0;
+    }
+
+    /* =========================================================
+       PRINT
+       ========================================================= */
+
+    @media print {
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .required-stock {
+            width: 100%;
+        }
+
+        .stock-table {
+            page-break-after: auto;
+        }
+
+        .stock-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .stock-table thead {
+            display: table-header-group;
+        }
+
+        .report-header {
+            page-break-after: avoid;
+        }
+
+        .item-group-row {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        .report-footer {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+    }
+</style>
+
+
+<div class="required-stock">
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
+    <div class="report-header">
+
+        <div class="company-name">
+            {{ company }}
+        </div>
+
+        <div class="document-title">
+            MATERIAL REQUIREMENT
+        </div>
+
+        {% if date_heading %}
+        <div class="date-heading">
+            {{ date_heading }}
+        </div>
+        {% endif %}
+
+        <div class="page-number">
+            Page 1
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         SELECTED SALES ORDERS
+         ===================================================== -->
+
+    <div class="orders">
+        <span class="orders-label">Sales Orders:</span>
+        {{ sales_orders | join(", ") }}
+    </div>
+
+
+    <!-- =====================================================
+         MATERIAL TABLE
+         ===================================================== -->
+
+    <table class="stock-table">
+
+        <colgroup>
+
+            <col class="particulars">
+
+            <col class="quantity">
+
+        </colgroup>
+
+
+        <thead>
+
+            <tr>
+
+                <th class="particulars">
+                    Particulars
+                </th>
+
+                <th class="quantity">
+                    Required Qty
+                </th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            {% for item_group, items in item_groups.items() %}
+
+            <!-- =================================================
+                 ITEM GROUP
+                 ================================================= -->
+
+            <tr class="item-group-row">
+
+                <td class="particulars">
+                    {{ item_group }}
+                </td>
+
+                <td class="quantity">
+                </td>
+
+            </tr>
+
+
+            <!-- =================================================
+                 ITEMS
+                 ================================================= -->
+
+            {% for item in items %}
+
+            <tr class="item-row item-level-1">
+
+                <td class="particulars">
+
+                    <span class="item-name">
+                        {{ item.item_name }}
+                    </span>
+
+                    {% if item.item_code and item.item_code != item.item_name %}
+
+                    <span class="item-code">
+                        - {{ item.item_code }}
+                    </span>
+
+                    {% endif %}
+
+                </td>
+
+
+                <td class="quantity">
+
+                    {{ frappe.format(
+                        item.qty,
+                        {"fieldtype": "Float"}
+                    ) }}
+
+                    {{ item.uom }}
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+
+    <!-- =====================================================
+         FOOTER
+         ===================================================== -->
+
+    <div class="report-footer">
+
+        <div class="footer-label">
+            Total Items:
+        </div>
+
+        <div class="footer-value">
+            {{ required_items_count }}
+        </div>
+
+    </div>
+
+</div>

@@ -25,6 +25,7 @@ srv_erp.package_barcode.setup_stock_scanner = function (frm) {
 
 srv_erp.package_barcode.add_scan_receipt_button = function (frm) {
 	const print_format = srv_erp.package_barcode.receipt_formats[frm.doctype];
+	console.log(srv_erp.package_barcode.receipt_formats)
 	if (!print_format) {
 		return;
 	}
@@ -275,6 +276,12 @@ srv_erp.package_barcode.handle_stock_reconciliation_qty_change = function (frm, 
 frappe.ui.form.on("Stock Entry", {
 	setup: srv_erp.package_barcode.setup_stock_scanner,
 	refresh: srv_erp.package_barcode.setup_stock_scanner,
+});
+
+
+frappe.ui.form.on("Purchase Receipt", {
+	setup: (frm) => { srv_erp.package_barcode.add_scan_receipt_button(frm) },
+	refresh: (frm) => { srv_erp.package_barcode.add_scan_receipt_button(frm) },
 });
 
 frappe.ui.form.on("Delivery Note", {

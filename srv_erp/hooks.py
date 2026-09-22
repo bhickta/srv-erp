@@ -68,6 +68,10 @@ doctype_js = {
 	"Brand": "public/js/item_attribute_variant_sync.js",
 	"Item Price": "public/js/item_price.js",
 	"Sales Order": "public/js/sales_order.js",
+    "Purchase Receipt": [
+        "public/js/package_barcode/namespace.js",
+        "public/js/package_barcode_stock.js",
+    ],
 	"Stock Entry": [
 		"public/js/package_barcode/namespace.js",
 		"public/js/package_barcode/stock_table_display.js",
@@ -240,7 +244,7 @@ doc_events = {
 		"validate": [
       		"srv_erp.selling.sales_order_discount.validate_sales_order_discounts",
             "srv_erp.selling.sales_order_uom.validate_sales_order_uom",
-			"srv_erp.selling.sales_order.validate_no_pending_sales_order",
+			# "srv_erp.selling.sales_order.validate_no_pending_sales_order",
         ],
 	},
 	"Sales Person": {

@@ -8,7 +8,7 @@
 	.item-detail { padding-left: 8mm; font-size: 13.2pt; }
 	.scan-meta { font-size: 12.6pt; }
 </style>
-<div class="scan-title">SCAN VERIFICATION<br>STOCK ENTRY</div>
+<div class="scan-title">SCAN VERIFICATION<br>PURCHASE RECEIPT</div>
 <div>{{ doc.name }}</div>
 <div>{{ frappe.utils.format_date(doc.posting_date) }} {{ doc.posting_time or "" }}</div>
 {% if doc.stock_entry_type %}<div>{{ doc.stock_entry_type }}</div>{% endif %}
