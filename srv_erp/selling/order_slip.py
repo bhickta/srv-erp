@@ -1,9 +1,4 @@
 import json
-
-import frappe
-from frappe import _
-from frappe.utils import format_date
-import json
 from copy import deepcopy
 
 import frappe
@@ -11,6 +6,14 @@ from frappe import _
 from frappe.utils import flt, format_date
 
 MAX_ORDERS_PER_PRINT = 200
+
+
+def ensure_print_permission(order: "frappe.Document") -> None:
+	for ptype in ("read", "print"):
+		if frappe.has_permission(order.doctype, ptype, order):
+			return
+
+	order._handle_permission_failure("print")
 
 
 @frappe.whitelist()
@@ -26,7 +29,7 @@ def get_order_slip_ledger_html(names: list[str] | str) -> str:
 	orders = []
 	for name in names:
 		doc = frappe.get_doc("Sales Order", name)
-		doc.check_permission("print")
+		ensure_print_permission(doc)
 		orders.append(doc)
 
 	dates = sorted(order.transaction_date for order in orders if order.transaction_date)
@@ -68,7 +71,7 @@ def get_pending_order_slip_ledger_html(names: list[str] | str) -> str:
 	for name in names:
 		order = frappe.get_doc("Sales Order", name)
 
-		order.check_permission("print")
+		ensure_print_permission(order)
 		pending_items = []
 
 		for item in order.items:
