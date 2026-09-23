@@ -11,6 +11,7 @@ from srv_erp.masters.dynamic_item.brand_rule_sync import brand_templates, sync_b
 from srv_erp.masters.dynamic_item.brand_rules import (
 	configuration_hash,
 	draft_configuration,
+	resolve_item_group_defaults,
 	update_profile_publication_state,
 )
 from srv_erp.masters.dynamic_item.brand_rules_api import generate_brand_variant_rule_suggestions
@@ -199,3 +200,30 @@ class TestBrandRuleSyncSafety(unittest.TestCase):
 
 		self.assertEqual(result, {"stale": 1})
 		frappe_mock.get_all.assert_not_called()
+
+
+class TestItemGroupDefaults(unittest.TestCase):
+	@patch("srv_erp.masters.dynamic_item.brand_rules.frappe")
+	def test_nearest_ancestor_wins_per_attribute(self, frappe_mock):
+		parents = {
+			"LED Bulbs": "Lights",
+			"Lights": "All Item Groups",
+			"All Item Groups": None,
+		}
+		frappe_mock.db.get_value.side_effect = lambda doctype, name, field: parents.get(name)
+		profile_doc = frappe._dict(
+			item_group_defaults=[
+				SimpleNamespace(item_group="Lights", item_attribute="Colour", attribute_value="White"),
+				SimpleNamespace(item_group="LED Bulbs", item_attribute="Colour", attribute_value="Warm"),
+				SimpleNamespace(item_group="LED Bulbs", item_attribute="Wattage", attribute_value="12"),
+			]
+		)
+
+		resolved = resolve_item_group_defaults(profile_doc, "LED Bulbs")
+
+		# nearest definition wins for Colour, and the parent supplies fallbacks
+		self.assertEqual(resolved["Colour"], "Warm")
+		self.assertEqual(resolved["Wattage"], "12")
+
+	def test_no_item_group_returns_empty(self):
+		self.assertEqual(resolve_item_group_defaults(frappe._dict(item_group_defaults=[]), None), {})
