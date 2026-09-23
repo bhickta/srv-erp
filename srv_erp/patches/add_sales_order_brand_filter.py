@@ -16,9 +16,10 @@ def execute():
             "doctype": "Custom Field",
             "dt": "Sales Order",
             "fieldname": "brand_filter",
-            "label": "Brand / Marka",
+            "label": "Select Brand",
             "fieldtype": "Link",
             "options": "Brand",
-            "insert_after": "customer",
+            "insert_after": "ignore_pricing_rule",
+            "description": "Select a brand to show only its items."
         }
     ).insert(ignore_permissions=True)
