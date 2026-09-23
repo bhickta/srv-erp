@@ -19,6 +19,7 @@ def execute():
             "label": "Brand / Marka",
             "fieldtype": "Link",
             "options": "Brand",
-            "insert_after": "customer",
+            "insert_after": "items_section",
+            "description": "Select a brand to show only its items."
         }
     ).insert(ignore_permissions=True)
