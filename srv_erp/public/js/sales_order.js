@@ -548,9 +548,8 @@ async function validate_item_varient_brand(frm, cdt, cdn) {
 
 
 frappe.ui.form.on("Sales Order", {
-	setup() {
-		setup_sales_order_brand_filter(frm);
-
+	setup(frm) {
+		setup_sales_order_brand_filter(frm); 
 	},
 	onload(frm) {
 		frm.__srv_hide_fully_delivered_items = false;

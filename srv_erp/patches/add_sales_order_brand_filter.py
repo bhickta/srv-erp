@@ -19,7 +19,7 @@ def execute():
             "label": "Select Brand",
             "fieldtype": "Link",
             "options": "Brand",
-            "insert_after": "ignore_pricing_rule",
+            "insert_after": "items_section",
             "description": "Select a brand to show only its items."
         }
     ).insert(ignore_permissions=True)
