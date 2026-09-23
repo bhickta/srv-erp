@@ -39,6 +39,12 @@ def is_dynamic_item_enabled() -> bool:
 	return bool(cint(get_settings().enable_dynamic_item_requests))
 
 
+def are_brand_variant_rules_enabled() -> bool:
+	if not masters_settings_available():
+		return False
+	return bool(cint(get_settings().get("enable_brand_variant_rules")))
+
+
 def is_approval_enforced() -> bool:
 	if not masters_settings_available():
 		return False

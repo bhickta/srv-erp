@@ -55,6 +55,7 @@ boot_session = "srv_erp.grid_column_templates.add_grid_column_templates_to_boot"
 page_js = {
 	"package-barcode-generator": "srv_erp/page/package_barcode_generator/package_barcode_generator.js",
 	"zero-stock-reconciliation": "srv_erp/page/zero_stock_reconciliation/zero_stock_reconciliation.js",
+	"variant-builder": "srv_erp/masters/page/variant_builder/variant_builder.js",
 }
 
 # include js in doctype views
@@ -65,7 +66,7 @@ doctype_js = {
 		"public/js/item_uom_conversion.js",
 	],
 	"Item Attribute": "public/js/item_attribute_variant_sync.js",
-	"Brand": "public/js/item_attribute_variant_sync.js",
+	"Brand": ["public/js/item_attribute_variant_sync.js", "public/js/brand_variant_rules.js"],
 	"Item Price": "public/js/item_price.js",
 	"Sales Order": "public/js/sales_order.js",
     "Purchase Receipt": [

@@ -142,6 +142,21 @@ def create_dynamic_item_custom_fields():
 					"read_only": 1,
 				},
 			],
+			"Brand": [
+				{
+					"fieldname": "brand_variant_rules_section",
+					"fieldtype": "Section Break",
+					"insert_after": "description",
+					"label": "Variant Attributes",
+					"collapsible": 1,
+				},
+				{
+					"fieldname": "brand_variant_rules_html",
+					"fieldtype": "HTML",
+					"insert_after": "brand_variant_rules_section",
+					"label": "Brand Variant Rules",
+				},
+			],
 		},
 		update=True,
 	)
@@ -155,6 +170,7 @@ def set_masters_settings_defaults():
 	changed = False
 	defaults = {
 		"enable_dynamic_item_requests": 0,
+		"enable_brand_variant_rules": 0,
 		"enforce_variant_approval": 1,
 		"allow_bulk_variant_creation": 0,
 		"allow_dynamic_attributes": 0,

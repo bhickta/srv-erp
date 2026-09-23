@@ -6,6 +6,7 @@
  "field_order": [
   "feature_section",
   "enable_dynamic_item_requests",
+  "enable_brand_variant_rules",
   "enforce_variant_approval",
   "allow_bulk_variant_creation",
   "column_break_feature",
@@ -29,6 +30,13 @@
    "fieldname": "enable_dynamic_item_requests",
    "fieldtype": "Check",
    "label": "Enable Dynamic Item Requests"
+  },
+  {
+   "default": "0",
+   "description": "Use explicitly published Brand-level attribute rules for future dynamic variant requests. Existing variants are never rewritten.",
+   "fieldname": "enable_brand_variant_rules",
+   "fieldtype": "Check",
+   "label": "Enable Brand Variant Rules"
   },
   {
    "default": "1",

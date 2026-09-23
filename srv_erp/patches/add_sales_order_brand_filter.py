@@ -16,7 +16,7 @@ def execute():
             "doctype": "Custom Field",
             "dt": "Sales Order",
             "fieldname": "brand_filter",
-            "label": "Select Brand",
+            "label": "Brand / Marka",
             "fieldtype": "Link",
             "options": "Brand",
             "insert_after": "items_section",

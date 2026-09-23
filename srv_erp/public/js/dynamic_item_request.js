@@ -98,9 +98,54 @@ srv_erp.dynamic_item.open_parameter_dialog = function (template_item, frm, grid_
 		callback(response) {
 			const options = response.message;
 			if (!options) return;
+			if (options.requires_brand_selection) {
+				srv_erp.dynamic_item.show_brand_selection_dialog(options, frm, grid_config);
+				return;
+			}
 			srv_erp.dynamic_item.show_parameter_dialog(options, frm, grid_config);
 		},
 	});
+};
+
+srv_erp.dynamic_item.show_brand_selection_dialog = function (options, frm, grid_config) {
+	const brand_rule = (options.attributes || [])[0] || {};
+	const dialog = new frappe.ui.Dialog({
+		title: __("Select Brand for {0}", [options.template_item]),
+		fields: [
+			{
+				fieldname: "brand",
+				fieldtype: "Select",
+				label: __("Brand"),
+				options: ["", ...(brand_rule.values || [])],
+				reqd: 1,
+			},
+		],
+		primary_action_label: __("Load Brand Attributes"),
+		primary_action(values) {
+			dialog.hide();
+			frappe.call({
+				method: "srv_erp.masters.dynamic_item.api.get_dynamic_variant_options",
+				args: {
+					template_item: options.template_item,
+					selected_brand: values.brand,
+					source_doctype: frm?.doctype,
+					source_field: grid_config?.fieldname,
+				},
+				freeze: true,
+				freeze_message: __("Loading Brand attributes..."),
+				callback(response) {
+					if (response.message) {
+						srv_erp.dynamic_item.show_parameter_dialog(
+							response.message,
+							frm,
+							grid_config
+						);
+					}
+				},
+			});
+		},
+	});
+	dialog.show();
 };
 
 srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config) {
@@ -114,6 +159,10 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 			fieldtype: attribute.numeric_values ? "Float" : "Select",
 			label: attribute.attribute,
 			options: attribute.numeric_values ? null : ["", ...(attribute.values || [])],
+			default:
+				!attribute.numeric_values && (attribute.values || []).length === 1
+					? attribute.values[0]
+					: undefined,
 			reqd: attribute.required ? 1 : 0,
 			description: attribute.numeric_values
 				? __("Enter a value allowed by the configured numeric range.")
@@ -203,6 +252,14 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 		},
 	});
 	dialog.show();
+	if (options.configuration_fallback) {
+		frappe.show_alert({
+			message: __(
+				"This Brand has no published rules; the current template profile is being used."
+			),
+			indicator: "orange",
+		});
+	}
 };
 
 srv_erp.dynamic_item.handle_result = function (result, frm, grid_config) {

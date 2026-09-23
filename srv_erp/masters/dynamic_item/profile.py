@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import cint
 
 from srv_erp.item.variant_auto_creation import is_brand_disabled
+from srv_erp.masters.dynamic_item.brand_rule_resolution import resolve_effective_rules
 from srv_erp.masters.dynamic_item.configuration import is_grid_enabled
 from srv_erp.masters.dynamic_item.lookups import (
 	get_case_insensitive_attribute_value,
@@ -58,11 +59,18 @@ def get_profile_rules(profile) -> dict[str, frappe._dict]:
 
 
 def validate_requested_attributes(template, profile, attributes: dict[str, str]):
-	rules = get_profile_rules(profile)
+	selected_brand = next(
+		(value for attribute, value in attributes.items() if attribute.casefold() == "brand"),
+		None,
+	)
+	resolved = resolve_effective_rules(template, profile, selected_brand)
+	rules = {
+		rule["attribute"]: frappe._dict(rule) for rule in resolved["configuration"].get("attributes", [])
+	}
 	missing = [
 		attribute
 		for attribute, rule in rules.items()
-		if cint(rule.required_parameter) and not attributes.get(attribute)
+		if cint(rule.required) and not attributes.get(attribute)
 	]
 	if missing:
 		frappe.throw(
@@ -95,6 +103,14 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 			validate_numeric_value(template.name, attribute, value)
 		elif not attribute_exists or not get_case_insensitive_attribute_value(attribute, value):
 			frappe.throw(_("Select a predefined value for attribute {0}.").format(frappe.bold(attribute)))
+		elif rule.get("values") and value.casefold() not in {
+			configured.casefold() for configured in rule.get("values")
+		}:
+			frappe.throw(
+				_("Value {0} is not allowed for attribute {1} in the effective variant rules.").format(
+					frappe.bold(value), frappe.bold(attribute)
+				)
+			)
 
 
 def validate_numeric_value(template_item: str, attribute: str, value: str):

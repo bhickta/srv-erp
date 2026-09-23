@@ -2,6 +2,7 @@ import frappe
 from erpnext.controllers.item_variant import create_variant
 from frappe.tests import IntegrationTestCase
 
+from srv_erp.masters.dynamic_item.api import get_dynamic_item_client_settings
 from srv_erp.masters.dynamic_item.bulk_guard import require_bulk_variant_creation
 from srv_erp.masters.dynamic_item.configuration import (
 	APPROVED,
@@ -294,6 +295,24 @@ class TestDynamicItemRequest(IntegrationTestCase):
 
 		with self.assertRaises(frappe.ValidationError):
 			resolve_or_request(self._payload("_Test Dynamic Needs Approver"))
+
+	def test_client_settings_expose_feature_and_role_state(self):
+		frappe.set_user("Administrator")
+		enabled = get_dynamic_item_client_settings()
+		self.assertTrue(enabled["enabled"])
+		self.assertTrue(enabled["feature_enabled"])
+		self.assertTrue(enabled["can_request"])
+
+		settings = frappe.get_single("Masters Settings")
+		settings.enable_dynamic_item_requests = 0
+		settings.save(ignore_permissions=True)
+		clear_settings_cache()
+
+		disabled = get_dynamic_item_client_settings()
+		self.assertFalse(disabled["enabled"])
+		self.assertFalse(disabled["feature_enabled"])
+		self.assertTrue(disabled["can_request"])
+		self.assertEqual(disabled["grids"], [])
 
 	def _request(self, value):
 		frappe.set_user(self.REQUESTER)
