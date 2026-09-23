@@ -165,18 +165,29 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				const fieldname = `variant_attribute_${index}`;
 				this.attribute_map[fieldname] = attribute.attribute;
 				const values = attribute.values || [];
-				return {
+				const is_brand = attribute.attribute.trim().toLowerCase() === "brand";
+				const field = {
 					fieldname,
-					fieldtype: attribute.numeric_values ? "Float" : "Select",
+					fieldtype: attribute.numeric_values ? "Float" : is_brand ? "Link" : "Select",
 					label: attribute.attribute,
-					options: attribute.numeric_values ? null : ["", ...values],
+					options: attribute.numeric_values
+						? null
+						: is_brand
+						? "Brand"
+						: ["", ...values],
 					default:
 						!attribute.numeric_values && values.length === 1 ? values[0] : undefined,
 					reqd: attribute.required ? 1 : 0,
 					description: attribute.numeric_values
 						? __("Enter a value within the configured numeric range.")
+						: is_brand
+						? __("Select a Brand.")
 						: __("Select a predefined value."),
 				};
+				if (is_brand && values.length) {
+					field.get_query = () => ({ filters: { name: ["in", values] } });
+				}
+				return field;
 			});
 			if (this.attribute_fields.length) {
 				this.attribute_form = new frappe.ui.FieldGroup({
