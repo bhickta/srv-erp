@@ -477,23 +477,24 @@ function schedule_current_stock_refresh(frm) {
 	);
 }
 
-function setup_sales_order_brand_filter(frm) {
-	console.log("set callback on item code query")
-	frm.set_query("item_code", "items", function () {
-		const brand = frm.doc[sales_order_brand_field];
-		console.log("Brand to be set", brand)
-		if (!brand) {
-			return {};
-		}
+	function setup_sales_order_brand_filter(frm) {
+		console.log("set callback on item code query")
+		console.log("For Brand: ", frm.doc[sales_order_brand_field])
+		frm.set_query("item_code", "items", function () {
+			const brand = frm.doc[sales_order_brand_field];
+			console.log("Brand to be set", brand)
+			if (!brand) {
+				return {};
+			}
 
-		return {
-			query: "srv_erp.selling.sales_order.get_brand_filtered_items",
-			filters: {
-				brand: brand,
-			},
-		};
-	});
-}
+			return {
+				query: "srv_erp.selling.sales_order.get_brand_filtered_items",
+				filters: {
+					brand: brand,
+				},
+			};
+		});
+	}
 
 
 async function validate_item_varient_brand(frm, cdt, cdn) {
@@ -547,15 +548,18 @@ async function validate_item_varient_brand(frm, cdt, cdn) {
 
 
 frappe.ui.form.on("Sales Order", {
+	setup() {
+		setup_sales_order_brand_filter(frm);
+
+	},
 	onload(frm) {
 		frm.__srv_hide_fully_delivered_items = false;
 		setup_delivery_item_filter(frm);
-		setup_sales_order_brand_filter(frm);
+		// setup_sales_order_brand_filter(frm);
 	},
 
 	refresh(frm) {
 		setup_delivery_item_filter(frm);
-		setup_sales_order_brand_filter(frm);
 		refresh_sales_order_items_grid(frm);
 		refresh_current_stock(frm);
 		add_delivery_item_filter_button(frm);

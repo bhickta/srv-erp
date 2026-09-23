@@ -79,27 +79,43 @@ def get_brand_filtered_items(
 		return []
 
 	conditions = [
-		"iva.attribute = 'Brand'",
-		"iva.attribute_value = %(brand)s",
 		"i.disabled = 0",
+
+		"""
+		(
+			-- Non-variant item
+			i.variant_of IS NULL
+
+			OR
+
+			-- Variant item with selected Brand
+			EXISTS (
+				SELECT 1
+				FROM `tabItem Variant Attribute` brand_iva
+				WHERE brand_iva.parent = i.name
+				AND brand_iva.attribute = 'Brand'
+				AND brand_iva.attribute_value = %(brand)s
+			)
+		)
+		""",
 	]
 
 	if txt:
-		conditions.append("""
+		conditions.append(
+			"""
 			(
 				i.name LIKE %(txt)s
 				OR i.item_name LIKE %(txt)s
 			)
-		""")
+			"""
+		)
 
 	return frappe.db.sql(
 		f"""
 		SELECT DISTINCT
 			i.name,
 			i.item_name
-		FROM `tabItem Variant Attribute` iva
-		INNER JOIN `tabItem` i
-			ON i.name = iva.parent
+		FROM `tabItem` i
 		WHERE {" AND ".join(conditions)}
 		ORDER BY i.name
 		LIMIT %(start)s, %(page_len)s
@@ -110,8 +126,9 @@ def get_brand_filtered_items(
 			"start": cint(start),
 			"page_len": cint(page_len),
 		},
-	) 
+	)
  
+  
 @frappe.whitelist()
 def validate_sales_order_item_brand(item_code, brand):
     if not item_code or not brand:
