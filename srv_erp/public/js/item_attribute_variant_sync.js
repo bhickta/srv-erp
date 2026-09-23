@@ -1,7 +1,14 @@
 frappe.provide("srv_erp.item_attribute_variant_sync");
 
 srv_erp.item_attribute_variant_sync = {
+	is_enabled() {
+		return Boolean(frappe.boot && frappe.boot.srv_erp_brand_variant_sync_enabled);
+	},
+
 	after_save(frm) {
+		if (!srv_erp.item_attribute_variant_sync.is_enabled()) {
+			return;
+		}
 		if (frm.doc.numeric_values) {
 			return;
 		}
@@ -18,6 +25,9 @@ srv_erp.item_attribute_variant_sync = {
 	},
 
 	after_brand_save(frm) {
+		if (!srv_erp.item_attribute_variant_sync.is_enabled()) {
+			return;
+		}
 		frappe.call({
 			method: "srv_erp.item.variant_auto_creation.sync_brand_attribute_and_get_status",
 			args: {
@@ -30,6 +40,9 @@ srv_erp.item_attribute_variant_sync = {
 	},
 
 	add_brand_sync_button(frm) {
+		if (!srv_erp.item_attribute_variant_sync.is_enabled()) {
+			return;
+		}
 		frm.add_custom_button(__("Sync Brand Variants"), () => {
 			srv_erp.item_attribute_variant_sync.sync_all_brands();
 		});
@@ -64,7 +77,9 @@ srv_erp.item_attribute_variant_sync = {
 
 			if (status.attribute_value_removed) {
 				frappe.show_alert({
-					message: __("Removed {0} stale brand values.", [status.attribute_value_removed]),
+					message: __("Removed {0} stale brand values.", [
+						status.attribute_value_removed,
+					]),
 					indicator: "orange",
 				});
 			}
@@ -84,11 +99,11 @@ srv_erp.item_attribute_variant_sync = {
 			? __(
 					"{0}+ missing variants found for {1}. Please narrow from Variant Coverage before creating.",
 					[status.max_create_rows, status.attribute]
-				)
-			: __(
-					"{0} missing variants found for {1}. Create them now?",
-					[status.missing_count, status.attribute]
-				);
+			  )
+			: __("{0} missing variants found for {1}. Create them now?", [
+					status.missing_count,
+					status.attribute,
+			  ]);
 
 		if (status.has_more) {
 			frappe.msgprint({
@@ -165,6 +180,9 @@ frappe.ui.form.on("Brand", {
 
 frappe.listview_settings["Brand"] = {
 	onload(listview) {
+		if (!srv_erp.item_attribute_variant_sync.is_enabled()) {
+			return;
+		}
 		listview.page.add_actions_menu_item(__("Sync Brand Variants"), () => {
 			srv_erp.item_attribute_variant_sync.sync_all_brands();
 		});

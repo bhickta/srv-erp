@@ -497,6 +497,8 @@ def get_item_attribute_variant_sync_status(attribute):
 
 @frappe.whitelist()
 def sync_item_attribute_and_get_status(attribute):
+	if not is_brand_variant_sync_enabled():
+		return {"applicable": 0, "disabled": 1}
 	if not is_auto_create_variant_attribute(attribute):
 		return {"applicable": 0}
 
@@ -520,6 +522,8 @@ def sync_item_attribute_and_get_status(attribute):
 
 @frappe.whitelist()
 def create_missing_variants_for_item_attribute(attribute, use_template_image=None):
+	if not is_brand_variant_sync_enabled():
+		return {"created": 0, "skipped": 0, "queued": 0, "disabled": 1}
 	if not is_auto_create_variant_attribute(attribute):
 		frappe.throw(
 			_("Variant auto creation is configured for {0}.").format(get_auto_create_variant_attribute())
@@ -538,6 +542,8 @@ def create_missing_variants_for_item_attribute(attribute, use_template_image=Non
 
 @frappe.whitelist()
 def sync_brand_attribute_and_get_status(brand):
+	if not is_brand_variant_sync_enabled():
+		return {"applicable": 0, "disabled": 1}
 	result = ensure_brand_attribute_value(brand)
 	if is_auto_create_variants_enabled():
 		sync_result = sync_missing_brand_variants(enqueue=True, attribute_value=brand)
@@ -563,6 +569,8 @@ def sync_brand_attribute_and_get_status(brand):
 
 @frappe.whitelist()
 def sync_brand_masters_and_get_status():
+	if not is_brand_variant_sync_enabled():
+		return {"applicable": 0, "disabled": 1}
 	result = sync_brand_master_values_to_attribute()
 	attribute = get_auto_create_variant_attribute()
 	attribute_values_created = cint(result.get("created"))
@@ -598,6 +606,14 @@ def get_auto_create_variant_attribute() -> str:
 
 def is_auto_create_variant_attribute(attribute) -> bool:
 	return attribute == get_auto_create_variant_attribute()
+
+
+def is_brand_variant_sync_enabled() -> bool:
+	from srv_erp.masters.dynamic_item.configuration import (
+		is_brand_variant_sync_enabled as _is_enabled,
+	)
+
+	return _is_enabled()
 
 
 def is_auto_create_variants_enabled() -> bool:

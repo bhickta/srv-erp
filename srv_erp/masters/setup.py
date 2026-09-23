@@ -171,6 +171,7 @@ def set_masters_settings_defaults():
 	defaults = {
 		"enable_dynamic_item_requests": 0,
 		"enable_brand_variant_rules": 0,
+		"enable_brand_variant_sync": 0,
 		"enforce_variant_approval": 1,
 		"allow_bulk_variant_creation": 0,
 		"allow_dynamic_attributes": 0,
