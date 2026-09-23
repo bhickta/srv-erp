@@ -57,18 +57,40 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				const settings = response.message || {};
 				this.enabled = Boolean(settings.enabled);
 				if (!this.enabled) {
-					this.$formArea.html(
-						`<div class="alert alert-warning">${__(
-							"Dynamic Item Requests are disabled or you do not have permission to request Items."
-						)}</div>`
-					);
-					this.$summary.html(
-						`<div class="text-muted">${__("Variant Builder is unavailable.")}</div>`
-					);
-					this.page.clear_primary_action();
+					this.render_unavailable(settings);
 				}
 			},
 		});
+	}
+
+	render_unavailable(settings) {
+		let reason = __("You do not have a role that can request Items.");
+		if (settings.feature_enabled === false) {
+			reason = __("Dynamic Item Requests are disabled in Masters Settings.");
+		}
+		const can_configure =
+			settings.feature_enabled === false && frappe.user.has_role("System Manager");
+		this.$formArea.html(`
+			<div class="alert alert-warning">
+				${frappe.utils.escape_html(reason)}
+				${
+					can_configure
+						? `<div class="mt-2">${__(
+								"Enable Dynamic Item Requests (with at least one Requester Role) to use this page."
+						  )}</div>`
+						: ""
+				}
+			</div>
+		`);
+		this.$summary.html(
+			`<div class="text-muted">${__("Variant Builder is unavailable.")}</div>`
+		);
+		this.page.clear_primary_action();
+		if (can_configure) {
+			this.page.add_inner_button(__("Open Masters Settings"), () =>
+				frappe.set_route("Form", "Masters Settings")
+			);
+		}
 	}
 
 	base_fields() {
