@@ -4,12 +4,14 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from srv_erp.item.variant_auto_creation import is_brand_disabled
 from srv_erp.masters.dynamic_item.approval_flow import (
 	approve_request,
 	cancel_request,
 	get_request_status,
 	reject_request,
 )
+from srv_erp.masters.dynamic_item.brand_rule_resolution import resolve_effective_rules
 from srv_erp.masters.dynamic_item.configuration import (
 	get_settings,
 	is_bulk_variant_creation_enabled,
@@ -18,42 +20,51 @@ from srv_erp.masters.dynamic_item.configuration import (
 	user_has_approver_role,
 	user_has_requester_role,
 )
-from srv_erp.masters.dynamic_item.lookups import canonicalize_known_masters
+from srv_erp.masters.dynamic_item.lookups import canonicalize_known_masters, get_case_insensitive_name
 from srv_erp.masters.dynamic_item.normalization import normalize_attributes, normalize_uoms
-from srv_erp.masters.dynamic_item.profile import (
-	get_profile_rules,
-	get_template_and_profile,
-	validate_requested_attributes,
-)
+from srv_erp.masters.dynamic_item.profile import get_template_and_profile, validate_requested_attributes
 from srv_erp.masters.dynamic_item.request_flow import resolve_or_request
 
 
 @frappe.whitelist()
-def get_dynamic_variant_options(template_item: str, source_doctype=None, source_field=None) -> dict:
+def get_dynamic_variant_options(
+	template_item: str, source_doctype=None, source_field=None, selected_brand=None
+) -> dict:
 	require_requester()
 	if source_doctype or source_field:
 		from srv_erp.masters.dynamic_item.profile import validate_source
 
 		validate_source({"doctype": source_doctype, "fieldname": source_field})
 	template, profile = get_template_and_profile(template_item)
-	rules = get_profile_rules(profile)
+	if selected_brand:
+		selected_brand = get_case_insensitive_name("Brand", selected_brand)
+		if not selected_brand:
+			frappe.throw(_("Select an existing Brand."))
+		if is_brand_disabled(selected_brand):
+			frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(selected_brand)))
+	resolved = resolve_effective_rules(template, profile, selected_brand)
+	rules = resolved["configuration"].get("attributes", [])
 	attributes = []
 	template_rows = {
 		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
 	}
-	for attribute in rules:
+	for rule in rules:
+		attribute = rule.get("attribute")
 		row = template_rows.get(attribute)
 		item_attribute = frappe.get_doc("Item Attribute", attribute)
-		rule = rules.get(attribute)
+		configured_values = rule.get("values") or []
 		attributes.append(
 			{
 				"attribute": attribute,
-				"required": bool(rule and cint(rule.required_parameter)),
+				"required": bool(rule.get("required")),
 				"allow_new_values": False,
 				"numeric_values": bool(item_attribute.numeric_values),
-				"values": []
-				if item_attribute.numeric_values
-				else [d.attribute_value for d in item_attribute.item_attribute_values],
+				"values": (
+					[]
+					if item_attribute.numeric_values
+					else configured_values
+					or [d.attribute_value for d in item_attribute.item_attribute_values]
+				),
 				"from_range": row.from_range if row else None,
 				"to_range": row.to_range if row else None,
 				"increment": row.increment if row else None,
@@ -65,6 +76,10 @@ def get_dynamic_variant_options(template_item: str, source_doctype=None, source_
 		"attributes": attributes,
 		"allow_dynamic_attributes": False,
 		"uoms": frappe.get_all("UOM", pluck="name", order_by="name"),
+		"configuration_source": resolved["source"],
+		"configuration_revision": resolved["revision"],
+		"requires_brand_selection": resolved["requires_brand_selection"],
+		"configuration_fallback": resolved["fallback"],
 	}
 
 
@@ -133,6 +148,7 @@ def get_dynamic_item_client_settings(document_type=None) -> dict:
 		"bulk_variant_creation_enabled": is_bulk_variant_creation_enabled(),
 		"approval_enforced": bool(cint(settings.enforce_variant_approval)),
 		"grids": grids,
+		"brand_variant_rules_enabled": bool(cint(settings.get("enable_brand_variant_rules"))),
 	}
 
 

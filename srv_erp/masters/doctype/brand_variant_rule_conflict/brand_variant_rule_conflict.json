@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "autoname": "field:conflict_key",
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["conflict_key", "brand", "profile", "revision", "status", "conflict_type", "template_item", "item_code", "item_attribute", "attribute_value", "details", "detected_on"],
+ "fields": [
+  {"fieldname": "conflict_key", "fieldtype": "Data", "hidden": 1, "label": "Conflict Key", "read_only": 1, "unique": 1},
+  {"fieldname": "brand", "fieldtype": "Link", "in_list_view": 1, "in_standard_filter": 1, "label": "Brand", "options": "Brand", "reqd": 1},
+  {"fieldname": "profile", "fieldtype": "Link", "label": "Brand Variant Profile", "options": "Brand Variant Profile", "reqd": 1},
+  {"fieldname": "revision", "fieldtype": "Int", "in_standard_filter": 1, "label": "Revision", "reqd": 1},
+  {"default": "Open", "fieldname": "status", "fieldtype": "Select", "in_list_view": 1, "in_standard_filter": 1, "label": "Status", "options": "Open\nResolved", "reqd": 1},
+  {"fieldname": "conflict_type", "fieldtype": "Data", "in_list_view": 1, "in_standard_filter": 1, "label": "Conflict Type", "reqd": 1},
+  {"fieldname": "template_item", "fieldtype": "Link", "in_list_view": 1, "in_standard_filter": 1, "label": "Item Template", "options": "Item"},
+  {"fieldname": "item_code", "fieldtype": "Link", "in_list_view": 1, "label": "Existing Variant", "options": "Item"},
+  {"fieldname": "item_attribute", "fieldtype": "Link", "in_standard_filter": 1, "label": "Item Attribute", "options": "Item Attribute"},
+  {"fieldname": "attribute_value", "fieldtype": "Data", "label": "Attribute Value"},
+  {"fieldname": "details", "fieldtype": "Small Text", "label": "Details"},
+  {"fieldname": "detected_on", "fieldtype": "Datetime", "label": "Detected On", "read_only": 1}
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Masters",
+ "name": "Brand Variant Rule Conflict",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "export": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+  {"create": 1, "delete": 1, "export": 1, "read": 1, "report": 1, "role": "Masters Item Approver", "write": 1},
+  {"read": 1, "role": "Masters Item Requester"}
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "detected_on",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
