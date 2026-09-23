@@ -131,22 +131,26 @@ def cancel_dynamic_item_request(request: str, reason=None) -> dict:
 @frappe.whitelist()
 def get_dynamic_item_client_settings(document_type=None) -> dict:
 	settings = get_settings()
-	if not is_dynamic_item_enabled() or not user_has_requester_role():
-		return {
-			"enabled": False,
-			"bulk_variant_creation_enabled": is_bulk_variant_creation_enabled(),
-			"approval_enforced": bool(cint(settings.enforce_variant_approval)),
-			"grids": [],
-		}
+	feature_enabled = is_dynamic_item_enabled()
+	can_request = user_has_requester_role()
+	base = {
+		"enabled": False,
+		"feature_enabled": feature_enabled,
+		"can_request": can_request,
+		"bulk_variant_creation_enabled": is_bulk_variant_creation_enabled(),
+		"approval_enforced": bool(cint(settings.enforce_variant_approval)),
+		"grids": [],
+	}
+	if not feature_enabled or not can_request:
+		return base
 	grids = [
 		{"fieldname": row.table_field, "child_doctype": row.child_doctype}
 		for row in settings.get("item_grids") or []
 		if cint(row.enabled) and (not document_type or row.document_type == document_type)
 	]
 	return {
+		**base,
 		"enabled": True,
-		"bulk_variant_creation_enabled": is_bulk_variant_creation_enabled(),
-		"approval_enforced": bool(cint(settings.enforce_variant_approval)),
 		"grids": grids,
 		"brand_variant_rules_enabled": bool(cint(settings.get("enable_brand_variant_rules"))),
 	}
