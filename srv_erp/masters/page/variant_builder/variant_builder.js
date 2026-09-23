@@ -13,9 +13,9 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 		});
 		this.attribute_map = {};
 		this.attribute_fields = [];
+		this.attribute_form = null;
 		this.options = null;
 		this.enabled = false;
-		this._applying = false;
 		this.make();
 	}
 
@@ -46,33 +46,12 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 		this.page.add_inner_button(__("Load Attributes"), () => this.load_attributes());
 		this.page.add_inner_button(__("Preview"), () => this.preview());
 
-		this.render_form();
+		this.render_base_form();
 		this.load_client_settings();
 	}
 
-	load_client_settings() {
-		frappe.call({
-			method: "srv_erp.masters.dynamic_item.api.get_dynamic_item_client_settings",
-			callback: (response) => {
-				const settings = response.message || {};
-				this.enabled = Boolean(settings.enabled);
-				if (!this.enabled) {
-					this.$formArea.html(
-						`<div class="alert alert-warning">${__(
-							"Dynamic Item Requests are disabled or you do not have permission to request Items."
-						)}</div>`
-					);
-					this.$summary.html(
-						`<div class="text-muted">${__("Variant Builder is unavailable.")}</div>`
-					);
-					this.page.clear_primary_action();
-				}
-			},
-		});
-	}
-
-	base_fields() {
-		return [
+	render_base_form() {
+		const fields = [
 			{
 				fieldtype: "Link",
 				fieldname: "template_item",
@@ -95,13 +74,9 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				label: __("Brand"),
 				options: "Brand",
 				description: __("Optional; required when the template resolves Brand rules."),
-				onchange: () => this.load_attributes(),
+				onchange: () => this.on_brand_change(),
 			},
-		];
-	}
-
-	uom_fields() {
-		return [
+			{ fieldtype: "HTML", fieldname: "attributes_html" },
 			{ fieldtype: "Section Break", label: __("Packaging UOMs (optional)") },
 			{
 				fieldtype: "Table",
@@ -128,43 +103,31 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				],
 			},
 		];
-	}
-
-	render_form(preserve = {}) {
-		const fields = [...this.base_fields()];
-		if (this.attribute_fields.length) {
-			fields.push({ fieldtype: "Section Break", label: __("Variant Identity") });
-			fields.push(...this.attribute_fields);
-		}
-		fields.push(...this.uom_fields());
-
-		this._applying = true;
-		this.$formArea.empty();
 		this.form = new frappe.ui.FieldGroup({ fields, body: this.$formArea });
 		this.form.make();
-		if (preserve.template_item) {
-			this.form.set_value("template_item", preserve.template_item);
-		}
-		if (preserve.brand) {
-			this.form.set_value("brand", preserve.brand);
-		}
-		this._applying = false;
+		this.$attributeArea = $('<div class="variant-builder-attributes"></div>').appendTo(
+			this.form.get_field("attributes_html").$wrapper
+		);
 	}
 
 	on_template_change() {
-		if (this._applying) {
-			return;
-		}
-		const template_item = this.form.get_value("template_item");
-		const brand = this.form.get_value("brand");
 		this.attribute_fields = [];
 		this.attribute_map = {};
 		this.options = null;
-		this.$summary.html(`<div class="text-muted">${__("Loading variant attributes...")}</div>`);
-		setTimeout(() => {
-			this.render_form({ template_item, brand });
-			this.load_attributes();
-		}, 0);
+		this.clear_attributes();
+		this.load_attributes();
+	}
+
+	on_brand_change() {
+		if (!this.form.get_value("template_item")) {
+			return;
+		}
+		this.load_attributes();
+	}
+
+	clear_attributes() {
+		this.attribute_form = null;
+		this.$attributeArea.empty();
 	}
 
 	load_attributes() {
@@ -185,45 +148,57 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 			callback: (response) => {
 				const options = response.message;
 				if (options) {
-					this.apply_options(options, template_item, selected_brand);
+					this.apply_options(options);
 				}
 			},
 		});
 	}
 
-	apply_options(options, template_item, selected_brand) {
+	apply_options(options) {
+		this.attribute_fields = [];
 		this.attribute_map = {};
+		this.clear_attributes();
+		this.options = options.requires_brand_selection ? null : options;
+
+		if (!options.requires_brand_selection) {
+			this.attribute_fields = (options.attributes || []).map((attribute, index) => {
+				const fieldname = `variant_attribute_${index}`;
+				this.attribute_map[fieldname] = attribute.attribute;
+				const values = attribute.values || [];
+				return {
+					fieldname,
+					fieldtype: attribute.numeric_values ? "Float" : "Select",
+					label: attribute.attribute,
+					options: attribute.numeric_values ? null : ["", ...values],
+					default:
+						!attribute.numeric_values && values.length === 1 ? values[0] : undefined,
+					reqd: attribute.required ? 1 : 0,
+					description: attribute.numeric_values
+						? __("Enter a value within the configured numeric range.")
+						: __("Select a predefined value."),
+				};
+			});
+			if (this.attribute_fields.length) {
+				this.attribute_form = new frappe.ui.FieldGroup({
+					fields: this.attribute_fields,
+					body: this.$attributeArea,
+				});
+				this.attribute_form.make();
+			}
+		}
+
+		this.render_summary(options);
 		if (options.requires_brand_selection) {
-			this.options = null;
-			this.attribute_fields = [];
-			this.render_form({ template_item, brand: selected_brand });
-			this.render_summary(options);
 			frappe.show_alert({
 				message: __("Select a Brand to load its variant attributes."),
 				indicator: "orange",
 			});
-			return;
+		} else if (options.configuration_fallback) {
+			frappe.show_alert({
+				message: __("No published Brand rules; using the template profile."),
+				indicator: "orange",
+			});
 		}
-
-		this.options = options;
-		this.attribute_fields = (options.attributes || []).map((attribute, index) => {
-			const fieldname = `variant_attribute_${index}`;
-			this.attribute_map[fieldname] = attribute.attribute;
-			const values = attribute.values || [];
-			return {
-				fieldname,
-				fieldtype: attribute.numeric_values ? "Float" : "Select",
-				label: attribute.attribute,
-				options: attribute.numeric_values ? null : ["", ...values],
-				default: !attribute.numeric_values && values.length === 1 ? values[0] : undefined,
-				reqd: attribute.required ? 1 : 0,
-				description: attribute.numeric_values
-					? __("Enter a value within the configured numeric range.")
-					: __("Select a predefined value."),
-			};
-		});
-		this.render_form({ template_item, brand: selected_brand });
-		this.render_summary(options);
 	}
 
 	render_summary(options) {
@@ -266,22 +241,69 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 		`);
 	}
 
+	load_client_settings() {
+		frappe.call({
+			method: "srv_erp.masters.dynamic_item.api.get_dynamic_item_client_settings",
+			callback: (response) => {
+				const settings = response.message || {};
+				this.enabled = Boolean(settings.enabled);
+				if (!this.enabled) {
+					this.render_unavailable(settings);
+				}
+			},
+		});
+	}
+
+	render_unavailable(settings) {
+		let reason = __("You do not have a role that can request Items.");
+		if (settings.feature_enabled === false) {
+			reason = __("Dynamic Item Requests are disabled in Masters Settings.");
+		}
+		const can_configure =
+			settings.feature_enabled === false && frappe.user.has_role("System Manager");
+		this.$formArea.html(`
+			<div class="alert alert-warning">
+				${frappe.utils.escape_html(reason)}
+				${
+					can_configure
+						? `<div class="mt-2">${__(
+								"Enable Dynamic Item Requests (with at least one Requester Role) to use this page."
+						  )}</div>`
+						: ""
+				}
+			</div>
+		`);
+		this.$summary.html(
+			`<div class="text-muted">${__("Variant Builder is unavailable.")}</div>`
+		);
+		this.page.clear_primary_action();
+		if (can_configure) {
+			this.page.add_inner_button(__("Open Masters Settings"), () =>
+				frappe.set_route("Form", "Masters Settings")
+			);
+		}
+	}
+
 	collect_payload() {
-		const values = this.form.get_values();
-		if (!values) {
+		const base = this.form.get_values();
+		if (!base) {
+			return null;
+		}
+		const attribute_values = this.attribute_form ? this.attribute_form.get_values() : {};
+		if (!attribute_values) {
 			return null;
 		}
 		const attributes = {};
 		Object.entries(this.attribute_map).forEach(([fieldname, attribute]) => {
-			const value = values[fieldname];
+			const value = attribute_values[fieldname];
 			if (value !== undefined && value !== null && value !== "") {
 				attributes[attribute] = value;
 			}
 		});
 		return {
-			template_item: values.template_item,
+			template_item: base.template_item,
 			attributes,
-			uoms: (values.uoms || []).map((row) => ({
+			uoms: (base.uoms || []).map((row) => ({
 				uom: row.uom,
 				conversion_factor: row.conversion_factor,
 			})),
