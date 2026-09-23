@@ -4,6 +4,14 @@ frappe.pages["variant-builder"].on_page_load = function (wrapper) {
 
 frappe.provide("srv_erp.masters");
 
+const variant_builder_source_pills = {
+	Brand: "green",
+	"Template Override": "blue",
+	"Template Profile": "gray",
+	"Template Profile Fallback": "orange",
+	"Brand Selection": "orange",
+};
+
 srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 	constructor(wrapper) {
 		this.page = frappe.ui.make_app_page({
@@ -22,14 +30,19 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 	make() {
 		this.$body = $(`
 			<div class="variant-builder">
+				<div class="variant-builder__intro text-muted">
+					${__("Resolve or request a variant for any Item template using its effective Brand rules.")}
+				</div>
 				<div class="row">
-					<div class="col-md-8">
-						<div class="frappe-card variant-builder__form-card">
+					<div class="col-lg-8">
+						<div class="frappe-card variant-builder__card">
+							<div class="variant-builder__card-title">${__("Target")}</div>
 							<div class="variant-builder-form"></div>
 						</div>
 					</div>
-					<div class="col-md-4">
-						<div class="frappe-card variant-builder__summary-card">
+					<div class="col-lg-4">
+						<div class="frappe-card variant-builder__card variant-builder__summary-card">
+							<div class="variant-builder__card-title">${__("Configuration")}</div>
 							<div class="variant-builder-summary text-muted">
 								${__("Select an Item Template to begin.")}
 							</div>
@@ -43,7 +56,6 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 		this.$summary = this.$body.find(".variant-builder-summary");
 
 		this.page.set_primary_action(__("Resolve / Request Variant"), () => this.submit(), "add");
-		this.page.add_inner_button(__("Load Attributes"), () => this.load_attributes());
 		this.page.add_inner_button(__("Preview"), () => this.preview());
 
 		this.render_base_form();
@@ -73,7 +85,7 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				fieldname: "brand",
 				label: __("Brand"),
 				options: "Brand",
-				description: __("Optional; required when the template resolves Brand rules."),
+				description: __("Drives the Brand Variant Rules."),
 				onchange: () => this.on_brand_change(),
 			},
 			{ fieldtype: "HTML", fieldname: "attributes_html" },
@@ -189,10 +201,17 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				}
 				return field;
 			});
+
 			if (this.attribute_fields.length) {
+				$('<div class="variant-builder__section-title">')
+					.text(__("Variant Identity"))
+					.appendTo(this.$attributeArea);
+				const $fields = $('<div class="variant-builder-attribute-fields"></div>').appendTo(
+					this.$attributeArea
+				);
 				this.attribute_form = new frappe.ui.FieldGroup({
 					fields: this.attribute_fields,
-					body: this.$attributeArea,
+					body: $fields,
 				});
 				this.attribute_form.make();
 			}
@@ -214,33 +233,44 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 
 	render_summary(options) {
 		const escape = frappe.utils.escape_html;
-		const source = options.requires_brand_selection
-			? __("Brand Selection")
-			: escape(options.configuration_source || "-");
+		const template = escape(options.template_item || "");
+
+		if (options.requires_brand_selection) {
+			this.$summary.html(`
+				<div class="variant-builder__summary-template">${template}</div>
+				<div class="text-muted">${__("Select a Brand to load its variant attributes.")}</div>
+			`);
+			return;
+		}
+
+		const source = options.configuration_source || "-";
+		const pill = variant_builder_source_pills[source] || "gray";
 		const revision = options.configuration_revision
 			? escape(String(options.configuration_revision))
 			: "-";
 		const rules = (options.attributes || [])
 			.map(
-				(attribute) =>
-					`<li><strong>${escape(attribute.attribute)}</strong>${
-						attribute.required
-							? ` <span class="indicator-pill green">${__("Required")}</span>`
-							: ""
-					} — ${
-						attribute.numeric_values
-							? __("Numeric range")
-							: escape(
-									(attribute.values || []).join(", ") ||
-										__("No predefined values")
-							  )
-					}</li>`
+				(attribute) => `
+					<li>
+						<span>${escape(attribute.attribute)}</span>
+						${attribute.required ? `<span class="indicator-pill green">${__("Required")}</span>` : ""}
+						<span class="text-muted">${
+							attribute.numeric_values
+								? __("Numeric range")
+								: escape(
+										(attribute.values || []).join(", ") ||
+											__("No predefined values")
+								  )
+						}</span>
+					</li>`
 			)
 			.join("");
 		this.$summary.html(`
-			<div class="variant-builder-summary__title">${escape(options.template_item || "")}</div>
-			<div><strong>${__("Source")}:</strong> ${source}</div>
-			<div><strong>${__("Revision")}:</strong> ${revision}</div>
+			<div class="variant-builder__summary-template">${template}</div>
+			<div class="variant-builder__summary-meta">
+				<span class="indicator-pill ${pill}">${escape(source)}</span>
+				<span class="text-muted">${__("Revision")} ${revision}</span>
+			</div>
 			${
 				options.configuration_fallback
 					? `<div class="text-muted">${__(
@@ -248,7 +278,10 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 					  )}</div>`
 					: ""
 			}
-			<ul class="mt-3">${rules || `<li>${__("No variant attributes configured.")}</li>`}</ul>
+			<div class="variant-builder__section-title">${__("Variant Attributes")}</div>
+			<ul class="variant-builder__rules">${
+				rules || `<li class="text-muted">${__("No variant attributes configured.")}</li>`
+			}</ul>
 		`);
 	}
 
@@ -260,7 +293,10 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 				this.enabled = Boolean(settings.enabled);
 				if (!this.enabled) {
 					this.render_unavailable(settings);
+					return;
 				}
+				const brand_field = this.form.get_field("brand");
+				brand_field?.toggle(Boolean(settings.brand_variant_rules_enabled));
 			},
 		});
 	}
@@ -418,12 +454,50 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 };
 
 frappe.dom.set_style(`
-	.variant-builder__form-card,
-	.variant-builder__summary-card {
+	.variant-builder__intro {
+		margin-bottom: 16px;
+	}
+	.variant-builder__card {
 		padding: 16px;
 	}
-	.variant-builder-summary__title {
+	.variant-builder__card-title {
+		font-weight: 600;
+		margin-bottom: 12px;
+	}
+	.variant-builder__section-title {
+		font-weight: 600;
+		margin: 16px 0 8px;
+	}
+	.variant-builder__summary-template {
 		font-weight: 600;
 		margin-bottom: 8px;
+	}
+	.variant-builder__summary-meta {
+		align-items: center;
+		display: flex;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+	.variant-builder__rules {
+		list-style: none;
+		margin: 0;
+		padding-left: 0;
+	}
+	.variant-builder__rules li {
+		align-items: center;
+		border-bottom: 1px solid var(--border-color);
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		padding: 6px 0;
+	}
+	.variant-builder__rules li:last-child {
+		border-bottom: none;
+	}
+	@media (min-width: 992px) {
+		.variant-builder__summary-card {
+			position: sticky;
+			top: 15px;
+		}
 	}
 `);
