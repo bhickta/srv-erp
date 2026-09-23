@@ -9,7 +9,6 @@ from srv_erp.masters.dynamic_item.brand_rules import (
 	draft_configuration,
 	get_brand_profile,
 	get_published_configuration,
-	is_numeric_attribute,
 	validate_draft,
 )
 from srv_erp.masters.dynamic_item.configuration import (
@@ -43,16 +42,7 @@ def get_brand_variant_rules_state(brand: str) -> dict:
 
 
 def draft_rules_for_client(profile) -> list[dict]:
-	configuration = draft_configuration(profile)
-	rows = {row.item_attribute: row for row in profile.get("attributes") or []}
-	return [
-		{
-			**rule,
-			"confidence": rows[rule["attribute"]].suggestion_confidence or "",
-			"note": rows[rule["attribute"]].suggestion_note or "",
-		}
-		for rule in configuration["attributes"]
-	]
+	return draft_configuration(profile)["attributes"]
 
 
 @frappe.whitelist()
@@ -71,8 +61,6 @@ def save_brand_variant_rules_draft(brand: str, rules) -> dict:
 			{
 				"item_attribute": rule.attribute,
 				"required_parameter": cint(rule.required),
-				"suggestion_confidence": rule.confidence or "",
-				"suggestion_note": rule.note or "",
 			},
 		)
 		for value in rule.get("values") or []:
@@ -119,71 +107,3 @@ def retry_brand_variant_rule_sync(brand: str) -> dict:
 	enqueue_brand_rule_sync(profile.name, profile.published_revision)
 	return get_brand_variant_rules_state(brand)
 
-
-@frappe.whitelist()
-def generate_brand_variant_rule_suggestions(brand: str) -> list[dict]:
-	require_rule_manager()
-	brand_variants = frappe.db.sql(
-		"""
-		select distinct item.name, item.variant_of
-		from `tabItem` item
-		inner join `tabItem Variant Attribute` brand
-			on brand.parent = item.name and lower(brand.attribute) = 'brand'
-		where item.variant_of is not null and item.variant_of != ''
-			and lower(brand.attribute_value) = lower(%s)
-		""",
-		brand,
-		as_dict=True,
-	)
-	total_variants = len(brand_variants)
-	rows = frappe.db.sql(
-		"""
-		select other.attribute, other.attribute_value, item.variant_of, item.name
-		from `tabItem` item
-		inner join `tabItem Variant Attribute` brand
-			on brand.parent = item.name and lower(brand.attribute) = 'brand'
-		inner join `tabItem Variant Attribute` other
-			on other.parent = item.name and lower(other.attribute) != 'brand'
-		where item.variant_of is not null and item.variant_of != ''
-			and lower(brand.attribute_value) = lower(%s)
-		""",
-		brand,
-		as_dict=True,
-	)
-	grouped = {}
-	for row in rows:
-		entry = grouped.setdefault(row.attribute, {"values": set(), "templates": set(), "items": set()})
-		entry["values"].add(row.attribute_value)
-		entry["templates"].add(row.variant_of)
-		entry["items"].add(row.name)
-	observed_templates = sorted({row.variant_of for row in brand_variants if row.variant_of})
-	if observed_templates:
-		profile_rows = frappe.db.sql(
-			"""
-			select attribute.item_attribute, profile.item_template
-			from `tabDynamic Variant Profile` profile
-			inner join `tabDynamic Variant Profile Attribute` attribute
-				on attribute.parent = profile.name
-			where profile.item_template in %(templates)s
-				and lower(attribute.item_attribute) != 'brand'
-			""",
-			{"templates": tuple(observed_templates)},
-			as_dict=True,
-		)
-		for row in profile_rows:
-			entry = grouped.setdefault(
-				row.item_attribute, {"values": set(), "templates": set(), "items": set()}
-			)
-			entry["templates"].add(row.item_template)
-	return [
-		{
-			"attribute": attribute,
-			"required": len(data["items"]) == total_variants,
-			"values": [] if is_numeric_attribute(attribute) else sorted(data["values"], key=str.casefold),
-			"confidence": "High" if len(data["templates"]) > 1 else "Low",
-			"note": _("Observed on {0} variant(s) across {1} template(s).").format(
-				len(data["items"]), len(data["templates"])
-			),
-		}
-		for attribute, data in sorted(grouped.items())
-	]

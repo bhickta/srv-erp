@@ -13,7 +13,6 @@ from srv_erp.masters.dynamic_item.brand_rules import (
 	draft_configuration,
 	update_profile_publication_state,
 )
-from srv_erp.masters.dynamic_item.brand_rules_api import generate_brand_variant_rule_suggestions
 from srv_erp.masters.dynamic_item.profile import validate_requested_attributes
 
 
@@ -123,33 +122,6 @@ class TestBrandRulePublication(unittest.TestCase):
 
 		self.assertEqual(doc.publication_status, "Published")
 		self.assertEqual(doc.draft_hash, configuration_hash(draft_configuration(doc)))
-
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api._", side_effect=lambda message: message)
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.is_numeric_attribute", return_value=False)
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.require_rule_manager")
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.frappe")
-	def test_suggestions_include_uncertain_template_profile_attributes(
-		self, frappe_mock, _require_manager, _numeric, _translate
-	):
-		frappe_mock.db.sql.side_effect = [
-			[frappe._dict(name="Variant", variant_of="Template")],
-			[
-				frappe._dict(
-					attribute="Colour",
-					attribute_value="Red",
-					variant_of="Template",
-					name="Variant",
-				)
-			],
-			[frappe._dict(item_attribute="Box", item_template="Template")],
-		]
-
-		suggestions = generate_brand_variant_rule_suggestions.__wrapped__("Acme")
-
-		box = next(row for row in suggestions if row["attribute"] == "Box")
-		self.assertEqual(box["confidence"], "Low")
-		self.assertFalse(box["required"])
-		self.assertEqual(box["values"], [])
 
 
 class TestBrandRuleValidation(unittest.TestCase):

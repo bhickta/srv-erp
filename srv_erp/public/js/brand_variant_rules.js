@@ -75,8 +75,6 @@ srv_erp.brand_variant_rules = {
 			attribute: rule.attribute,
 			required: rule.required ? 1 : 0,
 			allowed_values: (rule.values || []).join(", "),
-			confidence: rule.confidence,
-			note: rule.note,
 		}));
 		const dialog = new frappe.ui.Dialog({
 			title: __("Brand Variant Attributes: {0}", [frm.doc.name]),
@@ -109,23 +107,8 @@ srv_erp.brand_variant_rules = {
 							label: __("Allowed Values (comma separated)"),
 							in_list_view: 1,
 						},
-						{
-							fieldname: "confidence",
-							fieldtype: "Select",
-							options: "\nHigh\nLow",
-							label: __("Confidence"),
-							read_only: 1,
-							in_list_view: 1,
-						},
-						{
-							fieldname: "note",
-							fieldtype: "Small Text",
-							label: __("Suggestion Note"),
-							read_only: 1,
-						},
 					],
 				},
-				{ fieldname: "generate", fieldtype: "Button", label: __("Generate Suggestions") },
 			],
 			primary_action_label: __("Save Draft"),
 			primary_action(values) {
@@ -136,8 +119,6 @@ srv_erp.brand_variant_rules = {
 						.split(",")
 						.map((value) => value.trim())
 						.filter(Boolean),
-					confidence: row.confidence,
-					note: row.note,
 				}));
 				frappe.call({
 					method: "srv_erp.masters.dynamic_item.brand_rules_api.save_brand_variant_rules_draft",
@@ -149,19 +130,6 @@ srv_erp.brand_variant_rules = {
 					},
 				});
 			},
-		});
-		dialog.fields_dict.generate.$input.on("click", () => {
-			frappe.call({
-				method: "srv_erp.masters.dynamic_item.brand_rules_api.generate_brand_variant_rule_suggestions",
-				args: { brand: frm.doc.name },
-				callback: (response) => {
-					dialog.fields_dict.rules.df.data = (response.message || []).map((rule) => ({
-						...rule,
-						allowed_values: (rule.values || []).join(", "),
-					}));
-					dialog.fields_dict.rules.grid.refresh();
-				},
-			});
 		});
 		dialog.show();
 	},

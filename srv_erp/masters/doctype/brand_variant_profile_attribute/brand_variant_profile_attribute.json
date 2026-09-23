@@ -4,12 +4,10 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": ["item_attribute", "required_parameter", "suggestion_confidence", "suggestion_note"],
+ "field_order": ["item_attribute", "required_parameter"],
  "fields": [
   {"fieldname": "item_attribute", "fieldtype": "Link", "in_list_view": 1, "label": "Item Attribute", "options": "Item Attribute", "reqd": 1},
-  {"default": "0", "fieldname": "required_parameter", "fieldtype": "Check", "in_list_view": 1, "label": "Required"},
-  {"fieldname": "suggestion_confidence", "fieldtype": "Select", "in_list_view": 1, "label": "Suggestion Confidence", "options": "\nHigh\nLow", "read_only": 1},
-  {"fieldname": "suggestion_note", "fieldtype": "Small Text", "label": "Suggestion Note", "read_only": 1}
+  {"default": "0", "fieldname": "required_parameter", "fieldtype": "Check", "in_list_view": 1, "label": "Required"}
  ],
  "grid_page_length": 50,
  "istable": 1,
