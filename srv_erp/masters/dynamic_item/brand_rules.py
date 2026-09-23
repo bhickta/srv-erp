@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 
 import frappe
 from frappe import _
@@ -86,6 +87,8 @@ def validate_draft(profile, publishing=False):
 		values_by_attribute.setdefault(row.item_attribute, []).append(row.attribute_value)
 		validate_global_value(row.item_attribute, row.attribute_value)
 
+	validate_item_group_defaults(profile, configured, values_by_attribute)
+
 	if not publishing:
 		return
 	for attribute in attributes:
@@ -116,6 +119,78 @@ def validate_global_value(attribute: str, value: str):
 
 def is_numeric_attribute(attribute: str) -> bool:
 	return bool(cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")))
+
+
+def validate_item_group_defaults(profile, configured: set[str], values_by_attribute: dict):
+	seen = set()
+	for row in profile.get("item_group_defaults") or []:
+		if not row.item_group or not row.item_attribute or not row.attribute_value:
+			frappe.throw(
+				_("Item Group, Item Attribute and Default Value are required on every default row.")
+			)
+		if row.item_attribute not in configured:
+			frappe.throw(_("Item Group defaults must use a configured Brand attribute rule."))
+		if not frappe.db.exists("Item Group", row.item_group):
+			frappe.throw(_("Item Group {0} does not exist.").format(frappe.bold(row.item_group)))
+		key = (row.item_group, row.item_attribute)
+		if key in seen:
+			frappe.throw(_("Brand variant rules cannot contain duplicate Item Group defaults."))
+		seen.add(key)
+
+		if is_numeric_attribute(row.item_attribute):
+			validate_numeric_default(row.item_attribute, row.attribute_value)
+			continue
+
+		allowed = {value.casefold() for value in values_by_attribute.get(row.item_attribute, [])}
+		if allowed and row.attribute_value.strip().casefold() not in allowed:
+			frappe.throw(
+				_("Default value {0} is not an allowed value for attribute {1}.").format(
+					frappe.bold(row.attribute_value), frappe.bold(row.item_attribute)
+				)
+			)
+		validate_global_value(row.item_attribute, row.attribute_value)
+
+
+def validate_numeric_default(attribute: str, value: str):
+	try:
+		number = float(value)
+	except (TypeError, ValueError):
+		frappe.throw(
+			_("Default value {0} must be a number for numeric attribute {1}.").format(
+				frappe.bold(value), frappe.bold(attribute)
+			)
+		)
+	if not math.isfinite(number):
+		frappe.throw(
+			_("Default value {0} must be a finite number for attribute {1}.").format(
+				frappe.bold(value), frappe.bold(attribute)
+			)
+		)
+
+
+def item_group_hierarchy(item_group: str) -> list[str]:
+	hierarchy = []
+	seen = set()
+	current = item_group
+	while current and current not in seen:
+		hierarchy.append(current)
+		seen.add(current)
+		current = frappe.db.get_value("Item Group", current, "parent_item_group")
+	return hierarchy
+
+
+def resolve_item_group_defaults(profile, item_group: str) -> dict[str, str]:
+	if not item_group:
+		return {}
+	by_group = {}
+	for row in profile.get("item_group_defaults") or []:
+		if row.item_group and row.item_attribute and row.attribute_value:
+			by_group.setdefault(row.item_group, {})[row.item_attribute] = row.attribute_value
+	resolved = {}
+	for group in item_group_hierarchy(item_group):
+		for attribute, value in by_group.get(group, {}).items():
+			resolved.setdefault(attribute, value)
+	return resolved
 
 
 def get_brand_profile(brand: str):

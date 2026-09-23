@@ -160,9 +160,10 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 			label: attribute.attribute,
 			options: attribute.numeric_values ? null : ["", ...(attribute.values || [])],
 			default:
-				!attribute.numeric_values && (attribute.values || []).length === 1
+				attribute.default ??
+				(!attribute.numeric_values && (attribute.values || []).length === 1
 					? attribute.values[0]
-					: undefined,
+					: undefined),
 			reqd: attribute.required ? 1 : 0,
 			description: attribute.numeric_values
 				? __("Enter a value allowed by the configured numeric range.")
@@ -256,6 +257,15 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 		frappe.show_alert({
 			message: __(
 				"This Brand has no published rules; the current template profile is being used."
+			),
+			indicator: "orange",
+		});
+	}
+	if ((options.default_ignored || []).length) {
+		frappe.show_alert({
+			message: __(
+				"{0} Brand default(s) were ignored because they are not allowed for this template.",
+				[options.default_ignored.length]
 			),
 			indicator: "orange",
 		});
