@@ -53,14 +53,6 @@ function setup_live_customer_group_filter(listview) {
 }
 
 
-/**
- * Add "Partly & Not Delivered" as a UI-only option
- * to the existing Delivery Status standard filter.
- *
- * IMPORTANT:
- * This does NOT modify the Sales Order DocType field.
- * The option exists only in the List View UI.
- */
 function setup_custom_delivery_status_filter(listview) {
 	const delivery_status_field =
 		listview.page.fields_dict?.delivery_status;
@@ -134,13 +126,13 @@ function setup_custom_delivery_status_filter(listview) {
 
 frappe.listview_settings["Sales Order"] = {
 	...standard_sales_order_listview_settings,
-	filters: [
-		[
-			"delivery_status",
-			"=",
-			CUSTOM_DELIVERY_STATUS_VALUE,
-		],
-	],
+	// filters: [
+	// 	[
+	// 		"delivery_status",
+	// 		"=",
+	// 		CUSTOM_DELIVERY_STATUS_VALUE,
+	// 	],
+	// ],	
 	onload(listview) {
 		standard_sales_order_listview_settings.onload?.(listview);
 		srv_erp.list_view.setup_tree_group_filters(listview, [
