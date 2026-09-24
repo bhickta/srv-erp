@@ -3,7 +3,7 @@ from __future__ import annotations
 import frappe
 from erpnext.controllers.item_variant import get_variant
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, strip_html
 
 from srv_erp.masters.dynamic_item.api import build_variant_options
 from srv_erp.masters.dynamic_item.brand_rule_conflicts import add_conflict, variants_for_brand
@@ -17,6 +17,15 @@ SYNC_LIMIT = 200
 def require_backfill_manager():
 	if "System Manager" not in frappe.get_roles() and not user_has_approver_role():
 		frappe.throw(_("Not permitted to apply Brand defaults."), frappe.PermissionError)
+
+
+def _skipped_template(template_name: str, exc) -> dict:
+	return {
+		"template_item": template_name,
+		"attribute": "",
+		"value": "",
+		"reason": strip_html(str(exc)),
+	}
 
 
 @frappe.whitelist()
@@ -73,20 +82,36 @@ def build_backfill_plan(brand, item_group=None, template_item=None) -> dict:
 	conflicts = []
 	ignored = []
 	template_cache = {}
+	options_cache = {}
 
 	for item_code, variant in variants_for_brand(brand).items():
 		template_name = variant["template"]
 		if not template_name or (template_item and template_name != template_item):
 			continue
 		if template_name not in template_cache:
-			template_cache[template_name] = get_template_and_profile(template_name)
-		template, dynamic_profile = template_cache[template_name]
+			try:
+				template_cache[template_name] = get_template_and_profile(template_name)
+			except (frappe.ValidationError, frappe.PermissionError) as exc:
+				template_cache[template_name] = None
+				ignored.append(_skipped_template(template_name, exc))
+		template_entry = template_cache[template_name]
+		if not template_entry:
+			continue
+		template, dynamic_profile = template_entry
 		if scope_groups is not None and template.item_group not in scope_groups:
 			continue
 
-		options = build_variant_options(template, dynamic_profile, brand)
-		for entry in options.get("default_ignored") or []:
-			ignored.append({"template_item": template_name, **entry})
+		if template_name not in options_cache:
+			try:
+				options_cache[template_name] = build_variant_options(template, dynamic_profile, brand)
+			except (frappe.ValidationError, frappe.PermissionError) as exc:
+				options_cache[template_name] = None
+				ignored.append(_skipped_template(template_name, exc))
+		options = options_cache[template_name]
+		if not options:
+			continue
+		for default_entry in options.get("default_ignored") or []:
+			ignored.append({"template_item": template_name, **default_entry})
 
 		defaults = {
 			attribute["attribute"]: attribute["default"]

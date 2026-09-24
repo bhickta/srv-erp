@@ -241,9 +241,11 @@ srv_erp.brand_variant_rules = {
 		const ignored_rows = ignored
 			.map(
 				(entry) =>
-					`<li>${escape(entry.template_item)} — ${escape(entry.attribute)}: ${escape(
-						entry.value
-					)} (${escape(entry.reason)})</li>`
+					`<li>${escape(entry.template_item)}${
+						entry.attribute
+							? ` — ${escape(entry.attribute)}: ${escape(entry.value)}`
+							: ""
+					} (${escape(entry.reason)})</li>`
 			)
 			.join("");
 		$wrapper.html(`
