@@ -199,3 +199,41 @@ class TestItemGroupDefaults(unittest.TestCase):
 
 	def test_no_item_group_returns_empty(self):
 		self.assertEqual(resolve_item_group_defaults(frappe._dict(item_group_defaults=[]), None), {})
+
+
+class TestDefaultApplication(unittest.TestCase):
+	@patch("srv_erp.masters.dynamic_item.api._attribute_option")
+	@patch("srv_erp.masters.dynamic_item.api.resolve_item_group_defaults", return_value={"Size": "Large"})
+	@patch("srv_erp.masters.dynamic_item.api.get_brand_profile", return_value=object())
+	def test_default_adds_attribute_outside_rules(self, _profile, _resolve, option_mock):
+		from srv_erp.masters.dynamic_item.api import apply_item_group_defaults
+
+		option_mock.return_value = {
+			"attribute": "Size",
+			"numeric_values": False,
+			"values": ["Large", "Small"],
+		}
+		template = frappe._dict(
+			item_group="Lights",
+			attributes=[frappe._dict(attribute="Size", disabled=0)],
+		)
+		attributes = []
+
+		ignored = apply_item_group_defaults(template, "Acme", attributes)
+
+		self.assertEqual(ignored, [])
+		self.assertEqual(attributes[0]["attribute"], "Size")
+		self.assertEqual(attributes[0]["default"], "Large")
+
+	@patch("srv_erp.masters.dynamic_item.api._attribute_option")
+	@patch("srv_erp.masters.dynamic_item.api.resolve_item_group_defaults", return_value={"Size": "Large"})
+	@patch("srv_erp.masters.dynamic_item.api.get_brand_profile", return_value=object())
+	def test_default_for_attribute_not_on_template_is_ignored(self, _profile, _resolve, _option):
+		from srv_erp.masters.dynamic_item.api import apply_item_group_defaults
+
+		template = frappe._dict(item_group="Lights", attributes=[])
+
+		ignored = apply_item_group_defaults(template, "Acme", [])
+
+		self.assertEqual(len(ignored), 1)
+		self.assertEqual(ignored[0]["attribute"], "Size")

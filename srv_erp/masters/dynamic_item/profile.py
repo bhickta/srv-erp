@@ -79,11 +79,13 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 			)
 		)
 
-	template_attributes = {row.attribute for row in template.get("attributes") or []}
+	template_attributes = {
+		row.attribute for row in template.get("attributes") or [] if not row.disabled and row.attribute
+	}
 	for attribute, value in attributes.items():
 		rule = rules.get(attribute)
 		attribute_exists = frappe.db.exists("Item Attribute", attribute)
-		if not rule:
+		if not rule and attribute not in template_attributes:
 			frappe.throw(
 				_("Attribute {0} is not configured for Item template {1}.").format(
 					frappe.bold(attribute), frappe.bold(template.name)
@@ -94,7 +96,7 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 			if brand and is_brand_disabled(brand):
 				frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(brand)))
 		if attribute_exists and cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")):
-			if not rule or attribute not in template_attributes:
+			if attribute not in template_attributes:
 				frappe.throw(
 					_("Numeric attribute {0} must be configured on the template profile first.").format(
 						frappe.bold(attribute)
@@ -103,7 +105,7 @@ def validate_requested_attributes(template, profile, attributes: dict[str, str])
 			validate_numeric_value(template.name, attribute, value)
 		elif not attribute_exists or not get_case_insensitive_attribute_value(attribute, value):
 			frappe.throw(_("Select a predefined value for attribute {0}.").format(frappe.bold(attribute)))
-		elif rule.get("values") and value.casefold() not in {
+		elif rule and rule.get("values") and value.casefold() not in {
 			configured.casefold() for configured in rule.get("values")
 		}:
 			frappe.throw(

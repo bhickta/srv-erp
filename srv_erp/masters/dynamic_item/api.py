@@ -58,32 +58,16 @@ def build_variant_options(template, profile, selected_brand=None) -> dict:
 	resolved = resolve_effective_rules(template, profile, selected_brand)
 	rules = resolved["configuration"].get("attributes", [])
 	attributes = []
-	template_rows = {
-		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
-	}
+	template_rows = _template_attribute_rows(template)
 	for rule in rules:
 		attribute = rule.get("attribute")
-		row = template_rows.get(attribute)
-		item_attribute = frappe.get_doc("Item Attribute", attribute)
+		option = _attribute_option(attribute, template_rows.get(attribute))
+		option["required"] = bool(rule.get("required"))
 		configured_values = rule.get("values") or []
-		attributes.append(
-			{
-				"attribute": attribute,
-				"required": bool(rule.get("required")),
-				"allow_new_values": False,
-				"numeric_values": bool(item_attribute.numeric_values),
-				"values": (
-					[]
-					if item_attribute.numeric_values
-					else configured_values
-					or [d.attribute_value for d in item_attribute.item_attribute_values]
-				),
-				"from_range": row.from_range if row else None,
-				"to_range": row.to_range if row else None,
-				"increment": row.increment if row else None,
-			}
-		)
-	default_ignored = apply_item_group_defaults(template, selected_brand, attributes)
+		if configured_values:
+			option["values"] = configured_values
+		attributes.append(option)
+	default_ignored = apply_item_group_defaults(template, selected_brand, attributes, template_rows)
 	return {
 		"template_item": template.name,
 		"stock_uom": template.stock_uom,
@@ -98,7 +82,32 @@ def build_variant_options(template, profile, selected_brand=None) -> dict:
 	}
 
 
-def apply_item_group_defaults(template, selected_brand, attributes: list[dict]) -> list[dict]:
+def _template_attribute_rows(template) -> dict:
+	return {
+		row.attribute: row
+		for row in template.get("attributes") or []
+		if not row.disabled and row.attribute
+	}
+
+
+def _attribute_option(attribute: str, row=None) -> dict:
+	item_attribute = frappe.get_doc("Item Attribute", attribute)
+	numeric = bool(item_attribute.numeric_values)
+	return {
+		"attribute": attribute,
+		"required": False,
+		"allow_new_values": False,
+		"numeric_values": numeric,
+		"values": []
+		if numeric
+		else [d.attribute_value for d in item_attribute.item_attribute_values],
+		"from_range": row.from_range if row else None,
+		"to_range": row.to_range if row else None,
+		"increment": row.increment if row else None,
+	}
+
+
+def apply_item_group_defaults(template, selected_brand, attributes: list[dict], template_rows=None) -> list[dict]:
 	if not selected_brand or not template.item_group:
 		return []
 	profile = get_brand_profile(selected_brand)
@@ -107,17 +116,28 @@ def apply_item_group_defaults(template, selected_brand, attributes: list[dict]) 
 	defaults = resolve_item_group_defaults(profile, template.item_group)
 	if not defaults:
 		return []
+
+	if template_rows is None:
+		template_rows = _template_attribute_rows(template)
+	by_name = {attribute["attribute"]: attribute for attribute in attributes}
 	ignored = []
-	for attribute in attributes:
-		name = attribute["attribute"]
-		if name not in defaults:
+	for name, value in defaults.items():
+		row = template_rows.get(name)
+		if not row:
+			ignored.append(
+				{"attribute": name, "value": value, "reason": _("Attribute is not on this template.")}
+			)
 			continue
-		value = defaults[name]
-		reason = invalid_default_reason(attribute, value)
+		option = by_name.get(name)
+		if not option:
+			option = _attribute_option(name, row)
+			attributes.append(option)
+			by_name[name] = option
+		reason = invalid_default_reason(option, value)
 		if reason:
 			ignored.append({"attribute": name, "value": value, "reason": reason})
 			continue
-		attribute["default"] = value
+		option["default"] = value
 	return ignored
 
 

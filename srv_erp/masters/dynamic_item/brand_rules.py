@@ -87,7 +87,7 @@ def validate_draft(profile, publishing=False):
 		values_by_attribute.setdefault(row.item_attribute, []).append(row.attribute_value)
 		validate_global_value(row.item_attribute, row.attribute_value)
 
-	validate_item_group_defaults(profile, configured, values_by_attribute)
+	validate_item_group_defaults(profile, values_by_attribute)
 
 	if not publishing:
 		return
@@ -121,15 +121,15 @@ def is_numeric_attribute(attribute: str) -> bool:
 	return bool(cint(frappe.db.get_value("Item Attribute", attribute, "numeric_values")))
 
 
-def validate_item_group_defaults(profile, configured: set[str], values_by_attribute: dict):
+def validate_item_group_defaults(profile, values_by_attribute: dict):
 	seen = set()
 	for row in profile.get("item_group_defaults") or []:
 		if not row.item_group or not row.item_attribute or not row.attribute_value:
 			frappe.throw(
 				_("Item Group, Item Attribute and Default Value are required on every default row.")
 			)
-		if row.item_attribute not in configured:
-			frappe.throw(_("Item Group defaults must use a configured Brand attribute rule."))
+		if not frappe.db.exists("Item Attribute", row.item_attribute):
+			frappe.throw(_("Item Attribute {0} does not exist.").format(frappe.bold(row.item_attribute)))
 		if not frappe.db.exists("Item Group", row.item_group):
 			frappe.throw(_("Item Group {0} does not exist.").format(frappe.bold(row.item_group)))
 		key = (row.item_group, row.item_attribute)
