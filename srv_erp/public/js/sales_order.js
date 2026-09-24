@@ -478,10 +478,8 @@ function schedule_current_stock_refresh(frm) {
 }
 
 function setup_sales_order_brand_filter(frm) {
-	console.log("set callback on item code query")
 	frm.set_query("item_code", "items", function () {
 		const brand = frm.doc[sales_order_brand_field];
-		console.log("Brand to be set", brand)
 		if (!brand) {
 			return {};
 		}
@@ -507,8 +505,7 @@ async function validate_item_varient_brand(frm, cdt, cdn) {
 
 	if (brand) {
 		const response = await frappe.call({
-			method:
-				"srv_erp.selling.sales_order.validate_sales_order_item_brand",
+			method: "srv_erp.selling.sales_order.validate_sales_order_item_brand",
 			args: {
 				item_code: row.item_code,
 				brand: brand,
@@ -519,14 +516,12 @@ async function validate_item_varient_brand(frm, cdt, cdn) {
 
 		if (!result || !result.allowed) {
 			const entered_item = row.item_code;
-
 			await frappe.model.set_value(
 				cdt,
 				cdn,
 				"item_code",
 				""
 			);
-
 			frappe.msgprint({
 				title: __("Invalid Item"),
 				message: __(
@@ -539,28 +534,55 @@ async function validate_item_varient_brand(frm, cdt, cdn) {
 				),
 				indicator: "red",
 			});
-
 			return;
 		}
 	}
 }
 
 
+function copy_discount_to_items(frm) {
+	(frm.doc.items || []).forEach((row) => {
+		frappe.model.set_value(
+			row.doctype,
+			row.name,
+			"srv_discount_percentage",
+			flt(frm.doc.custom_discount__as_per_list)
+		);
+	});
+}
+
+function set_item_discount_default(frm, cdt, cdn) {
+	console.log("discont provided: ", frm.doc.custom_discount__as_per_list)
+	if (frm.doc.custom_discount__as_per_list == null) {
+		return;
+	}
+
+	frappe.model.set_value(
+		cdt,
+		cdn,
+		"srv_discount_percentage",
+		flt(frm.doc.custom_discount__as_per_list)
+	);
+}
+
+
 frappe.ui.form.on("Sales Order", {
 	setup(frm) {
-		setup_sales_order_brand_filter(frm); 
+		setup_sales_order_brand_filter(frm);
 	},
 	onload(frm) {
 		frm.__srv_hide_fully_delivered_items = false;
 		setup_delivery_item_filter(frm);
 		setup_sales_order_brand_filter(frm);
 	},
-
+	custom_discount__as_per_list(frm) {
+		copy_discount_to_items(frm);
+	},
 	refresh(frm) {
+		refresh_current_stock(frm);
 		setup_delivery_item_filter(frm);
 		setup_sales_order_brand_filter(frm);
 		refresh_sales_order_items_grid(frm);
-		refresh_current_stock(frm);
 		add_delivery_item_filter_button(frm);
 	},
 
@@ -587,9 +609,10 @@ frappe.ui.form.on("Sales Order Item", {
 	},
 
 	async item_code(frm, cdt, cdn) {
+		console.log("Row selected: ", cdt, cdn)
 		await validate_item_varient_brand(frm, cdt, cdn)
 		set_item_attribute_defaults(frm, cdt, cdn);
-
+		set_item_discount_default(frm, cdt, cdn)
 		frappe.after_ajax(() => {
 			apply_sales_order_uom(frm, cdt, cdn);
 		});
