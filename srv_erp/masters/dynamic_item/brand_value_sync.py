@@ -221,7 +221,7 @@ def _preview(brand, item_group, template_item, mode, configuration):
 					)
 		except Exception as exc:
 			entry.update(status="Skipped", reason=frappe.utils.strip_html(str(exc)))
-			rows.append(entry)
+		rows.append(entry)
 	planned_by_target = {}
 	for entry in rows:
 		if entry.get("status") != "Planned":
