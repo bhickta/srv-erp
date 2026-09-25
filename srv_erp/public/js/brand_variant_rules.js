@@ -156,7 +156,53 @@ srv_erp.brand_variant_rules = {
 	},
 
 	open_default_backfill(frm) {
-		const dialog = new frappe.ui.Dialog({
+		let previewRun = null;
+		let previewScope = null;
+		let dialog;
+		const getScope = (values) =>
+			JSON.stringify([values.item_group || "", values.template_item || "", values.mode]);
+		const preview = (values) => {
+			previewRun = null;
+			previewScope = null;
+			frappe.call({
+				method: "srv_erp.masters.dynamic_item.brand_value_sync.preview_brand_variant_value_sync",
+				args: {
+					brand: frm.doc.name,
+					item_group: values.item_group || undefined,
+					template_item: values.template_item || undefined,
+					mode: values.mode,
+				},
+				freeze: true,
+				callback: (response) => {
+					previewRun = response.message.run;
+					previewScope = getScope(values);
+					srv_erp.brand_variant_rules.render_backfill_preview(
+						dialog.fields_dict.preview_result.$wrapper,
+						response.message
+					);
+					dialog.set_primary_action(__("Apply Sync"), dialog.primary_action);
+				},
+			});
+		};
+		const apply = (run) => {
+			frappe.confirm(
+				__("Apply the values shown in this preview to the listed variants?"),
+				() => frappe.call({
+					method: "srv_erp.masters.dynamic_item.brand_value_sync.apply_brand_variant_value_sync",
+					args: { run },
+					freeze: true,
+					callback: (response) => {
+						dialog.hide();
+						if (response.message.status === "Queued") {
+							frappe.set_route("Form", "Brand Variant Value Sync Run", response.message.run);
+						} else {
+							frappe.msgprint(__("Sync status: {0}. Updated variants: {1}.", [response.message.status, response.message.applied || 0]));
+						}
+					},
+				})
+			);
+		};
+		dialog = new frappe.ui.Dialog({
 			title: __("Synchronize Item Group Attribute Values: {0}", [frm.doc.name]),
 			size: "large",
 			fields: [
@@ -181,49 +227,15 @@ srv_erp.brand_variant_rules = {
 				},
 				{ fieldname: "preview_result", fieldtype: "HTML" },
 			],
-			primary_action_label: __("Apply Preview"),
+			primary_action_label: __("Preview Changes"),
 			primary_action(values) {
-				if (!values.run) return frappe.msgprint(__("Preview the changes before applying."));
-				if (values.preview_scope !== JSON.stringify([values.item_group || "", values.template_item || "", values.mode])) return frappe.msgprint(__("Scope or mode changed. Preview again before applying."));
-				frappe.call({ method: "srv_erp.masters.dynamic_item.brand_value_sync.apply_brand_variant_value_sync", args: { run: values.run }, freeze: true, callback: (r) => {
-					dialog.hide();
-					if (r.message.status === "Queued") {
-						frappe.set_route("Form", "Brand Variant Value Sync Run", r.message.run);
-					} else {
-						frappe.msgprint(__("Sync status: {0}. Updated variants: {1}.", [r.message.status, r.message.applied || 0]));
-					}
-				} });
+				if (!previewRun || previewScope !== getScope(values)) {
+					preview(values);
+					return;
+				}
+				apply(previewRun);
 			},
 		});
-		dialog.set_secondary_action_label(__("Preview"));
-		dialog.set_secondary_action(() => {
-			const values = dialog.get_values();
-			if (!values) {
-				return;
-			}
-			dialog.set_value("run", "");
-			dialog.set_value("preview_scope", "");
-			frappe.call({
-				method: "srv_erp.masters.dynamic_item.brand_value_sync.preview_brand_variant_value_sync",
-				args: {
-					brand: frm.doc.name,
-					item_group: values.item_group || undefined,
-					template_item: values.template_item || undefined,
-					mode: values.mode,
-				},
-				freeze: true,
-				callback: (response) => {
-					dialog.set_value("run", response.message.run);
-					dialog.set_value("preview_scope", JSON.stringify([values.item_group || "", values.template_item || "", values.mode]));
-					srv_erp.brand_variant_rules.render_backfill_preview(
-						dialog.fields_dict.preview_result.$wrapper,
-						response.message || {}
-					);
-				},
-			});
-		});
-		dialog.add_field({ fieldname: "run", fieldtype: "Data", hidden: 1 });
-		dialog.add_field({ fieldname: "preview_scope", fieldtype: "Data", hidden: 1 });
 		dialog.show();
 	},
 
