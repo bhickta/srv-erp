@@ -91,7 +91,15 @@ def save_brand_variant_rules_draft(
 			profile.append("allowed_values", {"item_attribute": rule.attribute, "attribute_value": value})
 	if item_group_defaults is not None:
 		for row in item_group_defaults:
-			profile.append("item_group_defaults", frappe._dict(row))
+			row = frappe._dict(row)
+			profile.append(
+				"item_group_defaults",
+				{
+					"item_group": row.item_group,
+					"item_attribute": row.item_attribute,
+					"attribute_value": row.attribute_value,
+				},
+			)
 	profile.save(ignore_permissions=True)
 	return get_brand_variant_rules_state(brand)
 
