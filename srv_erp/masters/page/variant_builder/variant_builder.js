@@ -188,7 +188,8 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 						? "Brand"
 						: ["", ...values],
 					default:
-						!attribute.numeric_values && values.length === 1 ? values[0] : undefined,
+						attribute.default ??
+						(!attribute.numeric_values && values.length === 1 ? values[0] : undefined),
 					reqd: attribute.required ? 1 : 0,
 					description: attribute.numeric_values
 						? __("Enter a value within the configured numeric range.")
@@ -226,6 +227,15 @@ srv_erp.masters.VariantBuilderPage = class VariantBuilderPage {
 		} else if (options.configuration_fallback) {
 			frappe.show_alert({
 				message: __("No published Brand rules; using the template profile."),
+				indicator: "orange",
+			});
+		}
+		if ((options.default_ignored || []).length) {
+			frappe.show_alert({
+				message: __(
+					"{0} Brand default(s) were ignored because they are not allowed for this template.",
+					[options.default_ignored.length]
+				),
 				indicator: "orange",
 			});
 		}

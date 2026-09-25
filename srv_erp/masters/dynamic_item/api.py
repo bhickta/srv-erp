@@ -12,6 +12,11 @@ from srv_erp.masters.dynamic_item.approval_flow import (
 	reject_request,
 )
 from srv_erp.masters.dynamic_item.brand_rule_resolution import resolve_effective_rules
+from srv_erp.masters.dynamic_item.brand_rules import (
+	get_brand_profile,
+	get_published_configuration,
+	resolve_published_item_group_defaults,
+)
 from srv_erp.masters.dynamic_item.configuration import (
 	get_settings,
 	is_bulk_variant_creation_enabled,
@@ -36,40 +41,34 @@ def get_dynamic_variant_options(
 
 		validate_source({"doctype": source_doctype, "fieldname": source_field})
 	template, profile = get_template_and_profile(template_item)
-	if selected_brand:
-		selected_brand = get_case_insensitive_name("Brand", selected_brand)
-		if not selected_brand:
-			frappe.throw(_("Select an existing Brand."))
-		if is_brand_disabled(selected_brand):
-			frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(selected_brand)))
+	return build_variant_options(template, profile, resolve_selected_brand(selected_brand))
+
+
+def resolve_selected_brand(selected_brand):
+	if not selected_brand:
+		return None
+	canonical = get_case_insensitive_name("Brand", selected_brand)
+	if not canonical:
+		frappe.throw(_("Select an existing Brand."))
+	if is_brand_disabled(canonical):
+		frappe.throw(_("Brand {0} is disabled.").format(frappe.bold(canonical)))
+	return canonical
+
+
+def build_variant_options(template, profile, selected_brand=None) -> dict:
 	resolved = resolve_effective_rules(template, profile, selected_brand)
 	rules = resolved["configuration"].get("attributes", [])
 	attributes = []
-	template_rows = {
-		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
-	}
+	template_rows = _template_attribute_rows(template)
 	for rule in rules:
 		attribute = rule.get("attribute")
-		row = template_rows.get(attribute)
-		item_attribute = frappe.get_doc("Item Attribute", attribute)
+		option = _attribute_option(attribute, template_rows.get(attribute))
+		option["required"] = bool(rule.get("required"))
 		configured_values = rule.get("values") or []
-		attributes.append(
-			{
-				"attribute": attribute,
-				"required": bool(rule.get("required")),
-				"allow_new_values": False,
-				"numeric_values": bool(item_attribute.numeric_values),
-				"values": (
-					[]
-					if item_attribute.numeric_values
-					else configured_values
-					or [d.attribute_value for d in item_attribute.item_attribute_values]
-				),
-				"from_range": row.from_range if row else None,
-				"to_range": row.to_range if row else None,
-				"increment": row.increment if row else None,
-			}
-		)
+		if configured_values:
+			option["values"] = configured_values
+		attributes.append(option)
+	default_ignored = apply_item_group_defaults(template, selected_brand, attributes, template_rows)
 	return {
 		"template_item": template.name,
 		"stock_uom": template.stock_uom,
@@ -80,7 +79,88 @@ def get_dynamic_variant_options(
 		"configuration_revision": resolved["revision"],
 		"requires_brand_selection": resolved["requires_brand_selection"],
 		"configuration_fallback": resolved["fallback"],
+		"default_ignored": default_ignored,
 	}
+
+
+def _template_attribute_rows(template) -> dict:
+	return {
+		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
+	}
+
+
+def _attribute_option(attribute: str, row=None) -> dict:
+	item_attribute = frappe.get_doc("Item Attribute", attribute)
+	numeric = bool(item_attribute.numeric_values)
+	return {
+		"attribute": attribute,
+		"required": False,
+		"allow_new_values": False,
+		"numeric_values": numeric,
+		"values": [] if numeric else [d.attribute_value for d in item_attribute.item_attribute_values],
+		"from_range": row.from_range if row else None,
+		"to_range": row.to_range if row else None,
+		"increment": row.increment if row else None,
+	}
+
+
+def apply_item_group_defaults(
+	template, selected_brand, attributes: list[dict], template_rows=None
+) -> list[dict]:
+	if not selected_brand or not template.item_group:
+		return []
+	profile = get_brand_profile(selected_brand)
+	if not profile:
+		return []
+	configuration = get_published_configuration(profile) or {}
+	defaults = resolve_published_item_group_defaults(configuration, template.item_group)
+	if not defaults:
+		return []
+
+	if template_rows is None:
+		template_rows = _template_attribute_rows(template)
+	by_name = {attribute["attribute"]: attribute for attribute in attributes}
+	ignored = []
+	for name, resolved in defaults.items():
+		value = resolved["value"]
+		row = template_rows.get(name)
+		if not row:
+			ignored.append(
+				{"attribute": name, "value": value, "reason": _("Attribute is not on this template.")}
+			)
+			continue
+		option = by_name.get(name)
+		if not option:
+			option = _attribute_option(name, row)
+			attributes.append(option)
+			by_name[name] = option
+		reason = invalid_default_reason(option, value)
+		if reason:
+			ignored.append({"attribute": name, "value": value, "reason": reason})
+			continue
+		option["default"] = value
+	return ignored
+
+
+def invalid_default_reason(attribute: dict, value: str) -> str | None:
+	if attribute.get("numeric_values"):
+		try:
+			number = float(value)
+		except TypeError, ValueError:
+			return _("Default {0} is not numeric.").format(value)
+		from_range = attribute.get("from_range")
+		to_range = attribute.get("to_range")
+		if from_range is not None and number < float(from_range):
+			return _("Default {0} is below the allowed range.").format(value)
+		if to_range is not None and number > float(to_range):
+			return _("Default {0} is above the allowed range.").format(value)
+		return None
+	values = attribute.get("values") or []
+	if not values:
+		return None
+	if value.strip().casefold() not in {configured.casefold() for configured in values}:
+		return _("Default {0} is not an allowed value.").format(value)
+	return None
 
 
 @frappe.whitelist()

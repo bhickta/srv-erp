@@ -1,0 +1,149 @@
+{
+ "doctype": "DocType",
+ "name": "Brand Variant Value Sync Run",
+ "module": "Masters",
+ "custom": 0,
+ "istable": false,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "profile",
+  "revision",
+  "configuration_hash",
+  "requested_by",
+  "applied_by",
+  "item_group",
+  "template_item",
+  "mode",
+  "status",
+  "preview_expires_on",
+  "candidate_count",
+  "changed_variant_count",
+  "changed_attribute_count",
+  "conflict_count",
+  "skipped_count",
+  "results",
+  "message"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "profile",
+   "fieldtype": "Link",
+   "label": "Profile",
+   "options": "Brand Variant Profile"
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision"
+  },
+  {
+   "fieldname": "configuration_hash",
+   "fieldtype": "Data",
+   "label": "Configuration Hash"
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "applied_by",
+   "fieldtype": "Link",
+   "label": "Applied By",
+   "options": "User"
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "label": "Item Group",
+   "options": "Item Group"
+  },
+  {
+   "fieldname": "template_item",
+   "fieldtype": "Link",
+   "label": "Item Template",
+   "options": "Item"
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Mode",
+   "options": "Synchronize\nFill Missing"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Preparing\nPreview Ready\nQueued\nRunning\nCompleted\nCompleted with Conflicts\nStale\nFailed",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "preview_expires_on",
+   "fieldtype": "Datetime",
+   "label": "Preview Expires On"
+  },
+  {
+   "fieldname": "candidate_count",
+   "fieldtype": "Int",
+   "label": "Candidates"
+  },
+  {
+   "fieldname": "changed_variant_count",
+   "fieldtype": "Int",
+   "label": "Variants to Change"
+  },
+  {
+   "fieldname": "changed_attribute_count",
+   "fieldtype": "Int",
+   "label": "Attributes to Change"
+  },
+  {
+   "fieldname": "conflict_count",
+   "fieldtype": "Int",
+   "label": "Conflicts"
+  },
+  {
+   "fieldname": "skipped_count",
+   "fieldtype": "Int",
+   "label": "Skipped"
+  },
+  {
+   "fieldname": "results",
+   "fieldtype": "Table",
+   "label": "Results",
+   "options": "Brand Variant Value Sync Detail"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  },
+  {
+   "role": "Masters Item Approver",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "actions": [],
+ "states": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

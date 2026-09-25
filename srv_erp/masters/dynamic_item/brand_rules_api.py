@@ -9,7 +9,6 @@ from srv_erp.masters.dynamic_item.brand_rules import (
 	draft_configuration,
 	get_brand_profile,
 	get_published_configuration,
-	is_numeric_attribute,
 	validate_draft,
 )
 from srv_erp.masters.dynamic_item.configuration import (
@@ -27,6 +26,8 @@ def require_rule_manager():
 def get_brand_variant_rules_state(brand: str) -> dict:
 	if not frappe.db.exists("Brand", brand):
 		frappe.throw(_("Brand {0} does not exist.").format(frappe.bold(brand)))
+	if not frappe.get_doc("Brand", brand).has_permission("read"):
+		frappe.throw(_("Not permitted to read Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
 	profile = get_brand_profile(brand)
 	return {
 		"enabled": are_brand_variant_rules_enabled(),
@@ -39,31 +40,44 @@ def get_brand_variant_rules_state(brand: str) -> dict:
 		"last_sync_on": profile.last_sync_on if profile else None,
 		"last_sync_message": profile.last_sync_message if profile else None,
 		"rules": draft_rules_for_client(profile) if profile else [],
+		"item_group_defaults": (
+			draft_configuration(profile).get("item_group_defaults", []) if profile else []
+		),
+		"modified": profile.modified if profile else None,
 	}
 
 
 def draft_rules_for_client(profile) -> list[dict]:
-	configuration = draft_configuration(profile)
-	rows = {row.item_attribute: row for row in profile.get("attributes") or []}
-	return [
-		{
-			**rule,
-			"confidence": rows[rule["attribute"]].suggestion_confidence or "",
-			"note": rows[rule["attribute"]].suggestion_note or "",
-		}
-		for rule in configuration["attributes"]
-	]
+	return draft_configuration(profile)["attributes"]
 
 
 @frappe.whitelist()
-def save_brand_variant_rules_draft(brand: str, rules) -> dict:
+def save_brand_variant_rules_draft(
+	brand: str, rules, item_group_defaults=None, expected_modified=None
+) -> dict:
 	require_rule_manager()
 	rules = frappe.parse_json(rules) if isinstance(rules, str) else rules or []
 	profile = get_brand_profile(brand) or frappe.new_doc("Brand Variant Profile")
+	if profile.is_new() and not frappe.db.exists("Brand", brand):
+		frappe.throw(_("Select an existing Brand."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
+	if expected_modified and not profile.is_new() and str(profile.modified) != str(expected_modified):
+		frappe.throw(
+			_("This Brand draft changed after you opened it. Reload it and try again."),
+			frappe.TimestampMismatchError,
+		)
 	if profile.is_new():
 		profile.brand = brand
 	profile.set("attributes", [])
 	profile.set("allowed_values", [])
+	if item_group_defaults is not None:
+		item_group_defaults = (
+			frappe.parse_json(item_group_defaults)
+			if isinstance(item_group_defaults, str)
+			else item_group_defaults
+		)
+		profile.set("item_group_defaults", [])
 	for rule in rules:
 		rule = frappe._dict(rule)
 		profile.append(
@@ -71,12 +85,21 @@ def save_brand_variant_rules_draft(brand: str, rules) -> dict:
 			{
 				"item_attribute": rule.attribute,
 				"required_parameter": cint(rule.required),
-				"suggestion_confidence": rule.confidence or "",
-				"suggestion_note": rule.note or "",
 			},
 		)
 		for value in rule.get("values") or []:
 			profile.append("allowed_values", {"item_attribute": rule.attribute, "attribute_value": value})
+	if item_group_defaults is not None:
+		for row in item_group_defaults:
+			row = frappe._dict(row)
+			profile.append(
+				"item_group_defaults",
+				{
+					"item_group": row.item_group,
+					"item_attribute": row.item_attribute,
+					"attribute_value": row.attribute_value,
+				},
+			)
 	profile.save(ignore_permissions=True)
 	return get_brand_variant_rules_state(brand)
 
@@ -89,8 +112,16 @@ def publish_brand_variant_rules(brand: str) -> dict:
 	profile = get_brand_profile(brand)
 	if not profile:
 		frappe.throw(_("Save Brand variant rules before publishing."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
+	frappe.db.sql("select name from `tabBrand Variant Profile` where name = %s for update", profile.name)
+	profile.reload()
 	validate_draft(profile, publishing=True)
-	previous = get_published_configuration(profile) or {"attributes": []}
+	previous = get_published_configuration(profile) or {
+		"schema_version": 2,
+		"attributes": [],
+		"item_group_defaults": [],
+	}
 	profile.previous_configuration = canonical_json(previous)
 	profile.published_configuration = canonical_json(draft_configuration(profile))
 	profile.published_revision = cint(profile.published_revision) + 1
@@ -113,77 +144,10 @@ def retry_brand_variant_rule_sync(brand: str) -> dict:
 	profile = get_brand_profile(brand)
 	if not profile or not cint(profile.published_revision):
 		frappe.throw(_("Publish Brand variant rules before synchronizing."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
 	profile.db_set("sync_status", "Pending", update_modified=False)
 	from srv_erp.masters.dynamic_item.brand_rule_sync import enqueue_brand_rule_sync
 
 	enqueue_brand_rule_sync(profile.name, profile.published_revision)
 	return get_brand_variant_rules_state(brand)
-
-
-@frappe.whitelist()
-def generate_brand_variant_rule_suggestions(brand: str) -> list[dict]:
-	require_rule_manager()
-	brand_variants = frappe.db.sql(
-		"""
-		select distinct item.name, item.variant_of
-		from `tabItem` item
-		inner join `tabItem Variant Attribute` brand
-			on brand.parent = item.name and lower(brand.attribute) = 'brand'
-		where item.variant_of is not null and item.variant_of != ''
-			and lower(brand.attribute_value) = lower(%s)
-		""",
-		brand,
-		as_dict=True,
-	)
-	total_variants = len(brand_variants)
-	rows = frappe.db.sql(
-		"""
-		select other.attribute, other.attribute_value, item.variant_of, item.name
-		from `tabItem` item
-		inner join `tabItem Variant Attribute` brand
-			on brand.parent = item.name and lower(brand.attribute) = 'brand'
-		inner join `tabItem Variant Attribute` other
-			on other.parent = item.name and lower(other.attribute) != 'brand'
-		where item.variant_of is not null and item.variant_of != ''
-			and lower(brand.attribute_value) = lower(%s)
-		""",
-		brand,
-		as_dict=True,
-	)
-	grouped = {}
-	for row in rows:
-		entry = grouped.setdefault(row.attribute, {"values": set(), "templates": set(), "items": set()})
-		entry["values"].add(row.attribute_value)
-		entry["templates"].add(row.variant_of)
-		entry["items"].add(row.name)
-	observed_templates = sorted({row.variant_of for row in brand_variants if row.variant_of})
-	if observed_templates:
-		profile_rows = frappe.db.sql(
-			"""
-			select attribute.item_attribute, profile.item_template
-			from `tabDynamic Variant Profile` profile
-			inner join `tabDynamic Variant Profile Attribute` attribute
-				on attribute.parent = profile.name
-			where profile.item_template in %(templates)s
-				and lower(attribute.item_attribute) != 'brand'
-			""",
-			{"templates": tuple(observed_templates)},
-			as_dict=True,
-		)
-		for row in profile_rows:
-			entry = grouped.setdefault(
-				row.item_attribute, {"values": set(), "templates": set(), "items": set()}
-			)
-			entry["templates"].add(row.item_template)
-	return [
-		{
-			"attribute": attribute,
-			"required": len(data["items"]) == total_variants,
-			"values": [] if is_numeric_attribute(attribute) else sorted(data["values"], key=str.casefold),
-			"confidence": "High" if len(data["templates"]) > 1 else "Low",
-			"note": _("Observed on {0} variant(s) across {1} template(s).").format(
-				len(data["items"]), len(data["templates"])
-			),
-		}
-		for attribute, data in sorted(grouped.items())
-	]

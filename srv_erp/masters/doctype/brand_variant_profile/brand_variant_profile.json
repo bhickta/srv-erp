@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "brand", "publication_status", "published_revision", "published_on", "published_by",
-  "attributes", "allowed_values", "previous_configuration", "published_configuration", "draft_hash", "sync_section",
+  "attributes", "allowed_values", "item_group_defaults", "previous_configuration", "published_configuration", "draft_hash", "sync_section",
   "sync_status", "last_synced_revision", "last_sync_on", "last_sync_message"
  ],
  "fields": [
@@ -62,6 +62,13 @@
    "fieldtype": "Table",
    "label": "Draft Allowed Values",
    "options": "Brand Variant Profile Value"
+  },
+  {
+   "description": "Default attribute values per Item Group (nearest ancestor in the Item Group tree wins).",
+   "fieldname": "item_group_defaults",
+   "fieldtype": "Table",
+   "label": "Item Group Defaults",
+   "options": "Brand Variant Profile Item Group Default"
   },
   {
    "fieldname": "previous_configuration",

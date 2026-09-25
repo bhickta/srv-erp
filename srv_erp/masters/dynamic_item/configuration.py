@@ -45,6 +45,16 @@ def are_brand_variant_rules_enabled() -> bool:
 	return bool(cint(get_settings().get("enable_brand_variant_rules")))
 
 
+def is_brand_variant_sync_enabled() -> bool:
+	if not masters_settings_available():
+		return False
+	return bool(cint(get_settings().get("enable_brand_variant_sync")))
+
+
+def add_brand_variant_sync_to_boot(bootinfo):
+	bootinfo.srv_erp_brand_variant_sync_enabled = is_brand_variant_sync_enabled()
+
+
 def is_approval_enforced() -> bool:
 	if not masters_settings_available():
 		return False

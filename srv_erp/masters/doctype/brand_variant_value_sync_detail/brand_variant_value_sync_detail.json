@@ -1,0 +1,71 @@
+{
+ "doctype": "DocType",
+ "name": "Brand Variant Value Sync Detail",
+ "module": "Masters",
+ "custom": 0,
+ "istable": true,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "template_item",
+  "status",
+  "reason",
+  "before_values",
+  "after_values",
+  "changes",
+  "fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Variant",
+   "options": "Item",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "template_item",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Item"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nUnchanged\nSkipped\nConflict\nApplied\nFailed",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  },
+  {
+   "fieldname": "before_values",
+   "fieldtype": "Long Text",
+   "label": "Before Values"
+  },
+  {
+   "fieldname": "after_values",
+   "fieldtype": "Long Text",
+   "label": "After Values"
+  },
+  {
+   "fieldname": "changes",
+   "fieldtype": "Long Text",
+   "label": "Changes"
+  },
+  {
+   "fieldname": "fingerprint",
+   "fieldtype": "Data",
+   "label": "Input Fingerprint"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "actions": [],
+ "states": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

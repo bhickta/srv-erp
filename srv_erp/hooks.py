@@ -38,7 +38,10 @@ app_include_js = [
 	"/assets/srv_erp/js/grid_bulk_delete.js",
 ]
 
-boot_session = "srv_erp.grid_column_templates.add_grid_column_templates_to_boot"
+boot_session = [
+	"srv_erp.grid_column_templates.add_grid_column_templates_to_boot",
+	"srv_erp.masters.dynamic_item.configuration.add_brand_variant_sync_to_boot",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/srv_erp/css/srv_erp.css"

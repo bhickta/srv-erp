@@ -11,9 +11,9 @@ from srv_erp.masters.dynamic_item.brand_rule_sync import brand_templates, sync_b
 from srv_erp.masters.dynamic_item.brand_rules import (
 	configuration_hash,
 	draft_configuration,
+	resolve_item_group_defaults,
 	update_profile_publication_state,
 )
-from srv_erp.masters.dynamic_item.brand_rules_api import generate_brand_variant_rule_suggestions
 from srv_erp.masters.dynamic_item.profile import validate_requested_attributes
 
 
@@ -124,32 +124,29 @@ class TestBrandRulePublication(unittest.TestCase):
 		self.assertEqual(doc.publication_status, "Published")
 		self.assertEqual(doc.draft_hash, configuration_hash(draft_configuration(doc)))
 
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api._", side_effect=lambda message: message)
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.is_numeric_attribute", return_value=False)
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.require_rule_manager")
-	@patch("srv_erp.masters.dynamic_item.brand_rules_api.frappe")
-	def test_suggestions_include_uncertain_template_profile_attributes(
-		self, frappe_mock, _require_manager, _numeric, _translate
-	):
-		frappe_mock.db.sql.side_effect = [
-			[frappe._dict(name="Variant", variant_of="Template")],
-			[
-				frappe._dict(
-					attribute="Colour",
-					attribute_value="Red",
-					variant_of="Template",
-					name="Variant",
-				)
+	def test_item_group_values_are_in_draft_snapshot_and_hash(self):
+		from srv_erp.masters.dynamic_item.brand_rules import normalize_item_group_defaults
+
+		base = frappe._dict(
+			attributes=[],
+			allowed_values=[],
+			item_group_defaults=[
+				frappe._dict(item_group="Lights", item_attribute="Colour", attribute_value="Ivory"),
+				frappe._dict(item_group="Lights", item_attribute="POLY", attribute_value="BOX"),
 			],
-			[frappe._dict(item_attribute="Box", item_template="Template")],
+		)
+		configuration = draft_configuration(base)
+		self.assertEqual(
+			configuration["item_group_defaults"], normalize_item_group_defaults(base.item_group_defaults)
+		)
+		changed = frappe._dict(base)
+		changed.item_group_defaults = [
+			frappe._dict(item_group="Lights", item_attribute="Colour", attribute_value="White"),
+			frappe._dict(item_group="Lights", item_attribute="POLY", attribute_value="BOX"),
 		]
-
-		suggestions = generate_brand_variant_rule_suggestions.__wrapped__("Acme")
-
-		box = next(row for row in suggestions if row["attribute"] == "Box")
-		self.assertEqual(box["confidence"], "Low")
-		self.assertFalse(box["required"])
-		self.assertEqual(box["values"], [])
+		self.assertNotEqual(
+			configuration_hash(configuration), configuration_hash(draft_configuration(changed))
+		)
 
 
 class TestBrandRuleValidation(unittest.TestCase):
@@ -199,3 +196,129 @@ class TestBrandRuleSyncSafety(unittest.TestCase):
 
 		self.assertEqual(result, {"stale": 1})
 		frappe_mock.get_all.assert_not_called()
+
+
+class TestItemGroupDefaults(unittest.TestCase):
+	@patch("srv_erp.masters.dynamic_item.brand_rules.frappe")
+	def test_nearest_ancestor_wins_per_attribute(self, frappe_mock):
+		parents = {
+			"LED Bulbs": "Lights",
+			"Lights": "All Item Groups",
+			"All Item Groups": None,
+		}
+		frappe_mock.db.get_value.side_effect = lambda doctype, name, field: parents.get(name)
+		profile_doc = frappe._dict(
+			item_group_defaults=[
+				SimpleNamespace(item_group="Lights", item_attribute="Colour", attribute_value="White"),
+				SimpleNamespace(item_group="LED Bulbs", item_attribute="Colour", attribute_value="Warm"),
+				SimpleNamespace(item_group="LED Bulbs", item_attribute="Wattage", attribute_value="12"),
+			]
+		)
+
+		resolved = resolve_item_group_defaults(profile_doc, "LED Bulbs")
+
+		# nearest definition wins for Colour, and the parent supplies fallbacks
+		self.assertEqual(resolved["Colour"], "Warm")
+		self.assertEqual(resolved["Wattage"], "12")
+
+	def test_no_item_group_returns_empty(self):
+		self.assertEqual(resolve_item_group_defaults(frappe._dict(item_group_defaults=[]), None), {})
+
+	@patch("srv_erp.masters.dynamic_item.brand_rules.frappe")
+	def test_published_mapping_resolves_nearest_group_and_reports_source(self, frappe_mock):
+		parents = {"Child": "Parent", "Parent": None}
+		frappe_mock.db.get_value.side_effect = lambda doctype, name, field: parents.get(name)
+		from srv_erp.masters.dynamic_item.brand_rules import resolve_published_item_group_defaults
+
+		resolved = resolve_published_item_group_defaults(
+			{
+				"item_group_defaults": [
+					{"item_group": "Parent", "item_attribute": "Colour", "attribute_value": "Ivory"},
+					{"item_group": "Child", "item_attribute": "Colour", "attribute_value": "White"},
+					{"item_group": "Parent", "item_attribute": "POLY", "attribute_value": "BOX"},
+				]
+			},
+			"Child",
+		)
+
+		self.assertEqual(resolved["Colour"], {"value": "White", "source_group": "Child"})
+		self.assertEqual(resolved["POLY"], {"value": "BOX", "source_group": "Parent"})
+
+
+class TestBrandValueAssignments(unittest.TestCase):
+	def test_sync_replaces_differences_and_fill_missing_preserves_them(self):
+		from srv_erp.masters.dynamic_item.brand_value_sync import assigned_changes
+
+		before = {"Colour": "Brown", "POLY": "", "Brand": "Acme"}
+		defaults = {
+			"Colour": {"value": "White", "source_group": "Child"},
+			"POLY": {"value": "BOX", "source_group": "Parent"},
+		}
+
+		proposed, changes = assigned_changes(before, defaults, "Synchronize")
+		self.assertEqual(proposed, {"Colour": "White", "POLY": "BOX", "Brand": "Acme"})
+		self.assertEqual(changes["Colour"]["old"], "Brown")
+		self.assertEqual(changes["Colour"]["source_group"], "Child")
+
+		proposed, changes = assigned_changes(before, defaults, "Fill Missing")
+		self.assertEqual(proposed["Colour"], "Brown")
+		self.assertEqual(proposed["POLY"], "BOX")
+		self.assertNotIn("Colour", changes)
+
+
+class TestDefaultApplication(unittest.TestCase):
+	@patch("srv_erp.masters.dynamic_item.api._attribute_option")
+	@patch("srv_erp.masters.dynamic_item.api._", side_effect=lambda value: value)
+	@patch(
+		"srv_erp.masters.dynamic_item.api.resolve_published_item_group_defaults",
+		return_value={"Size": {"value": "Large", "source_group": "Lights"}},
+	)
+	@patch(
+		"srv_erp.masters.dynamic_item.api.get_published_configuration",
+		return_value={"item_group_defaults": []},
+	)
+	@patch("srv_erp.masters.dynamic_item.api.get_brand_profile", return_value=object())
+	def test_default_adds_attribute_outside_rules(
+		self, _profile, _configuration, _resolve, _translate, option_mock
+	):
+		from srv_erp.masters.dynamic_item.api import apply_item_group_defaults
+
+		option_mock.return_value = {
+			"attribute": "Size",
+			"numeric_values": False,
+			"values": ["Large", "Small"],
+		}
+		template = frappe._dict(
+			item_group="Lights",
+			attributes=[frappe._dict(attribute="Size", disabled=0)],
+		)
+		attributes = []
+
+		ignored = apply_item_group_defaults(template, "Acme", attributes)
+
+		self.assertEqual(ignored, [])
+		self.assertEqual(attributes[0]["attribute"], "Size")
+		self.assertEqual(attributes[0]["default"], "Large")
+
+	@patch("srv_erp.masters.dynamic_item.api._attribute_option")
+	@patch("srv_erp.masters.dynamic_item.api._", side_effect=lambda value: value)
+	@patch(
+		"srv_erp.masters.dynamic_item.api.resolve_published_item_group_defaults",
+		return_value={"Size": {"value": "Large", "source_group": "Lights"}},
+	)
+	@patch(
+		"srv_erp.masters.dynamic_item.api.get_published_configuration",
+		return_value={"item_group_defaults": []},
+	)
+	@patch("srv_erp.masters.dynamic_item.api.get_brand_profile", return_value=object())
+	def test_default_for_attribute_not_on_template_is_ignored(
+		self, _profile, _configuration, _resolve, _translate, _option
+	):
+		from srv_erp.masters.dynamic_item.api import apply_item_group_defaults
+
+		template = frappe._dict(item_group="Lights", attributes=[])
+
+		ignored = apply_item_group_defaults(template, "Acme", [])
+
+		self.assertEqual(len(ignored), 1)
+		self.assertEqual(ignored[0]["attribute"], "Size")
