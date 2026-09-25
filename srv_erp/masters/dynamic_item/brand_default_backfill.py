@@ -160,6 +160,9 @@ def apply_backfill_plan(brand, item_group, template_item, plan) -> dict:
 		frappe.db.savepoint(savepoint)
 		try:
 			item = frappe.get_doc("Item", item_code)
+			if not item.has_permission("write"):
+				failed += 1
+				continue
 			current = {row.attribute for row in item.get("attributes") or [] if row.attribute}
 			added = 0
 			for attribute, value in change["attributes"].items():
@@ -177,7 +180,7 @@ def apply_backfill_plan(brand, item_group, template_item, plan) -> dict:
 				added += 1
 			if not added:
 				continue
-			item.save(ignore_permissions=True)
+			item.save()
 			applied += added
 		except Exception:
 			frappe.db.rollback(save_point=savepoint)
