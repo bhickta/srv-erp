@@ -26,6 +26,8 @@ def require_rule_manager():
 def get_brand_variant_rules_state(brand: str) -> dict:
 	if not frappe.db.exists("Brand", brand):
 		frappe.throw(_("Brand {0} does not exist.").format(frappe.bold(brand)))
+	if not frappe.get_doc("Brand", brand).has_permission("read"):
+		frappe.throw(_("Not permitted to read Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
 	profile = get_brand_profile(brand)
 	return {
 		"enabled": are_brand_variant_rules_enabled(),
@@ -38,6 +40,10 @@ def get_brand_variant_rules_state(brand: str) -> dict:
 		"last_sync_on": profile.last_sync_on if profile else None,
 		"last_sync_message": profile.last_sync_message if profile else None,
 		"rules": draft_rules_for_client(profile) if profile else [],
+		"item_group_defaults": (
+			draft_configuration(profile).get("item_group_defaults", []) if profile else []
+		),
+		"modified": profile.modified if profile else None,
 	}
 
 
@@ -46,14 +52,32 @@ def draft_rules_for_client(profile) -> list[dict]:
 
 
 @frappe.whitelist()
-def save_brand_variant_rules_draft(brand: str, rules) -> dict:
+def save_brand_variant_rules_draft(
+	brand: str, rules, item_group_defaults=None, expected_modified=None
+) -> dict:
 	require_rule_manager()
 	rules = frappe.parse_json(rules) if isinstance(rules, str) else rules or []
 	profile = get_brand_profile(brand) or frappe.new_doc("Brand Variant Profile")
+	if profile.is_new() and not frappe.db.exists("Brand", brand):
+		frappe.throw(_("Select an existing Brand."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
+	if expected_modified and not profile.is_new() and str(profile.modified) != str(expected_modified):
+		frappe.throw(
+			_("This Brand draft changed after you opened it. Reload it and try again."),
+			frappe.TimestampMismatchError,
+		)
 	if profile.is_new():
 		profile.brand = brand
 	profile.set("attributes", [])
 	profile.set("allowed_values", [])
+	if item_group_defaults is not None:
+		item_group_defaults = (
+			frappe.parse_json(item_group_defaults)
+			if isinstance(item_group_defaults, str)
+			else item_group_defaults
+		)
+		profile.set("item_group_defaults", [])
 	for rule in rules:
 		rule = frappe._dict(rule)
 		profile.append(
@@ -65,6 +89,9 @@ def save_brand_variant_rules_draft(brand: str, rules) -> dict:
 		)
 		for value in rule.get("values") or []:
 			profile.append("allowed_values", {"item_attribute": rule.attribute, "attribute_value": value})
+	if item_group_defaults is not None:
+		for row in item_group_defaults:
+			profile.append("item_group_defaults", frappe._dict(row))
 	profile.save(ignore_permissions=True)
 	return get_brand_variant_rules_state(brand)
 
@@ -77,8 +104,16 @@ def publish_brand_variant_rules(brand: str) -> dict:
 	profile = get_brand_profile(brand)
 	if not profile:
 		frappe.throw(_("Save Brand variant rules before publishing."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
+	frappe.db.sql("select name from `tabBrand Variant Profile` where name = %s for update", profile.name)
+	profile.reload()
 	validate_draft(profile, publishing=True)
-	previous = get_published_configuration(profile) or {"attributes": []}
+	previous = get_published_configuration(profile) or {
+		"schema_version": 2,
+		"attributes": [],
+		"item_group_defaults": [],
+	}
 	profile.previous_configuration = canonical_json(previous)
 	profile.published_configuration = canonical_json(draft_configuration(profile))
 	profile.published_revision = cint(profile.published_revision) + 1
@@ -101,9 +136,10 @@ def retry_brand_variant_rule_sync(brand: str) -> dict:
 	profile = get_brand_profile(brand)
 	if not profile or not cint(profile.published_revision):
 		frappe.throw(_("Publish Brand variant rules before synchronizing."))
+	if not frappe.get_doc("Brand", brand).has_permission("write"):
+		frappe.throw(_("Not permitted to edit Brand {0}.").format(frappe.bold(brand)), frappe.PermissionError)
 	profile.db_set("sync_status", "Pending", update_modified=False)
 	from srv_erp.masters.dynamic_item.brand_rule_sync import enqueue_brand_rule_sync
 
 	enqueue_brand_rule_sync(profile.name, profile.published_revision)
 	return get_brand_variant_rules_state(brand)
-

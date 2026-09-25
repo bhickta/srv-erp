@@ -14,7 +14,8 @@ from srv_erp.masters.dynamic_item.approval_flow import (
 from srv_erp.masters.dynamic_item.brand_rule_resolution import resolve_effective_rules
 from srv_erp.masters.dynamic_item.brand_rules import (
 	get_brand_profile,
-	resolve_item_group_defaults,
+	get_published_configuration,
+	resolve_published_item_group_defaults,
 )
 from srv_erp.masters.dynamic_item.configuration import (
 	get_settings,
@@ -84,9 +85,7 @@ def build_variant_options(template, profile, selected_brand=None) -> dict:
 
 def _template_attribute_rows(template) -> dict:
 	return {
-		row.attribute: row
-		for row in template.get("attributes") or []
-		if not row.disabled and row.attribute
+		row.attribute: row for row in template.get("attributes") or [] if not row.disabled and row.attribute
 	}
 
 
@@ -98,22 +97,23 @@ def _attribute_option(attribute: str, row=None) -> dict:
 		"required": False,
 		"allow_new_values": False,
 		"numeric_values": numeric,
-		"values": []
-		if numeric
-		else [d.attribute_value for d in item_attribute.item_attribute_values],
+		"values": [] if numeric else [d.attribute_value for d in item_attribute.item_attribute_values],
 		"from_range": row.from_range if row else None,
 		"to_range": row.to_range if row else None,
 		"increment": row.increment if row else None,
 	}
 
 
-def apply_item_group_defaults(template, selected_brand, attributes: list[dict], template_rows=None) -> list[dict]:
+def apply_item_group_defaults(
+	template, selected_brand, attributes: list[dict], template_rows=None
+) -> list[dict]:
 	if not selected_brand or not template.item_group:
 		return []
 	profile = get_brand_profile(selected_brand)
 	if not profile:
 		return []
-	defaults = resolve_item_group_defaults(profile, template.item_group)
+	configuration = get_published_configuration(profile) or {}
+	defaults = resolve_published_item_group_defaults(configuration, template.item_group)
 	if not defaults:
 		return []
 
@@ -121,7 +121,8 @@ def apply_item_group_defaults(template, selected_brand, attributes: list[dict], 
 		template_rows = _template_attribute_rows(template)
 	by_name = {attribute["attribute"]: attribute for attribute in attributes}
 	ignored = []
-	for name, value in defaults.items():
+	for name, resolved in defaults.items():
+		value = resolved["value"]
 		row = template_rows.get(name)
 		if not row:
 			ignored.append(
@@ -145,7 +146,7 @@ def invalid_default_reason(attribute: dict, value: str) -> str | None:
 	if attribute.get("numeric_values"):
 		try:
 			number = float(value)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			return _("Default {0} is not numeric.").format(value)
 		from_range = attribute.get("from_range")
 		to_range = attribute.get("to_range")
