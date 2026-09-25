@@ -174,6 +174,9 @@ def _preview(brand, item_group, template_item, mode, configuration):
 					problem = _("Attribute {0} is not enabled on the template.").format(attribute)
 					break
 				option = _attribute_option(attribute, row)
+				allowed = rules.get(attribute, {}).get("values") or []
+				if allowed:
+					option["values"] = allowed
 				reason = invalid_default_reason(option, value)
 				if not reason and option.get("numeric_values"):
 					from srv_erp.masters.dynamic_item.profile import validate_numeric_value
@@ -182,7 +185,6 @@ def _preview(brand, item_group, template_item, mode, configuration):
 						validate_numeric_value(template.name, attribute, value)
 					except frappe.ValidationError as exc:
 						reason = frappe.utils.strip_html(str(exc))
-				allowed = rules.get(attribute, {}).get("values") or []
 				if not reason and allowed and value.casefold() not in {v.casefold() for v in allowed}:
 					reason = _("Value {0} is not allowed by the published Brand rules.").format(value)
 				if reason:
