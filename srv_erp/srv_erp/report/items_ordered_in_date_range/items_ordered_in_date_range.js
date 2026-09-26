@@ -8,12 +8,6 @@ frappe.query_reports["Items Ordered in Date Range"] = {
 	},
 	filters: [
 		{
-			fieldname: "only_to_manufacture",
-			label: __("Only Items To Manufacture"),
-			fieldtype: "Check",
-			default: 1,
-		},
-		{
 			fieldname: "group_by_item",
 			label: __("Group by Item"),
 			fieldtype: "Check",

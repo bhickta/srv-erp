@@ -587,52 +587,24 @@ def get_conditions(filters):
 			conditions.append(f"{column} = %({fieldname})s")
 	if filters.get("customer_group"):
 		conditions.append(
-			get_descendant_condition(
-				"Customer Group",
-				"so.customer_group",
-				"customer_group",
-			)
+			get_descendant_condition("Customer Group", "so.customer_group", "customer_group")
 		)
 	if filters.get("item_group"):
-		conditions.append(
-			get_descendant_condition(
-				"Item Group",
-				"soi.item_group",
-				"item_group",
-			)
-		)
+		conditions.append(get_descendant_condition("Item Group", "soi.item_group", "item_group"))
 	if filters.get("brand"):
-		conditions.append(
-			f"{RESOLVED_BRAND_SQL} = %(brand)s"
-		)
+		conditions.append(f"{RESOLVED_BRAND_SQL} = %(brand)s")
 	if filters.get("sales_person"):
 		conditions.append(
-			"EXISTS ("
-			"SELECT 1 FROM `tabSales Team` st_filter "
-			"WHERE st_filter.parent = so.name "
-			"AND st_filter.parenttype = 'Sales Order' "
-			"AND st_filter.sales_person = %(sales_person)s"
-			")"
+			"EXISTS (SELECT 1 FROM `tabSales Team` st_filter "
+			"WHERE st_filter.parent = so.name AND st_filter.parenttype = 'Sales Order' "
+			"AND st_filter.sales_person = %(sales_person)s)"
 		)
-
 	if cint(filters.get("pending_only")):
-		conditions.append(
-			"soi.qty > COALESCE(soi.delivered_qty, 0)"
-		)
-
-	# Only show items which have Qty to Manufacture > 0
-	if cint(filters.get("only_to_manufacture")):
-		conditions.append(
-			f"""
-			GREATEST(
-				{STOCK_PENDING_QTY_SQL}
-				- COALESCE(bin.actual_qty, 0),
-				0
-			) > 0
-			"""
-		)
+		conditions.append("soi.qty > COALESCE(soi.delivered_qty, 0)")
 	conditions.append(EXCLUDE_CLOSED_SALES_ORDERS_SQL)
+
 	return " AND " + " AND ".join(conditions) if conditions else ""
+
 
 def set_default_warehouse(filters):
 	if filters.get("warehouse") or not filters.get("company"):

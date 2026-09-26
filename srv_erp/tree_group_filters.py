@@ -32,6 +32,7 @@ def configure_tree_group_list_filters(config=None):
 	for filter_config in config:
 		doctype = filter_config["doctype"]
 		fieldname = filter_config["fieldname"]
+
 		meta = frappe.get_meta(doctype)
 		field = validate_tree_link_field(meta, fieldname)
 
@@ -42,6 +43,7 @@ def configure_tree_group_list_filters(config=None):
 
 		for property_name, (value, property_type) in properties.items():
 			current_value = field.get(property_name)
+
 			is_current_value = (
 				cint(current_value) == value
 				if property_type == "Check"
