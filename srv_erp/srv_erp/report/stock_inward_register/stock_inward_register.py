@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
+from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 
 INWARD_VOUCHER_TYPES = ("Purchase Receipt", "Stock Entry")
@@ -18,6 +19,7 @@ def execute(filters=None):
 
     columns = get_columns(filters)
     data = get_data(filters)
+    add_selected_uom_columns(columns, data, filters.get("include_uom"))
     report_summary = get_report_summary(data)
 
     return columns, data, None, None, report_summary
@@ -72,6 +74,7 @@ def get_columns(filters):
             "fieldname": "in_qty",
             "fieldtype": "Float",
             "width": 130,
+            "convertible": "qty",
         },
         {
             "label": _("Voucher"),
@@ -113,6 +116,13 @@ def get_columns(filters):
                 "fieldtype": "Link",
                 "options": "UOM",
                 "width": 100,
+            },
+            {
+                "label": _("Inward Qty UOM"),
+                "fieldname": "uom_in_qty",
+                "fieldtype": "Link",
+                "options": "UOM",
+                "hidden": 1,
             },
             {
                 "label": _("Stock Value"),
@@ -238,6 +248,11 @@ def get_data(filters):
                 sle.stock_uom,
                 ''
             ) AS stock_uom,
+
+            COALESCE(
+                sle.stock_uom,
+                ''
+            ) AS uom_in_qty,
 
             COALESCE(
                 SUM(sle.stock_value_difference),
