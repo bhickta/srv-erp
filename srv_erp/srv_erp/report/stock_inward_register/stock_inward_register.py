@@ -18,7 +18,7 @@ def execute(filters=None):
 
     columns = get_columns(filters)
     data = get_data(filters)
-    report_summary = get_report_summary(data, filters)
+    report_summary = get_report_summary(data)
 
     return columns, data, None, None, report_summary
 
@@ -59,7 +59,7 @@ def get_columns(filters):
             "label": _("Item Code"),
             "fieldname": "item_code",
             "fieldtype": "Data",
-            "width": 100,
+            "width": 160,
         },
         {
             "label": _("Item Name"),
@@ -73,13 +73,12 @@ def get_columns(filters):
             "fieldtype": "Float",
             "width": 130,
         },
-		{
-			"label": _("Stock UOM"),
-			"fieldname": "stock_uom",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 100,
-		},
+        {
+            "label": _("Voucher"),
+            "fieldname": "voucher",
+            "fieldtype": "Data",
+            "width": 120,
+        },
     ]
 
     if filters.get("price_list"):
@@ -109,6 +108,13 @@ def get_columns(filters):
                 "width": 200,
             },
             {
+                "label": _("Stock UOM"),
+                "fieldname": "stock_uom",
+                "fieldtype": "Link",
+                "options": "UOM",
+                "width": 100,
+            },
+            {
                 "label": _("Stock Value"),
                 "fieldname": "stock_value",
                 "fieldtype": "Currency",
@@ -127,6 +133,18 @@ def get_columns(filters):
                 "fieldname": "company_currency",
                 "fieldtype": "Link",
                 "options": "Currency",
+                "hidden": 1,
+            },
+            {
+                "label": _("Voucher Data"),
+                "fieldname": "vouchers",
+                "fieldtype": "Data",
+                "hidden": 1,
+            },
+            {
+                "label": _("Voucher Count"),
+                "fieldname": "voucher_count",
+                "fieldtype": "Int",
                 "hidden": 1,
             },
         ]
@@ -168,40 +186,67 @@ def get_data(filters):
 
     rows = frappe.db.sql(
         f"""
-		SELECT
-			COALESCE(
-				iva.attribute_value,
-				''
-			) AS brand,
+        SELECT
+            COALESCE(
+                iva.attribute_value,
+                ''
+            ) AS brand,
 
-			COALESCE(
-				item.variant_of,
-				sle.item_code
-			) AS item_code,
+            COALESCE(
+                item.variant_of,
+                sle.item_code
+            ) AS item_code,
 
-			item.item_name AS item_name,
+            item.item_name AS item_name,
 
-			SUM(sle.actual_qty) AS in_qty,
+            SUM(sle.actual_qty) AS in_qty,
 
-			{basic_rate_field},
+            COUNT(
+                DISTINCT CONCAT(
+                    sle.voucher_type,
+                    '::',
+                    sle.voucher_no
+                )
+            ) AS voucher_count,
 
-			COALESCE(
-				pr.supplier,
-				se.supplier
-			) AS supplier,
+            GROUP_CONCAT(
+                DISTINCT CONCAT(
+                    sle.voucher_type,
+                    '::',
+                    sle.voucher_no
+                )
+                ORDER BY
+                    sle.voucher_no
+                SEPARATOR '||'
+            ) AS vouchers,
 
-			COALESCE(
-				pr.supplier_name,
-				se.supplier_name
-			) AS supplier_name,
+            {basic_rate_field},
 
-			sle.stock_uom AS stock_uom,
+            COALESCE(
+                pr.supplier,
+                se.supplier,
+                ''
+            ) AS supplier,
 
-			SUM(sle.stock_value_difference) AS stock_value,
+            COALESCE(
+                pr.supplier_name,
+                se.supplier_name,
+                ''
+            ) AS supplier_name,
 
-			sle.company AS company,
+            COALESCE(
+                sle.stock_uom,
+                ''
+            ) AS stock_uom,
 
-			company.default_currency AS company_currency
+            COALESCE(
+                SUM(sle.stock_value_difference),
+                0
+            ) AS stock_value,
+
+            sle.company AS company,
+
+            company.default_currency AS company_currency
 
         FROM `tabStock Ledger Entry` sle
 
@@ -243,6 +288,10 @@ def get_data(filters):
 
         GROUP BY
             iva.attribute_value,
+            COALESCE(
+                item.variant_of,
+                sle.item_code
+            ),
             sle.item_code,
             item.item_name,
             COALESCE(
@@ -262,7 +311,10 @@ def get_data(filters):
                 iva.attribute_value,
                 ''
             ),
-            sle.item_code,
+            COALESCE(
+                item.variant_of,
+                sle.item_code
+            ),
             COALESCE(
                 pr.supplier_name,
                 se.supplier_name,
@@ -272,6 +324,13 @@ def get_data(filters):
         filters,
         as_dict=True,
     )
+
+    for row in rows:
+        row.voucher = (
+            "1 Voucher"
+            if row.voucher_count == 1
+            else f"{row.voucher_count} Vouchers"
+        )
 
     return rows
 
@@ -390,7 +449,7 @@ def get_conditions(filters):
     return conditions
 
 
-def get_report_summary(rows, filters):
+def get_report_summary(rows):
     if not rows:
         return []
 
