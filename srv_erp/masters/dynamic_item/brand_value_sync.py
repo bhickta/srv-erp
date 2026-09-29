@@ -175,8 +175,6 @@ def _preview(brand, item_group, template_item, mode, configuration):
 					break
 				option = _attribute_option(attribute, row)
 				allowed = rules.get(attribute, {}).get("values") or []
-				if allowed:
-					option["values"] = allowed
 				reason = invalid_default_reason(option, value)
 				if not reason and option.get("numeric_values"):
 					from srv_erp.masters.dynamic_item.profile import validate_numeric_value
