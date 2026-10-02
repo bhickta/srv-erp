@@ -267,6 +267,9 @@ def get_subtotal_data(filters, conditions):
 			FROM `tabSales Order Item` soi
 			INNER JOIN `tabSales Order` so ON so.name = soi.parent
 			INNER JOIN `tabItem` item ON item.name = soi.item_code
+			LEFT JOIN `tabBin` bin
+				ON bin.item_code = soi.item_code
+				AND bin.warehouse = %(warehouse)s
 			LEFT JOIN `tabItem` template ON template.name = item.variant_of
 			LEFT JOIN `tabItem Variant Attribute` variant_brand
 				ON variant_brand.parent = item.name
@@ -291,6 +294,9 @@ def get_subtotal_data(filters, conditions):
 				FROM `tabSales Order Item` soi
 				INNER JOIN `tabSales Order` so ON so.name = soi.parent
 				INNER JOIN `tabItem` item ON item.name = soi.item_code
+				LEFT JOIN `tabBin` bin
+					ON bin.item_code = soi.item_code
+					AND bin.warehouse = %(warehouse)s
 				LEFT JOIN `tabItem` template ON template.name = item.variant_of
 				LEFT JOIN `tabItem Variant Attribute` variant_brand
 					ON variant_brand.parent = item.name
