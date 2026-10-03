@@ -245,6 +245,7 @@ doc_events = {
 		"on_trash": "srv_erp.item.variant_auto_creation.handle_brand_delete",
 	},
 	"Sales Order": {
+		"before_validate": "srv_erp.selling.sales_order_item_approval.normalize_sales_order_workflow_state",
 		"validate": [
 			"srv_erp.selling.sales_order_item_approval.validate_sales_order_item_history",
       		"srv_erp.selling.sales_order_discount.validate_sales_order_discounts",

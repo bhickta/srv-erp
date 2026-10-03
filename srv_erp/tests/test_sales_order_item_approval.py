@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -11,8 +12,10 @@ from srv_erp.selling.sales_order_item_approval import (
 	ENABLE_SETTING,
 	LOOKBACK_MONTHS_SETTING,
 	UNAPPROVED_ITEMS_FIELD,
+	WORKFLOW_STATE_FIELD,
 	get_customer_item_history,
 	get_items_requiring_approval,
+	normalize_sales_order_workflow_state,
 	validate_sales_order_item_approval_submission,
 	validate_sales_order_item_history,
 )
@@ -21,7 +24,9 @@ from srv_erp.selling.sales_order_item_approval_setup import (
 	ACTION_REJECT,
 	ACTION_SEND_FOR_APPROVAL,
 	ACTION_SUBMIT,
+	DISPLACED_WORKFLOW_SETTING,
 	STATE_APPROVED,
+	STATE_CANCELLED,
 	STATE_DRAFT,
 	STATE_PENDING,
 	STATE_REJECTED,
@@ -37,6 +42,9 @@ class FakeDoc(frappe._dict):
 
 	def set(self, key, value):
 		self[key] = value
+
+	def get_doc_before_save(self):
+		return None
 
 
 def configure_settings(frappe, *, enabled=1, lookback=12, allow_first=0, approver="Sales Manager"):
@@ -259,6 +267,26 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 		self.assertEqual(workflow["override_status"], 1)
 		self.assertEqual(workflow["document_type"], "Sales Order")
 
+	def test_submitted_and_inactive_states_defer_to_status_indicator(self):
+		"""Submitted/Closed orders must fall back to the list indicator.
+
+		Otherwise a Closed order that is in the Approved workflow state would
+		render "Approved" in the list view instead of "Closed".
+		"""
+		workflow = build_sales_order_item_approval_workflow("Sales Manager")
+		avoid = {
+			state["state"]
+			for state in workflow["states"]
+			if state.get("avoid_status_override")
+		}
+
+		self.assertEqual(avoid, {STATE_DRAFT, STATE_APPROVED, STATE_CANCELLED, "Cancle"})
+
+		pending = next(s for s in workflow["states"] if s["state"] == STATE_PENDING)
+		rejected = next(s for s in workflow["states"] if s["state"] == STATE_REJECTED)
+		self.assertFalse(pending.get("avoid_status_override"))
+		self.assertFalse(rejected.get("avoid_status_override"))
+
 	def test_rejected_order_can_be_resubmitted_for_approval(self):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 		transition = next(
@@ -296,12 +324,14 @@ class TestSalesOrderItemApprovalProvisioning(TestCase):
 			ENABLE_SETTING: 0,
 		}.get(field)
 		setup_frappe.db.exists.return_value = True
+		setup_frappe.db.get_single_value.return_value = None
 
 		sync_sales_order_item_approval_workflow()
 
-		setup_frappe.db.set_value.assert_called_once()
-		self.assertEqual(setup_frappe.db.set_value.call_args.args[2], "is_active")
-		self.assertEqual(setup_frappe.db.set_value.call_args.args[3], 0)
+		first_call = setup_frappe.db.set_value.call_args_list[0]
+		self.assertEqual(first_call.args[0], "Workflow")
+		self.assertEqual(first_call.args[2], "is_active")
+		self.assertEqual(first_call.args[3], 0)
 
 	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
 	def test_upsert_updates_existing_workflow_in_place(self, frappe_mock):
@@ -324,3 +354,116 @@ class TestSalesOrderItemApprovalProvisioning(TestCase):
 		payload = frappe_mock.get_doc.call_args.args[0]
 		self.assertEqual(payload["doctype"], "Workflow")
 		frappe_mock.get_doc.return_value.insert.assert_called_once_with(ignore_permissions=True)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_sync_remembers_displaced_active_workflow(self, core_frappe, setup_frappe):
+		core_frappe.db.get_single_value.side_effect = lambda doctype, field: {
+			ENABLE_SETTING: 1,
+			APPROVER_ROLE_SETTING: "Sales Manager",
+		}.get(field)
+		setup_frappe.db.get_value.return_value = "Sales Approval"
+		setup_frappe.db.exists.return_value = False
+
+		sync_sales_order_item_approval_workflow()
+
+		setup_frappe.db.set_single_value.assert_any_call(
+			"SRV Settings", DISPLACED_WORKFLOW_SETTING, "Sales Approval"
+		)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_sync_restores_displaced_workflow_when_disabled(self, core_frappe, setup_frappe):
+		core_frappe.db.get_single_value.side_effect = lambda doctype, field: {
+			ENABLE_SETTING: 0,
+		}.get(field)
+		setup_frappe.db.exists.return_value = True
+		setup_frappe.db.get_single_value.return_value = "Sales Approval"
+
+		sync_sales_order_item_approval_workflow()
+
+		setup_frappe.db.set_value.assert_any_call("Workflow", "Sales Approval", "is_active", 1)
+		setup_frappe.db.set_single_value.assert_any_call(
+			"SRV Settings", DISPLACED_WORKFLOW_SETTING, None
+		)
+
+
+class TestSalesOrderWorkflowStateNormalization(TestCase):
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_new_doc_with_legacy_pending_state_resets_to_default(self, frappe_mock):
+		frappe_mock.db.get_value.return_value = "Sales Order Item Approval"
+		state_rows = [
+			SimpleNamespace(state="Draft", doc_status="0"),
+			SimpleNamespace(state="Pending Item Approval", doc_status="0"),
+			SimpleNamespace(state="Approved", doc_status="1"),
+		]
+		frappe_mock.get_doc.return_value = SimpleNamespace(states=state_rows)
+		doc = FakeDoc(__islocal=1, docstatus=0, **{WORKFLOW_STATE_FIELD: "Pending"})
+
+		normalize_sales_order_workflow_state(doc)
+
+		self.assertEqual(doc[WORKFLOW_STATE_FIELD], "Draft")
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_existing_doc_unknown_state_maps_to_canonical(self, frappe_mock):
+		frappe_mock.db.get_value.return_value = "Sales Order Item Approval"
+		state_rows = [
+			SimpleNamespace(state="Draft", doc_status="0"),
+			SimpleNamespace(state="Pending Item Approval", doc_status="0"),
+			SimpleNamespace(state="Cancelled", doc_status="2"),
+		]
+		frappe_mock.get_doc.return_value = SimpleNamespace(states=state_rows)
+		# "Cancle" is not a state of this workflow -> remap via LEGACY_STATE_MIGRATION.
+		doc = FakeDoc(docstatus=2, **{WORKFLOW_STATE_FIELD: "Cancle"})
+
+		normalize_sales_order_workflow_state(doc)
+
+		self.assertEqual(doc[WORKFLOW_STATE_FIELD], "Cancelled")
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_valid_state_is_left_untouched(self, frappe_mock):
+		frappe_mock.db.get_value.return_value = "Sales Order Item Approval"
+		frappe_mock.get_doc.return_value = SimpleNamespace(
+			states=[SimpleNamespace(state="Draft", doc_status="0")]
+		)
+		doc = FakeDoc(__islocal=1, docstatus=0, **{WORKFLOW_STATE_FIELD: "Draft"})
+
+		normalize_sales_order_workflow_state(doc)
+
+		self.assertEqual(doc[WORKFLOW_STATE_FIELD], "Draft")
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_normalization_mirrors_state_into_doc_before_save(self, frappe_mock):
+		frappe_mock.db.get_value.return_value = "Sales Order Item Approval"
+		frappe_mock.get_doc.return_value = SimpleNamespace(
+			states=[
+				SimpleNamespace(state="Draft", doc_status="0"),
+				SimpleNamespace(state="Cancelled", doc_status="2"),
+			]
+		)
+		previous = FakeDoc(docstatus=2, **{WORKFLOW_STATE_FIELD: "Cancle"})
+
+		class DocWithPrevious(FakeDoc):
+			def get_doc_before_save(self):
+				return previous
+
+		doc = DocWithPrevious(docstatus=2, **{WORKFLOW_STATE_FIELD: "Cancle"})
+
+		normalize_sales_order_workflow_state(doc)
+
+		self.assertEqual(doc[WORKFLOW_STATE_FIELD], "Cancelled")
+		self.assertEqual(previous[WORKFLOW_STATE_FIELD], "Cancelled")
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_legacy_states_are_valid_in_merged_workflow(self, frappe_mock):
+		"""Legacy states are kept valid so un-migrated docs can still progress."""
+		workflow = build_sales_order_item_approval_workflow("Sales Manager")
+		state_names = {s["state"] for s in workflow["states"]}
+
+		self.assertIn("Pending", state_names)
+		self.assertIn("Cancle", state_names)
+
+		actions_from_legacy_pending = {
+			t["action"] for t in workflow["transitions"] if t["state"] == "Pending"
+		}
+		self.assertEqual(actions_from_legacy_pending, {ACTION_APPROVE, ACTION_REJECT})

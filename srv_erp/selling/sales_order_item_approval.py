@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import add_months, cint, nowdate
+from frappe.utils import add_months, cint, cstr, nowdate
 
 SALES_ORDER = "Sales Order"
 
@@ -26,6 +26,17 @@ STATE_PENDING = "Pending Item Approval"
 STATE_APPROVED = "Approved"
 STATE_REJECTED = "Rejected"
 STATE_CANCELLED = "Cancelled"
+
+# Legacy states from the pre-existing "Sales Approval" workflow that this one
+# supersedes. Existing documents may still sit in these states, so the merged
+# workflow keeps accepting them and the data is migrated to the canonical
+# states below.
+LEGACY_STATE_PENDING = "Pending"
+LEGACY_STATE_CANCEL = "Cancle"
+LEGACY_STATE_MIGRATION = {
+	LEGACY_STATE_PENDING: STATE_PENDING,
+	LEGACY_STATE_CANCEL: STATE_CANCELLED,
+}
 
 ACTION_SUBMIT = "Submit"
 ACTION_SEND_FOR_APPROVAL = "Send for Approval"
@@ -115,6 +126,73 @@ def get_items_requiring_approval(doc) -> list[str]:
 			required.append(item_code)
 
 	return required
+
+
+def get_active_workflow_state_names() -> set[str]:
+	"""Valid workflow states of the currently active Sales Order workflow."""
+	name = frappe.db.get_value(
+		"Workflow", {"document_type": SALES_ORDER, "is_active": 1}, "name"
+	)
+	if not name:
+		return set()
+	return {
+		row.state
+		for row in frappe.get_doc("Workflow", name).states
+	}
+
+
+def normalize_sales_order_workflow_state(doc, method=None):
+	"""Keep `workflow_state` valid for the active workflow.
+
+	A stale client (an open tab from before the workflow was swapped) can send a
+	state that belonged to the superseded "Sales Approval" workflow, e.g. a new
+	order arriving with `workflow_state = "Pending"`. The active workflow has no
+	transition from its first state to that one, so the save fails with
+	"Workflow State transition not allowed from Draft to Pending". Map any
+	unknown state onto its canonical equivalent (or the workflow's first state)
+	before Frappe validates the transition.
+
+	Runs on `before_validate` so it executes before `_validate`/`validate_workflow`.
+	"""
+	state = doc.get(WORKFLOW_STATE_FIELD)
+	valid_states = get_active_workflow_state_names()
+	if not valid_states:
+		return
+
+	if state in valid_states:
+		return
+
+	if doc.is_new():
+		# A brand-new doc must start at the workflow's first state; the
+		# legacy-state mapping below is only meaningful for existing docs.
+		normalized = get_default_workflow_state(doc)
+	else:
+		normalized = LEGACY_STATE_MIGRATION.get(state, get_default_workflow_state(doc))
+
+	doc.set(WORKFLOW_STATE_FIELD, normalized)
+
+	# `validate_workflow` compares against the state loaded from the DB. Mirror
+	# the correction there too, otherwise it sees a transition between two
+	# different states and raises WorkflowTransitionError.
+	previous = doc.get_doc_before_save()
+	if previous is not None:
+		previous.set(WORKFLOW_STATE_FIELD, normalized)
+
+
+def get_default_workflow_state(doc) -> str:
+	"""First workflow state matching the document's current docstatus."""
+	docstatus = cstr(doc.get("docstatus") or 0)
+	name = frappe.db.get_value(
+		"Workflow", {"document_type": SALES_ORDER, "is_active": 1}, "name"
+	)
+	if not name:
+		return STATE_DRAFT
+
+	for row in frappe.get_doc("Workflow", name).states:
+		if cstr(row.doc_status) == docstatus:
+			return row.state
+
+	return STATE_DRAFT
 
 
 def validate_sales_order_item_history(doc, method=None):
