@@ -56,7 +56,12 @@ def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
 		"override_status": 1,
 		"send_email_alert": 0,
 		"states": [
-			{"state": STATE_DRAFT, "doc_status": "0", "allow_edit": EDIT_ROLE},
+			{
+				"state": STATE_DRAFT,
+				"doc_status": "0",
+				"allow_edit": EDIT_ROLE,
+				"avoid_status_override": 1,
+			},
 			{"state": STATE_PENDING, "doc_status": "0", "allow_edit": EDIT_ROLE},
 			{
 				"state": STATE_APPROVED,
@@ -65,9 +70,17 @@ def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
 				"update_field": APPROVED_FIELD,
 				"update_value": "1",
 				"evaluate_as_expression": 0,
+				# Submitted orders fall back to the list indicator (status/Closed)
+				# instead of showing the raw workflow state.
+				"avoid_status_override": 1,
 			},
 			{"state": STATE_REJECTED, "doc_status": "0", "allow_edit": EDIT_ROLE},
-			{"state": STATE_CANCELLED, "doc_status": "2", "allow_edit": EDIT_ROLE},
+			{
+				"state": STATE_CANCELLED,
+				"doc_status": "2",
+				"allow_edit": EDIT_ROLE,
+				"avoid_status_override": 1,
+			},
 		],
 		"transitions": [
 			{
