@@ -67,7 +67,7 @@ def customer_has_order_history(customer: str) -> bool:
 	return bool(
 		frappe.db.exists(
 			"Sales Order",
-			{"customer": customer, "docstatus": 1, "is_return": 0},
+			{"customer": customer, "docstatus": 1},
 		)
 	)
 
@@ -93,7 +93,6 @@ def get_customer_item_history(customer: str, lookback_months: int | None = None)
 		INNER JOIN `tabSales Order` so ON so.name = soi.parent
 		WHERE so.docstatus = 1
 			AND so.customer = %(customer)s
-			AND IFNULL(so.is_return, 0) = 0
 			{date_condition}
 		""",
 		params,
@@ -107,7 +106,7 @@ def get_items_requiring_approval(doc) -> list[str]:
 	if not is_enabled():
 		return []
 
-	if cint(doc.get("docstatus")) == 2 or cint(doc.get("is_return")):
+	if cint(doc.get("docstatus")) == 2:
 		return []
 
 	customer = doc.get("customer")

@@ -13,6 +13,7 @@ from srv_erp.selling.sales_order_item_approval import (
 	LOOKBACK_MONTHS_SETTING,
 	UNAPPROVED_ITEMS_FIELD,
 	WORKFLOW_STATE_FIELD,
+	customer_has_order_history,
 	get_customer_item_history,
 	get_items_requiring_approval,
 	normalize_sales_order_workflow_state,
@@ -79,19 +80,29 @@ class TestSalesOrderItemApproval(TestCase):
 		frappe_mock.db.sql.assert_not_called()
 
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
-	def test_returns_and_cancelled_orders_are_ignored(self, frappe_mock):
+	def test_cancelled_orders_are_ignored(self, frappe_mock):
 		configure_settings(frappe_mock)
 		items = [{"item_code": "ITEM-1"}]
 
-		self.assertEqual(
-			get_items_requiring_approval(FakeDoc(customer="CUST-1", docstatus=0, is_return=1, items=items)),
-			[],
-		)
 		self.assertEqual(
 			get_items_requiring_approval(FakeDoc(customer="CUST-1", docstatus=2, items=items)),
 			[],
 		)
 		frappe_mock.db.sql.assert_not_called()
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_history_queries_do_not_reference_is_return(self, frappe_mock):
+		"""Sales Order has no `is_return` column; the query must not use it."""
+		configure_settings(frappe_mock)
+		frappe_mock.db.sql.return_value = []
+
+		get_customer_item_history("CUST-1")
+		query = frappe_mock.db.sql.call_args.args[0]
+		self.assertNotIn("is_return", query)
+
+		customer_has_order_history("CUST-1")
+		exists_filter = frappe_mock.db.exists.call_args.args[1]
+		self.assertNotIn("is_return", exists_filter)
 
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
 	def test_missing_customer_is_ignored(self, frappe_mock):
