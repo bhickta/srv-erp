@@ -1,6 +1,9 @@
 const standard_sales_order_listview_settings =
 	frappe.listview_settings["Sales Order"] || {};
 
+const standard_sales_order_get_indicator =
+	standard_sales_order_listview_settings.get_indicator;
+
 const CUSTOM_DELIVERY_STATUS = "Partly or Not Delivered";
 const CUSTOM_DELIVERY_STATUS_VALUE = "__partly_or_not_delivered__";
 
@@ -126,6 +129,15 @@ function setup_custom_delivery_status_filter(listview) {
 
 frappe.listview_settings["Sales Order"] = {
 	...standard_sales_order_listview_settings,
+	get_indicator(doc) {
+		// Closed orders are inactive: show them in grey so they stand apart
+		// from the green "Completed" indicator used by the standard list.
+		if (doc.status === "Closed") {
+			return [__("Closed"), "gray", "status,=,Closed"];
+		}
+
+		return standard_sales_order_get_indicator?.(doc);
+	},
 	// filters: [
 	// 	[
 	// 		"delivery_status",
