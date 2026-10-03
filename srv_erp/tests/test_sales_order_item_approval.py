@@ -22,6 +22,7 @@ from srv_erp.selling.sales_order_item_approval_setup import (
 	ACTION_SEND_FOR_APPROVAL,
 	ACTION_SUBMIT,
 	STATE_APPROVED,
+	STATE_CANCELLED,
 	STATE_DRAFT,
 	STATE_PENDING,
 	STATE_REJECTED,
@@ -258,6 +259,26 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 		self.assertEqual(workflow["workflow_state_field"], "workflow_state")
 		self.assertEqual(workflow["override_status"], 1)
 		self.assertEqual(workflow["document_type"], "Sales Order")
+
+	def test_submitted_and_inactive_states_defer_to_status_indicator(self):
+		"""Submitted/Closed orders must fall back to the list indicator.
+
+		Otherwise a Closed order that is in the Approved workflow state would
+		render "Approved" in the list view instead of "Closed".
+		"""
+		workflow = build_sales_order_item_approval_workflow("Sales Manager")
+		avoid = {
+			state["state"]
+			for state in workflow["states"]
+			if state.get("avoid_status_override")
+		}
+
+		self.assertEqual(avoid, {STATE_DRAFT, STATE_APPROVED, STATE_CANCELLED})
+
+		pending = next(s for s in workflow["states"] if s["state"] == STATE_PENDING)
+		rejected = next(s for s in workflow["states"] if s["state"] == STATE_REJECTED)
+		self.assertFalse(pending.get("avoid_status_override"))
+		self.assertFalse(rejected.get("avoid_status_override"))
 
 	def test_rejected_order_can_be_resubmitted_for_approval(self):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
