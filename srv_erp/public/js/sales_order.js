@@ -566,6 +566,32 @@ function set_item_discount_default(frm, cdt, cdn) {
 }
 
 
+function is_sales_order_closed(frm) {
+	return frm.doc.docstatus === 1 && frm.doc.status === "Closed";
+}
+
+function refresh_closed_sales_order_indicator(frm) {
+	if (is_sales_order_closed(frm)) {
+		frm.page.set_indicator(__("Closed"), "gray");
+		frm.dashboard.set_headline_alert(
+			__(
+				"This Sales Order is Closed. No further Delivery Notes or Sales Invoices can be created until it is re-opened."
+			),
+			"gray",
+			true
+		);
+		frm.__srv_closed_indicator_shown = true;
+		return;
+	}
+
+	if (frm.__srv_closed_indicator_shown) {
+		frm.page.clear_indicator();
+		frm.dashboard.clear_headline();
+		frm.__srv_closed_indicator_shown = false;
+	}
+}
+
+
 frappe.ui.form.on("Sales Order", {
 	setup(frm) {
 		setup_sales_order_brand_filter(frm);
@@ -579,6 +605,7 @@ frappe.ui.form.on("Sales Order", {
 		copy_discount_to_items(frm);
 	},
 	refresh(frm) {
+		refresh_closed_sales_order_indicator(frm);
 		refresh_current_stock(frm);
 		setup_delivery_item_filter(frm);
 		setup_sales_order_brand_filter(frm);
