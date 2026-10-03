@@ -129,7 +129,25 @@ function setup_custom_delivery_status_filter(listview) {
 
 frappe.listview_settings["Sales Order"] = {
 	...standard_sales_order_listview_settings,
+	add_fields: [
+		...(standard_sales_order_listview_settings.add_fields || []),
+		"workflow_state",
+		"custom_sales_order_item_approval_required",
+	],
 	get_indicator(doc) {
+		// Approval states take precedence so pending/rejected orders stand out.
+		if (doc.workflow_state === "Pending Item Approval") {
+			return [
+				__("Pending Item Approval"),
+				"orange",
+				"workflow_state,=,Pending Item Approval",
+			];
+		}
+
+		if (doc.workflow_state === "Rejected") {
+			return [__("Rejected"), "red", "workflow_state,=,Rejected"];
+		}
+
 		// Closed orders are inactive: show them in grey so they stand apart
 		// from the green "Completed" indicator used by the standard list.
 		if (doc.status === "Closed") {

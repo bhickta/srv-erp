@@ -13,6 +13,11 @@
   "sales_order_items_section",
   "show_pending_qty_in_sales_order",
   "show_current_stock_in_sales_order",
+  "sales_order_item_approval_section",
+  "enable_sales_order_item_approval",
+  "sales_order_item_history_months",
+  "sales_order_item_approver_role",
+  "allow_first_sales_order_without_history",
   "grid_columns_tab",
   "grid_column_templates_section",
   "grid_column_manager_role",
@@ -92,6 +97,42 @@
    "fieldname": "show_current_stock_in_sales_order",
    "fieldtype": "Check",
    "label": "Show Current Stock in Sales Order"
+  },
+  {
+   "fieldname": "sales_order_item_approval_section",
+   "fieldtype": "Section Break",
+   "label": "Item Approval"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, a Sales Order can only use items the customer bought in a submitted Sales Order within the lookback window. Orders that contain new items must go through the approval workflow before they can be submitted.",
+   "fieldname": "enable_sales_order_item_approval",
+   "fieldtype": "Check",
+   "label": "Enable Item Approval"
+  },
+  {
+   "default": "12",
+   "depends_on": "enable_sales_order_item_approval",
+   "description": "Only submitted Sales Orders from the last N months count as the customer's item history. Set 0 to consider all submitted Sales Orders.",
+   "fieldname": "sales_order_item_history_months",
+   "fieldtype": "Int",
+   "label": "Item History Lookback (Months)"
+  },
+  {
+   "depends_on": "enable_sales_order_item_approval",
+   "description": "Role allowed to approve Sales Orders that contain items not in the customer's history. Defaults to Sales Manager.",
+   "fieldname": "sales_order_item_approver_role",
+   "fieldtype": "Link",
+   "label": "Item Approval Role",
+   "options": "Role"
+  },
+  {
+   "default": "0",
+   "depends_on": "enable_sales_order_item_approval",
+   "description": "When enabled, a customer with no submitted Sales Order history at all can order any item without approval. When disabled (default), every item on such an order requires approval.",
+   "fieldname": "allow_first_sales_order_without_history",
+   "fieldtype": "Check",
+   "label": "Allow First Order Without History"
   },
   {
    "fieldname": "grid_columns_tab",

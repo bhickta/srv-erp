@@ -592,6 +592,47 @@ function refresh_closed_sales_order_indicator(frm) {
 }
 
 
+function refresh_sales_order_item_approval_indicator(frm) {
+	if (frm.doc.docstatus !== 0) {
+		return;
+	}
+
+	const required = cint(frm.doc.custom_sales_order_item_approval_required);
+	const is_pending = frm.doc.workflow_state === "Pending Item Approval";
+	const is_rejected = frm.doc.workflow_state === "Rejected";
+
+	if (is_pending) {
+		frm.page.set_indicator(__("Pending Item Approval"), "orange");
+	} else if (is_rejected) {
+		frm.page.set_indicator(__("Rejected"), "red");
+	}
+
+	if (!required) {
+		return;
+	}
+
+	const items = (frm.doc.custom_sales_order_unapproved_items || "")
+		.split("\n")
+		.filter(Boolean)
+		.join(", ");
+
+	let message;
+
+	if (is_pending) {
+		message = __("Waiting for approval of new item(s): {0}.", [items]);
+	} else if (is_rejected) {
+		message = __("New item(s) were rejected: {0}. Edit the items and send for approval again.", [items]);
+	} else {
+		message = __(
+			"New item(s) need approval before this Sales Order can be submitted: {0}.",
+			[items]
+		);
+	}
+
+	frm.dashboard.set_headline_alert(message, is_rejected ? "red" : "orange", true);
+}
+
+
 frappe.ui.form.on("Sales Order", {
 	setup(frm) {
 		setup_sales_order_brand_filter(frm);
@@ -606,6 +647,7 @@ frappe.ui.form.on("Sales Order", {
 	},
 	refresh(frm) {
 		refresh_closed_sales_order_indicator(frm);
+		refresh_sales_order_item_approval_indicator(frm);
 		refresh_current_stock(frm);
 		setup_delivery_item_filter(frm);
 		setup_sales_order_brand_filter(frm);
