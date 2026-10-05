@@ -70,7 +70,7 @@ def get_published_configuration(profile) -> dict | None:
 		return None
 	try:
 		configuration = json.loads(profile.published_configuration)
-	except TypeError, ValueError:
+	except (TypeError, ValueError):
 		return None
 	if not isinstance(configuration, dict):
 		return None
@@ -192,7 +192,7 @@ def validate_item_group_defaults(profile, values_by_attribute: dict):
 def validate_numeric_default(attribute: str, value: str):
 	try:
 		number = float(value)
-	except TypeError, ValueError:
+	except (TypeError, ValueError):
 		frappe.throw(
 			_("Default value {0} must be a number for numeric attribute {1}.").format(
 				frappe.bold(value), frappe.bold(attribute)
