@@ -135,12 +135,8 @@ frappe.listview_settings["Sales Order"] = {
 	],
 	get_indicator(doc) {
 		// Approval states take precedence so pending/rejected orders stand out.
-		if (doc.workflow_state === "Pending Item Approval") {
-			return [
-				__("Pending Item Approval"),
-				"orange",
-				"workflow_state,=,Pending Item Approval",
-			];
+		if (doc.workflow_state === "Pending") {
+			return [__("Pending"), "orange", "workflow_state,=,Pending"];
 		}
 
 		if (doc.workflow_state === "Rejected") {

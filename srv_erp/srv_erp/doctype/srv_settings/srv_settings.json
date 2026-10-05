@@ -19,7 +19,6 @@
   "sales_order_item_approver_role",
   "allow_first_sales_order_without_history",
   "allow_sales_order_item_requester_self_approval",
-  "sales_order_item_approval_displaced_workflow",
   "grid_columns_tab",
   "grid_column_templates_section",
   "grid_column_manager_role",
@@ -143,14 +142,6 @@
    "fieldname": "allow_sales_order_item_requester_self_approval",
    "fieldtype": "Check",
    "label": "Allow Requester Self-Approval"
-  },
-  {
-   "description": "Internal: the Sales Order workflow that was active before this feature was enabled, so it can be restored when the feature is disabled.",
-   "fieldname": "sales_order_item_approval_displaced_workflow",
-   "fieldtype": "Data",
-   "hidden": 1,
-   "label": "Displaced Sales Order Workflow",
-   "read_only": 1
   },
   {
    "fieldname": "grid_columns_tab",
