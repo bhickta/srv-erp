@@ -146,7 +146,7 @@ def invalid_default_reason(attribute: dict, value: str) -> str | None:
 	if attribute.get("numeric_values"):
 		try:
 			number = float(value)
-		except TypeError, ValueError:
+		except (TypeError, ValueError):
 			return _("Default {0} is not numeric.").format(value)
 		from_range = attribute.get("from_range")
 		to_range = attribute.get("to_range")
