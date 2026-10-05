@@ -6,16 +6,23 @@ import frappe
 
 from srv_erp.selling.sales_order_item_approval import (
 	ALLOW_FIRST_ORDER_SETTING,
+	ALLOW_SELF_APPROVAL_SETTING,
 	APPROVAL_REQUIRED_FIELD,
+	APPROVAL_SUMMARY_FIELD,
 	APPROVED_FIELD,
 	APPROVER_ROLE_SETTING,
 	ENABLE_SETTING,
+	ITEM_APPROVAL_FIELD,
 	LOOKBACK_MONTHS_SETTING,
-	UNAPPROVED_ITEMS_FIELD,
 	WORKFLOW_STATE_FIELD,
+	add_sales_order_item_approval_to_boot,
+	build_approval_summary,
+	can_user_approve_own_order,
 	customer_has_order_history,
 	get_customer_item_history,
 	get_items_requiring_approval,
+	is_self_approval_allowed,
+	mark_items_requiring_approval,
 	normalize_sales_order_workflow_state,
 	validate_sales_order_item_approval_submission,
 	validate_sales_order_item_history,
@@ -166,10 +173,13 @@ class TestSalesOrderItemApproval(TestCase):
 		params = frappe_mock.db.sql.call_args.args[1]
 		self.assertIn("cutoff", params)
 
+	@patch("srv_erp.selling.sales_order_item_approval._", lambda message, *a, **k: message)
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
-	def test_validate_sets_flags_and_resets_stale_approval_on_new_docs(self, frappe_mock):
+	def test_validate_marks_child_rows_and_sets_derived_fields(self, frappe_mock):
 		configure_settings(frappe_mock)
 		frappe_mock.db.sql.return_value = [("ITEM-1",)]
+		frappe_mock.bold.side_effect = lambda value: value
+		frappe_mock.as_unicode.side_effect = lambda value: value
 		doc = FakeDoc(
 			__islocal=1,
 			customer="CUST-1",
@@ -179,20 +189,70 @@ class TestSalesOrderItemApproval(TestCase):
 
 		validate_sales_order_item_history(doc)
 
+		# Derived parent scalar + approval flag.
 		self.assertEqual(doc[APPROVAL_REQUIRED_FIELD], 1)
-		self.assertEqual(doc[UNAPPROVED_ITEMS_FIELD], "ITEM-2")
 		self.assertEqual(doc[APPROVED_FIELD], 0)
+		# Per-row source of truth.
+		self.assertEqual(doc["items"][0][ITEM_APPROVAL_FIELD], 0)
+		self.assertEqual(doc["items"][1][ITEM_APPROVAL_FIELD], 1)
+		# Display-only summary mentions the new item.
+		self.assertIn("ITEM-2", doc[APPROVAL_SUMMARY_FIELD])
 
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
 	def test_validate_clears_flags_when_all_items_known(self, frappe_mock):
 		configure_settings(frappe_mock)
 		frappe_mock.db.sql.return_value = [("ITEM-1",)]
+		frappe_mock.bold.side_effect = lambda value: value
+		frappe_mock.as_unicode.side_effect = lambda value: value
 		doc = FakeDoc(customer="CUST-1", docstatus=0, items=[{"item_code": "ITEM-1"}])
 
 		validate_sales_order_item_history(doc)
 
 		self.assertEqual(doc[APPROVAL_REQUIRED_FIELD], 0)
-		self.assertEqual(doc[UNAPPROVED_ITEMS_FIELD], "")
+		self.assertEqual(doc["items"][0][ITEM_APPROVAL_FIELD], 0)
+		self.assertEqual(doc[APPROVAL_SUMMARY_FIELD], "")
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_mark_items_requires_approval_sets_row_flag(self, frappe_mock):
+		configure_settings(frappe_mock)
+		frappe_mock.db.sql.return_value = [("ITEM-1",)]
+		doc = FakeDoc(
+			customer="CUST-1",
+			docstatus=0,
+			items=[{"item_code": "ITEM-1"}, {"item_code": "ITEM-NEW"}],
+		)
+
+		required = mark_items_requiring_approval(doc)
+
+		self.assertEqual(required, ["ITEM-NEW"])
+		self.assertEqual(doc["items"][0][ITEM_APPROVAL_FIELD], 0)
+		self.assertEqual(doc["items"][1][ITEM_APPROVAL_FIELD], 1)
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_mark_items_clears_rows_when_approval_not_applicable(self, frappe_mock):
+		configure_settings(frappe_mock, enabled=0)
+		doc = FakeDoc(
+			customer="CUST-1",
+			docstatus=0,
+			items=[{"item_code": "ITEM-1", ITEM_APPROVAL_FIELD: 1}],
+		)
+
+		self.assertEqual(mark_items_requiring_approval(doc), [])
+		self.assertEqual(doc["items"][0][ITEM_APPROVAL_FIELD], 0)
+
+	def test_build_approval_summary_is_empty_without_items(self):
+		self.assertEqual(build_approval_summary([]), "")
+
+	@patch("srv_erp.selling.sales_order_item_approval._", lambda message, *a, **k: message)
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_build_approval_summary_includes_item_codes(self, frappe_mock):
+		frappe_mock.bold.side_effect = lambda value: value
+		frappe_mock.as_unicode.side_effect = lambda value: value
+
+		summary = build_approval_summary(["ITEM-A", "ITEM-B"])
+
+		self.assertIn("ITEM-A", summary)
+		self.assertIn("ITEM-B", summary)
 
 	@patch("srv_erp.selling.sales_order_item_approval._", lambda message, *a, **k: message)
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
@@ -252,16 +312,21 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 			self.assertEqual(transition["allow_self_approval"], 0)
 
 	def test_submit_and_approval_conditions_gate_on_required_flag(self):
+		from srv_erp.selling.sales_order_item_approval_setup import (
+			ITEMS_REQUIRE_APPROVAL_CONDITION,
+		)
+
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 		transitions = {(t["state"], t["action"]): t for t in workflow["transitions"]}
 
 		submit = transitions[(STATE_DRAFT, ACTION_SUBMIT)]
 		self.assertEqual(submit["next_state"], STATE_APPROVED)
-		self.assertIn(f"{APPROVAL_REQUIRED_FIELD} != 1", submit["condition"])
+		self.assertEqual(submit["condition"], ITEMS_REQUIRE_APPROVAL_CONDITION)
+		self.assertIn(APPROVAL_REQUIRED_FIELD, submit["condition"])
 
 		send = transitions[(STATE_DRAFT, ACTION_SEND_FOR_APPROVAL)]
 		self.assertEqual(send["next_state"], STATE_PENDING)
-		self.assertIn(f"{APPROVAL_REQUIRED_FIELD} == 1", send["condition"])
+		self.assertIn(f"not ({ITEMS_REQUIRE_APPROVAL_CONDITION})", send["condition"])
 
 	def test_approved_state_submits_and_sets_approval_flag(self):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
@@ -478,3 +543,67 @@ class TestSalesOrderWorkflowStateNormalization(TestCase):
 			t["action"] for t in workflow["transitions"] if t["state"] == "Pending"
 		}
 		self.assertEqual(actions_from_legacy_pending, {ACTION_APPROVE, ACTION_REJECT})
+
+
+class TestSalesOrderItemSelfApproval(TestCase):
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_is_self_approval_allowed_reads_setting(self, frappe_mock):
+		frappe_mock.db.get_single_value.side_effect = lambda doctype, field: {
+			ALLOW_SELF_APPROVAL_SETTING: 1
+		}.get(field)
+
+		self.assertTrue(is_self_approval_allowed())
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_owner_cannot_approve_own_order_when_disabled(self, frappe_mock):
+		frappe_mock.db.get_single_value.side_effect = lambda doctype, field: {
+			ALLOW_SELF_APPROVAL_SETTING: 0
+		}.get(field)
+		doc = frappe._dict(owner="owner@example.com")
+
+		self.assertFalse(can_user_approve_own_order(doc, "owner@example.com"))
+		self.assertTrue(can_user_approve_own_order(doc, "other@example.com"))
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_owner_can_approve_own_order_when_enabled(self, frappe_mock):
+		frappe_mock.db.get_single_value.side_effect = lambda doctype, field: {
+			ALLOW_SELF_APPROVAL_SETTING: 1
+		}.get(field)
+		doc = frappe._dict(owner="owner@example.com")
+
+		self.assertTrue(can_user_approve_own_order(doc, "owner@example.com"))
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_administrator_always_allowed(self, frappe_mock):
+		frappe_mock.db.get_single_value.return_value = 0
+		doc = frappe._dict(owner="owner@example.com")
+
+		self.assertTrue(can_user_approve_own_order(doc, "Administrator"))
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_workflow_builder_sets_self_approval_on_approval_transitions(self, frappe_mock):
+		on = build_sales_order_item_approval_workflow("Sales Manager", allow_self_approval=True)
+		off = build_sales_order_item_approval_workflow("Sales Manager", allow_self_approval=False)
+
+		for workflow, expected in ((on, 1), (off, 0)):
+			for action in (ACTION_APPROVE, ACTION_REJECT):
+				transitions = [t for t in workflow["transitions"] if t["action"] == action]
+				self.assertTrue(transitions)
+				for transition in transitions:
+					self.assertEqual(transition["allow_self_approval"], expected)
+
+	@patch("srv_erp.selling.sales_order_item_approval.frappe")
+	def test_boot_exposes_approval_config(self, frappe_mock):
+		frappe_mock.db.get_single_value.side_effect = lambda doctype, field: {
+			ENABLE_SETTING: 1,
+			ALLOW_SELF_APPROVAL_SETTING: 1,
+			APPROVER_ROLE_SETTING: "Sales Manager",
+		}.get(field)
+		bootinfo = frappe._dict()
+
+		add_sales_order_item_approval_to_boot(bootinfo)
+
+		config = bootinfo.srv_erp_sales_order_item_approval
+		self.assertTrue(config["enabled"])
+		self.assertTrue(config["allow_self_approval"])
+		self.assertEqual(config["approver_role"], "Sales Manager")
