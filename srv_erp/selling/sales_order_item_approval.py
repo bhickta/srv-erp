@@ -53,6 +53,7 @@ ACTION_SUBMIT = "Submit"
 ACTION_SEND_FOR_APPROVAL = "Send for Approval"
 ACTION_APPROVE = "Approve"
 ACTION_REJECT = "Reject"
+ACTION_CANCEL = "Cancel"
 
 
 def is_enabled() -> bool:

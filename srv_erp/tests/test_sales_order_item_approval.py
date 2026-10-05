@@ -14,6 +14,7 @@ from srv_erp.selling.sales_order_item_approval import (
 	ENABLE_SETTING,
 	ITEM_APPROVAL_FIELD,
 	LOOKBACK_MONTHS_SETTING,
+	REQUESTER_ROLE,
 	WORKFLOW_STATE_FIELD,
 	add_sales_order_item_approval_to_boot,
 	build_approval_summary,
@@ -29,6 +30,7 @@ from srv_erp.selling.sales_order_item_approval import (
 )
 from srv_erp.selling.sales_order_item_approval_setup import (
 	ACTION_APPROVE,
+	ACTION_CANCEL,
 	ACTION_REJECT,
 	ACTION_SEND_FOR_APPROVAL,
 	ACTION_SUBMIT,
@@ -298,9 +300,15 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 	def test_workflow_uses_configured_approver_role(self):
 		workflow = build_sales_order_item_approval_workflow("Special Approver")
 
-		self.assertTrue(all(state["allow_edit"] == "All" for state in workflow["states"]))
+		states = {s["state"]: s for s in workflow["states"]}
+		# Requester edits drafts and rejected orders; the approver owns the
+		# pending/approved/cancelled states.
+		self.assertEqual(states[STATE_DRAFT]["allow_edit"], REQUESTER_ROLE)
+		self.assertEqual(states[STATE_REJECTED]["allow_edit"], REQUESTER_ROLE)
+		for state in (STATE_PENDING, STATE_APPROVED, STATE_CANCELLED):
+			self.assertEqual(states[state]["allow_edit"], "Special Approver")
 
-		for action in (ACTION_APPROVE, ACTION_REJECT):
+		for action in (ACTION_APPROVE, ACTION_REJECT, ACTION_CANCEL):
 			transition = next(t for t in workflow["transitions"] if t["action"] == action)
 			self.assertEqual(transition["allowed"], "Special Approver")
 
@@ -360,12 +368,24 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 			if state.get("avoid_status_override")
 		}
 
-		self.assertEqual(avoid, {STATE_DRAFT, STATE_APPROVED, STATE_CANCELLED, "Cancle"})
+		self.assertEqual(avoid, {STATE_DRAFT, STATE_APPROVED, STATE_CANCELLED})
 
 		pending = next(s for s in workflow["states"] if s["state"] == STATE_PENDING)
 		rejected = next(s for s in workflow["states"] if s["state"] == STATE_REJECTED)
 		self.assertFalse(pending.get("avoid_status_override"))
 		self.assertFalse(rejected.get("avoid_status_override"))
+
+	def test_approved_order_can_be_cancelled_via_workflow(self):
+		"""A submitted order has no native Cancel button once a cancelling state
+		exists, so the workflow must expose a Cancel action from Approved."""
+		workflow = build_sales_order_item_approval_workflow("Sales Manager")
+		transition = next(
+			t
+			for t in workflow["transitions"]
+			if t["state"] == STATE_APPROVED and t["action"] == ACTION_CANCEL
+		)
+
+		self.assertEqual(transition["next_state"], STATE_CANCELLED)
 
 	def test_rejected_order_can_be_resubmitted_for_approval(self):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
@@ -535,18 +555,15 @@ class TestSalesOrderWorkflowStateNormalization(TestCase):
 		self.assertEqual(previous[WORKFLOW_STATE_FIELD], "Cancelled")
 
 	@patch("srv_erp.selling.sales_order_item_approval.frappe")
-	def test_legacy_states_are_valid_in_merged_workflow(self, frappe_mock):
-		"""Legacy states are kept valid so un-migrated docs can still progress."""
+	def test_legacy_states_are_not_workflow_states(self, frappe_mock):
+		"""The merged workflow drops the legacy rows; stored docs are mapped by
+		LEGACY_STATE_MIGRATION during backfill/normalization instead."""
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 		state_names = {s["state"] for s in workflow["states"]}
 
-		self.assertIn("Pending", state_names)
-		self.assertIn("Cancle", state_names)
-
-		actions_from_legacy_pending = {
-			t["action"] for t in workflow["transitions"] if t["state"] == "Pending"
-		}
-		self.assertEqual(actions_from_legacy_pending, {ACTION_APPROVE, ACTION_REJECT})
+		self.assertNotIn("Pending", state_names)
+		self.assertNotIn("Cancle", state_names)
+		self.assertEqual(state_names, {STATE_DRAFT, STATE_PENDING, STATE_APPROVED, STATE_REJECTED, STATE_CANCELLED})
 
 
 class TestSalesOrderItemSelfApproval(TestCase):
@@ -590,7 +607,7 @@ class TestSalesOrderItemSelfApproval(TestCase):
 		off = build_sales_order_item_approval_workflow("Sales Manager", allow_self_approval=False)
 
 		for workflow, expected in ((on, 1), (off, 0)):
-			for action in (ACTION_APPROVE, ACTION_REJECT):
+			for action in (ACTION_APPROVE, ACTION_REJECT, ACTION_CANCEL):
 				transitions = [t for t in workflow["transitions"] if t["action"] == action]
 				self.assertTrue(transitions)
 				for transition in transitions:

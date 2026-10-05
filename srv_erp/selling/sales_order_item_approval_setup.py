@@ -5,23 +5,23 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from srv_erp.selling.sales_order_item_approval import (
 	ACTION_APPROVE,
+	ACTION_CANCEL,
 	ACTION_REJECT,
 	ACTION_SEND_FOR_APPROVAL,
 	ACTION_SUBMIT,
 	ALLOW_FIRST_ORDER_SETTING,
+	ALLOW_SELF_APPROVAL_SETTING,
 	APPROVAL_REQUIRED_FIELD,
 	APPROVAL_SUMMARY_FIELD,
 	APPROVED_FIELD,
 	APPROVER_ROLE_SETTING,
-	ALLOW_SELF_APPROVAL_SETTING,
 	DEFAULT_APPROVER_ROLE,
 	DEFAULT_LOOKBACK_MONTHS,
 	ENABLE_SETTING,
 	ITEM_APPROVAL_FIELD,
-	LEGACY_STATE_CANCEL,
 	LEGACY_STATE_MIGRATION,
-	LEGACY_STATE_PENDING,
 	LOOKBACK_MONTHS_SETTING,
+	REQUESTER_ROLE,
 	SALES_ORDER,
 	SALES_ORDER_ITEM,
 	STATE_APPROVED,
@@ -43,19 +43,16 @@ WORKFLOW_STATE_STYLES = {
 	STATE_REJECTED: "Danger",
 	STATE_CANCELLED: "Inverse",
 }
-# Legacy states carried over from the superseded "Sales Approval" workflow.
-LEGACY_WORKFLOW_STATE_STYLES = {
-	LEGACY_STATE_PENDING: "Warning",
-	LEGACY_STATE_CANCEL: "Inverse",
-}
-WORKFLOW_ACTIONS = (ACTION_SUBMIT, ACTION_SEND_FOR_APPROVAL, ACTION_APPROVE, ACTION_REJECT)
+WORKFLOW_ACTIONS = (
+	ACTION_SUBMIT,
+	ACTION_SEND_FOR_APPROVAL,
+	ACTION_APPROVE,
+	ACTION_REJECT,
+	ACTION_CANCEL,
+)
 # Remembers the active Sales Order workflow our feature replaced, so it can be
 # restored when the feature is disabled. Stored as a hidden SRV Settings field.
 DISPLACED_WORKFLOW_SETTING = "sales_order_item_approval_displaced_workflow"
-# Edit access is not used to gate approvals here; keep it open so activating the
-# workflow never locks users out of the form. Who can approve is enforced by the
-# transition `allowed` roles instead.
-EDIT_ROLE = "All"
 
 # Workflow condition checks the derived parent scalar. Frappe's workflow engine
 # (`safe_eval`) cannot read child-table rows, so the per-row truth is aggregated
@@ -83,36 +80,27 @@ def build_sales_order_item_approval_workflow(
 			{
 				"state": STATE_DRAFT,
 				"doc_status": "0",
-				"allow_edit": EDIT_ROLE,
+				"allow_edit": REQUESTER_ROLE,
 				"avoid_status_override": 1,
 			},
-			{"state": STATE_PENDING, "doc_status": "0", "allow_edit": EDIT_ROLE},
+			{"state": STATE_PENDING, "doc_status": "0", "allow_edit": approver_role},
 			{
 				"state": STATE_APPROVED,
 				"doc_status": "1",
-				"allow_edit": EDIT_ROLE,
+				"allow_edit": approver_role,
 				"update_field": APPROVED_FIELD,
 				"update_value": "1",
-				"evaluate_as_expression": 0,
 				# Submitted orders fall back to the list indicator (status/Closed)
 				# instead of showing the raw workflow state.
 				"avoid_status_override": 1,
 			},
-			{"state": STATE_REJECTED, "doc_status": "0", "allow_edit": EDIT_ROLE},
+			{"state": STATE_REJECTED, "doc_status": "0", "allow_edit": REQUESTER_ROLE},
 			{
 				"state": STATE_CANCELLED,
 				"doc_status": "2",
-				"allow_edit": EDIT_ROLE,
-				"avoid_status_override": 1,
-			},
-			# Legacy states inherited from the superseded "Sales Approval"
-			# workflow. They are kept valid (with outbound transitions) so any
-			# document that has not been migrated yet can still progress.
-			{"state": LEGACY_STATE_PENDING, "doc_status": "0", "allow_edit": EDIT_ROLE},
-			{
-				"state": LEGACY_STATE_CANCEL,
-				"doc_status": "2",
-				"allow_edit": EDIT_ROLE,
+				"allow_edit": approver_role,
+				"update_field": APPROVED_FIELD,
+				"update_value": "0",
 				"avoid_status_override": 1,
 			},
 		],
@@ -121,7 +109,7 @@ def build_sales_order_item_approval_workflow(
 				"state": STATE_DRAFT,
 				"action": ACTION_SUBMIT,
 				"next_state": STATE_APPROVED,
-				"allowed": EDIT_ROLE,
+				"allowed": REQUESTER_ROLE,
 				"allow_self_approval": 1,
 				# No new items: submit directly, no approval needed.
 				"condition": NO_ITEMS_REQUIRE_APPROVAL_CONDITION,
@@ -130,7 +118,7 @@ def build_sales_order_item_approval_workflow(
 				"state": STATE_DRAFT,
 				"action": ACTION_SEND_FOR_APPROVAL,
 				"next_state": STATE_PENDING,
-				"allowed": EDIT_ROLE,
+				"allowed": REQUESTER_ROLE,
 				"allow_self_approval": 1,
 				# At least one new item: route through approval.
 				"condition": ITEMS_REQUIRE_APPROVAL_CONDITION,
@@ -153,21 +141,15 @@ def build_sales_order_item_approval_workflow(
 				"state": STATE_REJECTED,
 				"action": ACTION_SEND_FOR_APPROVAL,
 				"next_state": STATE_PENDING,
-				"allowed": EDIT_ROLE,
+				"allowed": REQUESTER_ROLE,
 				"allow_self_approval": 1,
 			},
-			# Legacy "Pending" can be approved/rejected like the new pending state.
+			# A submitted order can only be cancelled through the workflow; the
+			# native Cancel button is suppressed once a cancelling state exists.
 			{
-				"state": LEGACY_STATE_PENDING,
-				"action": ACTION_APPROVE,
-				"next_state": STATE_APPROVED,
-				"allowed": approver_role,
-				"allow_self_approval": self_approval,
-			},
-			{
-				"state": LEGACY_STATE_PENDING,
-				"action": ACTION_REJECT,
-				"next_state": STATE_REJECTED,
+				"state": STATE_APPROVED,
+				"action": ACTION_CANCEL,
+				"next_state": STATE_CANCELLED,
 				"allowed": approver_role,
 				"allow_self_approval": self_approval,
 			},
@@ -205,6 +187,7 @@ def create_sales_order_item_approval_custom_fields():
 					"read_only": 1,
 				},
 				{
+					"allow_on_submit": 1,
 					"default": "0",
 					"fieldname": APPROVED_FIELD,
 					"fieldtype": "Check",
@@ -267,7 +250,7 @@ def set_sales_order_item_approval_defaults():
 
 
 def ensure_workflow_states():
-	for state, style in {**WORKFLOW_STATE_STYLES, **LEGACY_WORKFLOW_STATE_STYLES}.items():
+	for state, style in WORKFLOW_STATE_STYLES.items():
 		if not frappe.db.exists("Workflow State", state):
 			frappe.get_doc(
 				{"doctype": "Workflow State", "workflow_state_name": state, "style": style}
