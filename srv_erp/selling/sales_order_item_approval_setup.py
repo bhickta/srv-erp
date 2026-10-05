@@ -10,26 +10,30 @@ from srv_erp.selling.sales_order_item_approval import (
 	ACTION_SUBMIT,
 	ALLOW_FIRST_ORDER_SETTING,
 	APPROVAL_REQUIRED_FIELD,
+	APPROVAL_SUMMARY_FIELD,
 	APPROVED_FIELD,
 	APPROVER_ROLE_SETTING,
+	ALLOW_SELF_APPROVAL_SETTING,
 	DEFAULT_APPROVER_ROLE,
 	DEFAULT_LOOKBACK_MONTHS,
 	ENABLE_SETTING,
+	ITEM_APPROVAL_FIELD,
 	LEGACY_STATE_CANCEL,
 	LEGACY_STATE_MIGRATION,
 	LEGACY_STATE_PENDING,
 	LOOKBACK_MONTHS_SETTING,
 	SALES_ORDER,
+	SALES_ORDER_ITEM,
 	STATE_APPROVED,
 	STATE_CANCELLED,
 	STATE_DRAFT,
 	STATE_PENDING,
 	STATE_REJECTED,
-	UNAPPROVED_ITEMS_FIELD,
 	WORKFLOW_NAME,
 	WORKFLOW_STATE_FIELD,
 	get_approver_role,
 	is_enabled,
+	is_self_approval_allowed,
 )
 
 WORKFLOW_STATE_STYLES = {
@@ -53,11 +57,20 @@ DISPLACED_WORKFLOW_SETTING = "sales_order_item_approval_displaced_workflow"
 # transition `allowed` roles instead.
 EDIT_ROLE = "All"
 
+# Workflow condition checks the derived parent scalar. Frappe's workflow engine
+# (`safe_eval`) cannot read child-table rows, so the per-row truth is aggregated
+# onto the parent by the validate hook.
+# `Send for Approval` applies when at least one row needs approval; the
+# complementary `Submit` applies when none do.
+ITEMS_REQUIRE_APPROVAL_CONDITION = f"doc.{APPROVAL_REQUIRED_FIELD} == 1"
+NO_ITEMS_REQUIRE_APPROVAL_CONDITION = f"doc.{APPROVAL_REQUIRED_FIELD} != 1"
 
-def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
+
+def build_sales_order_item_approval_workflow(
+	approver_role: str, allow_self_approval: bool = False
+) -> dict:
 	"""Return the Workflow definition for the given approver role."""
-	approval_required = APPROVAL_REQUIRED_FIELD
-
+	self_approval = 1 if allow_self_approval else 0
 	return {
 		"doctype": "Workflow",
 		"workflow_name": WORKFLOW_NAME,
@@ -110,7 +123,8 @@ def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
 				"next_state": STATE_APPROVED,
 				"allowed": EDIT_ROLE,
 				"allow_self_approval": 1,
-				"condition": f"doc.{approval_required} != 1",
+				# No new items: submit directly, no approval needed.
+				"condition": NO_ITEMS_REQUIRE_APPROVAL_CONDITION,
 			},
 			{
 				"state": STATE_DRAFT,
@@ -118,21 +132,22 @@ def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
 				"next_state": STATE_PENDING,
 				"allowed": EDIT_ROLE,
 				"allow_self_approval": 1,
-				"condition": f"doc.{approval_required} == 1",
+				# At least one new item: route through approval.
+				"condition": ITEMS_REQUIRE_APPROVAL_CONDITION,
 			},
 			{
 				"state": STATE_PENDING,
 				"action": ACTION_APPROVE,
 				"next_state": STATE_APPROVED,
 				"allowed": approver_role,
-				"allow_self_approval": 0,
+				"allow_self_approval": self_approval,
 			},
 			{
 				"state": STATE_PENDING,
 				"action": ACTION_REJECT,
 				"next_state": STATE_REJECTED,
 				"allowed": approver_role,
-				"allow_self_approval": 0,
+				"allow_self_approval": self_approval,
 			},
 			{
 				"state": STATE_REJECTED,
@@ -147,14 +162,14 @@ def build_sales_order_item_approval_workflow(approver_role: str) -> dict:
 				"action": ACTION_APPROVE,
 				"next_state": STATE_APPROVED,
 				"allowed": approver_role,
-				"allow_self_approval": 0,
+				"allow_self_approval": self_approval,
 			},
 			{
 				"state": LEGACY_STATE_PENDING,
 				"action": ACTION_REJECT,
 				"next_state": STATE_REJECTED,
 				"allowed": approver_role,
-				"allow_self_approval": 0,
+				"allow_self_approval": self_approval,
 			},
 		],
 	}
@@ -171,13 +186,21 @@ def create_sales_order_item_approval_custom_fields():
 					"insert_after": "status",
 				},
 				{
+					"description": "Derived from the order items on every save. Read-only.",
+					"fieldname": APPROVAL_SUMMARY_FIELD,
+					"fieldtype": "HTML",
+					"insert_after": "custom_item_approval_section",
+					"label": "Item Approval Summary",
+				},
+				{
 					"default": "0",
-					"description": "Set automatically when the order uses items the customer has not bought within the configured history window.",
+					"description": "Derived: any order row requires approval. Used by the approval workflow condition. Read-only.",
 					"fieldname": APPROVAL_REQUIRED_FIELD,
 					"fieldtype": "Check",
+					"hidden": 1,
 					"in_standard_filter": 1,
-					"insert_after": "custom_item_approval_section",
-					"label": "New Items Need Approval",
+					"insert_after": APPROVAL_SUMMARY_FIELD,
+					"label": "Items Require Approval",
 					"no_copy": 1,
 					"read_only": 1,
 				},
@@ -191,12 +214,16 @@ def create_sales_order_item_approval_custom_fields():
 					"no_copy": 1,
 					"read_only": 1,
 				},
+			],
+			SALES_ORDER_ITEM: [
 				{
-					"depends_on": f"eval:doc.{APPROVAL_REQUIRED_FIELD}==1",
-					"fieldname": UNAPPROVED_ITEMS_FIELD,
-					"fieldtype": "Small Text",
-					"insert_after": APPROVED_FIELD,
-					"label": "Items Requiring Approval",
+					"default": "0",
+					"description": "Set automatically when the customer has not bought this item within the configured history window. Such items require approval before the Sales Order can be submitted.",
+					"fieldname": ITEM_APPROVAL_FIELD,
+					"fieldtype": "Check",
+					"hidden": 1,
+					"insert_after": "item_code",
+					"label": "Requires Item Approval",
 					"no_copy": 1,
 					"read_only": 1,
 				},
@@ -206,11 +233,30 @@ def create_sales_order_item_approval_custom_fields():
 	)
 
 
+# Parent custom fields replaced by the child-table source of truth. Removed on
+# migration so existing installs converge on the new model.
+DEPRECATED_SALES_ORDER_FIELDS = (
+	"custom_sales_order_item_approval_required",
+	"custom_sales_order_unapproved_items",
+)
+# The pre-refactor parent flag is read here (under its old name) before removal.
+LEGACY_PARENT_APPROVAL_REQUIRED_FIELD = "custom_sales_order_item_approval_required"
+LEGACY_PARENT_UNAPPROVED_ITEMS_FIELD = "custom_sales_order_unapproved_items"
+
+
+def remove_deprecated_sales_order_item_approval_fields():
+	for fieldname in DEPRECATED_SALES_ORDER_FIELDS:
+		field_name = f"{SALES_ORDER}-{fieldname}"
+		if frappe.db.exists("Custom Field", field_name):
+			frappe.delete_doc("Custom Field", field_name, ignore_permissions=True, force=True)
+	frappe.clear_cache(doctype=SALES_ORDER)
+
 def set_sales_order_item_approval_defaults():
 	defaults = (
 		(ENABLE_SETTING, 1),
 		(LOOKBACK_MONTHS_SETTING, DEFAULT_LOOKBACK_MONTHS),
 		(ALLOW_FIRST_ORDER_SETTING, 0),
+		(ALLOW_SELF_APPROVAL_SETTING, 0),
 	)
 	for fieldname, value in defaults:
 		if frappe.db.get_single_value("SRV Settings", fieldname) is None:
@@ -236,8 +282,8 @@ def ensure_workflow_action_masters():
 			).insert(ignore_permissions=True)
 
 
-def upsert_sales_order_item_approval_workflow(approver_role: str):
-	payload = build_sales_order_item_approval_workflow(approver_role)
+def upsert_sales_order_item_approval_workflow(approver_role: str, allow_self_approval: bool = False):
+	payload = build_sales_order_item_approval_workflow(approver_role, allow_self_approval)
 
 	if frappe.db.exists("Workflow", WORKFLOW_NAME):
 		workflow = frappe.get_doc("Workflow", WORKFLOW_NAME)
@@ -296,12 +342,56 @@ def sync_sales_order_item_approval_workflow():
 		ensure_workflow_states()
 		ensure_workflow_action_masters()
 		remember_displaced_workflow()
-		upsert_sales_order_item_approval_workflow(get_approver_role())
+		upsert_sales_order_item_approval_workflow(
+			get_approver_role(), is_self_approval_allowed()
+		)
 	elif frappe.db.exists("Workflow", WORKFLOW_NAME):
 		frappe.db.set_value("Workflow", WORKFLOW_NAME, "is_active", 0)
 		restore_displaced_workflow()
 
 	frappe.clear_cache(doctype=SALES_ORDER)
+
+
+def backfill_item_approval_flags():
+	"""Move the old parent-level truth onto the child rows before dropping it.
+
+	Older installs stored `custom_sales_order_item_approval_required` on the
+	parent and the item codes in `custom_sales_order_unapproved_items`. Populate
+	per-row `custom_item_requires_approval` from the item-code list when present,
+	otherwise from the parent flag (all rows flagged).
+	"""
+	if not frappe.db.has_column(SALES_ORDER_ITEM, ITEM_APPROVAL_FIELD):
+		return
+
+	has_required_flag = frappe.db.has_column(SALES_ORDER, LEGACY_PARENT_APPROVAL_REQUIRED_FIELD)
+	has_item_text = frappe.db.has_column(SALES_ORDER, LEGACY_PARENT_UNAPPROVED_ITEMS_FIELD)
+
+	if not has_required_flag and not has_item_text:
+		return
+
+	if has_item_text:
+		# Flag rows whose item_code is listed in the legacy text blob.
+		frappe.db.sql(
+			f"""
+			UPDATE `tabSales Order Item` soi
+			INNER JOIN `tabSales Order` so ON so.name = soi.parent
+			SET soi.{ITEM_APPROVAL_FIELD} = 1
+			WHERE so.{LEGACY_PARENT_UNAPPROVED_ITEMS_FIELD} IS NOT NULL
+				AND so.{LEGACY_PARENT_UNAPPROVED_ITEMS_FIELD} != ''
+				AND FIND_IN_SET(soi.item_code,
+					REPLACE(so.{LEGACY_PARENT_UNAPPROVED_ITEMS_FIELD}, '\\n', ',')) > 0
+			"""
+		)
+	else:
+		# No item list: fall back to flagging every row of orders marked required.
+		frappe.db.sql(
+			f"""
+			UPDATE `tabSales Order Item` soi
+			INNER JOIN `tabSales Order` so ON so.name = soi.parent
+			SET soi.{ITEM_APPROVAL_FIELD} = 1
+			WHERE so.{LEGACY_PARENT_APPROVAL_REQUIRED_FIELD} = 1
+			"""
+		)
 
 
 def backfill_sales_order_workflow_states():
@@ -362,5 +452,7 @@ def backfill_sales_order_workflow_states():
 def setup_sales_order_item_approval():
 	set_sales_order_item_approval_defaults()
 	create_sales_order_item_approval_custom_fields()
+	backfill_item_approval_flags()
+	remove_deprecated_sales_order_item_approval_fields()
 	sync_sales_order_item_approval_workflow()
 	backfill_sales_order_workflow_states()

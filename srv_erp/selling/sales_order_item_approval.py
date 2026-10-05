@@ -10,12 +10,23 @@ ENABLE_SETTING = "enable_sales_order_item_approval"
 LOOKBACK_MONTHS_SETTING = "sales_order_item_history_months"
 APPROVER_ROLE_SETTING = "sales_order_item_approver_role"
 ALLOW_FIRST_ORDER_SETTING = "allow_first_sales_order_without_history"
+ALLOW_SELF_APPROVAL_SETTING = "allow_sales_order_item_requester_self_approval"
 DEFAULT_LOOKBACK_MONTHS = 12
 DEFAULT_APPROVER_ROLE = "Sales Manager"
 
-APPROVAL_REQUIRED_FIELD = "custom_sales_order_item_approval_required"
+# Per-row truth: does this Sales Order Item need approval because the customer
+# has not bought it within the history window?
+ITEM_APPROVAL_FIELD = "custom_item_requires_approval"
+# Document-level approval flag, set by the approval workflow transition.
 APPROVED_FIELD = "custom_sales_order_item_approved"
-UNAPPROVED_ITEMS_FIELD = "custom_sales_order_unapproved_items"
+# Derived parent scalar: `any(row.custom_item_requires_approval)`. Written on every
+# save. It exists only because Frappe's workflow condition engine (safe_eval)
+# cannot read child table rows — it is not a source of truth.
+APPROVAL_REQUIRED_FIELD = "custom_items_require_approval"
+# Display-only HTML pill on the parent, derived from the child rows on every save.
+APPROVAL_SUMMARY_FIELD = "custom_item_approval_summary"
+
+SALES_ORDER_ITEM = "Sales Order Item"
 
 WORKFLOW_STATE_FIELD = "workflow_state"
 WORKFLOW_NAME = "Sales Order Item Approval"
@@ -55,6 +66,29 @@ def get_lookback_months() -> int:
 
 def allow_first_order_without_history() -> bool:
 	return bool(cint(frappe.db.get_single_value("SRV Settings", ALLOW_FIRST_ORDER_SETTING)))
+
+
+def is_self_approval_allowed() -> bool:
+	"""Whether a requester may approve their own Sales Order."""
+	return bool(
+		cint(frappe.db.get_single_value("SRV Settings", ALLOW_SELF_APPROVAL_SETTING))
+	)
+
+
+def can_user_approve_own_order(doc, user: str | None = None) -> bool:
+	"""Whether `user` may approve the given Sales Order (maker-checker aware)."""
+	user = user or frappe.session.user
+	if user == "Administrator" or is_self_approval_allowed():
+		return True
+	return user != doc.get("owner")
+
+
+def add_sales_order_item_approval_to_boot(bootinfo):
+	bootinfo.srv_erp_sales_order_item_approval = {
+		"enabled": is_enabled(),
+		"allow_self_approval": is_self_approval_allowed(),
+		"approver_role": get_approver_role(),
+	}
 
 
 def get_approver_role() -> str:
@@ -102,30 +136,82 @@ def get_customer_item_history(customer: str, lookback_months: int | None = None)
 
 
 def get_items_requiring_approval(doc) -> list[str]:
-	"""Item codes on the Sales Order that are not in the customer's order history."""
-	if not is_enabled():
+	"""Item codes on the Sales Order that are not in the customer's order history.
+
+	Kept for callers that only need the codes. Prefer `mark_items_requiring_approval`
+	when the document rows are available so the per-row flag is set too.
+	"""
+	if not requires_item_approval(doc):
 		return []
 
+	history = get_customer_item_history(doc.get("customer"))
+	return _collect_required_items(doc, history)
+
+
+def requires_item_approval(doc) -> bool:
+	"""Whether the customer-history gate applies to this document at all."""
+	if not is_enabled():
+		return False
+
 	if cint(doc.get("docstatus")) == 2:
-		return []
+		return False
 
 	customer = doc.get("customer")
 	if not customer:
-		return []
+		return False
 
 	if allow_first_order_without_history() and not customer_has_order_history(customer):
-		return []
+		return False
 
-	history = get_customer_item_history(customer)
+	return True
 
+
+def _collect_required_items(doc, history: set[str]) -> list[str]:
 	required: list[str] = []
 	for row in doc.get("items") or []:
 		item_code = row.get("item_code")
 		if item_code and item_code not in history and item_code not in required:
 			required.append(item_code)
+	return required
+
+
+def _set_row_field(row, fieldname, value):
+	if hasattr(row, "set"):
+		row.set(fieldname, value)
+	else:
+		row[fieldname] = value
+
+
+def mark_items_requiring_approval(doc) -> list[str]:
+	"""Set the per-row approval flag and return the item codes that need approval.
+
+	The per-row `custom_item_requires_approval` flag is the source of truth; the
+	workflow condition and the parent summary are derived from it.
+	"""
+	if not requires_item_approval(doc):
+		for row in doc.get("items") or []:
+			_set_row_field(row, ITEM_APPROVAL_FIELD, 0)
+		return []
+
+	history = get_customer_item_history(doc.get("customer"))
+
+	required: list[str] = []
+	for row in doc.get("items") or []:
+		item_code = row.get("item_code")
+		needs_approval = bool(item_code) and item_code not in history
+		_set_row_field(row, ITEM_APPROVAL_FIELD, 1 if needs_approval else 0)
+		if needs_approval and item_code not in required:
+			required.append(item_code)
 
 	return required
 
+
+def doc_has_items_requiring_approval(doc) -> bool:
+	"""Aggregate helper used by the workflow condition string."""
+	for row in doc.get("items") or []:
+		if cint(row.get(ITEM_APPROVAL_FIELD)):
+			return True
+	return False
 
 def get_active_workflow_state_names() -> set[str]:
 	"""Valid workflow states of the currently active Sales Order workflow."""
@@ -195,7 +281,7 @@ def get_default_workflow_state(doc) -> str:
 
 
 def validate_sales_order_item_history(doc, method=None):
-	"""Recompute the approval flags on every save.
+	"""Mark the per-row approval flag and refresh the derived parent state.
 
 	Saving is always allowed; submission is gated in
 	`validate_sales_order_item_approval_submission`.
@@ -203,9 +289,23 @@ def validate_sales_order_item_history(doc, method=None):
 	if doc.is_new():
 		doc.set(APPROVED_FIELD, 0)
 
-	required = get_items_requiring_approval(doc)
+	required = mark_items_requiring_approval(doc)
+	# Derived scalar for the workflow condition; source of truth is the child rows.
 	doc.set(APPROVAL_REQUIRED_FIELD, 1 if required else 0)
-	doc.set(UNAPPROVED_ITEMS_FIELD, "\n".join(required))
+	doc.set(APPROVAL_SUMMARY_FIELD, build_approval_summary(required))
+
+
+def build_approval_summary(required_items: list[str]) -> str:
+	"""Display-only HTML pill shown on the parent. Not a stored data field."""
+	if not required_items:
+		return ""
+
+	items = ", ".join(frappe.bold(item) for item in required_items)
+	return frappe.as_unicode(
+		f'<div class="indicator-pill orange" style="display:inline-block">'
+		f"{_('New items need approval')}: {items}"
+		f"</div>"
+	)
 
 
 def validate_sales_order_item_approval_submission(doc, method=None):

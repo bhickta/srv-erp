@@ -41,6 +41,7 @@ app_include_js = [
 boot_session = [
 	"srv_erp.grid_column_templates.add_grid_column_templates_to_boot",
 	"srv_erp.masters.dynamic_item.configuration.add_brand_variant_sync_to_boot",
+	"srv_erp.selling.sales_order_item_approval.add_sales_order_item_approval_to_boot",
 ]
 
 # include js, css files in header of web template

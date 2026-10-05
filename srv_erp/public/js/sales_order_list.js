@@ -132,7 +132,6 @@ frappe.listview_settings["Sales Order"] = {
 	add_fields: [
 		...(standard_sales_order_listview_settings.add_fields || []),
 		"workflow_state",
-		"custom_sales_order_item_approval_required",
 	],
 	get_indicator(doc) {
 		// Approval states take precedence so pending/rejected orders stand out.

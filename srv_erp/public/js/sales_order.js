@@ -592,12 +592,35 @@ function refresh_closed_sales_order_indicator(frm) {
 }
 
 
+function get_items_requiring_approval(frm) {
+	return (frm.doc.items || [])
+		.filter((row) => cint(row.custom_item_requires_approval))
+		.map((row) => row.item_code)
+		.filter(Boolean);
+}
+
+
+function sales_order_item_approval_boot() {
+	return frappe.boot.srv_erp_sales_order_item_approval || {};
+}
+
+
+function user_cannot_self_approve(frm) {
+	const boot = sales_order_item_approval_boot();
+	if (boot.allow_self_approval) {
+		return false;
+	}
+	return frm.doc.owner === frappe.session.user && frappe.session.user !== "Administrator";
+}
+
+
 function refresh_sales_order_item_approval_indicator(frm) {
 	if (frm.doc.docstatus !== 0) {
 		return;
 	}
 
-	const required = cint(frm.doc.custom_sales_order_item_approval_required);
+	const items = get_items_requiring_approval(frm);
+	const required = items.length > 0;
 	const is_pending = frm.doc.workflow_state === "Pending Item Approval";
 	const is_rejected = frm.doc.workflow_state === "Rejected";
 
@@ -607,25 +630,39 @@ function refresh_sales_order_item_approval_indicator(frm) {
 		frm.page.set_indicator(__("Rejected"), "red");
 	}
 
+	// Pending and the current user cannot approve it themselves: tell them why
+	// the Approve action is not available (Frappe hides it silently).
+	if (is_pending && user_cannot_self_approve(frm)) {
+		const approver_role = sales_order_item_approval_boot().approver_role;
+		const role_hint = approver_role
+			? __("someone with the {0} role", [approver_role])
+			: __("another approver");
+		frm.dashboard.set_headline_alert(
+			__(
+				"You cannot approve your own Sales Order. Ask {0} to review it.",
+				[role_hint]
+			),
+			"orange",
+			true
+		);
+		return;
+	}
+
 	if (!required) {
 		return;
 	}
 
-	const items = (frm.doc.custom_sales_order_unapproved_items || "")
-		.split("\n")
-		.filter(Boolean)
-		.join(", ");
-
+	const item_list = items.join(", ");
 	let message;
 
 	if (is_pending) {
-		message = __("Waiting for approval of new item(s): {0}.", [items]);
+		message = __("Waiting for approval of new item(s): {0}.", [item_list]);
 	} else if (is_rejected) {
-		message = __("New item(s) were rejected: {0}. Edit the items and send for approval again.", [items]);
+		message = __("New item(s) were rejected: {0}. Edit the items and send for approval again.", [item_list]);
 	} else {
 		message = __(
 			"New item(s) need approval before this Sales Order can be submitted: {0}.",
-			[items]
+			[item_list]
 		);
 	}
 

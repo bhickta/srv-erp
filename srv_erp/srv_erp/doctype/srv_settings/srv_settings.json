@@ -18,6 +18,7 @@
   "sales_order_item_history_months",
   "sales_order_item_approver_role",
   "allow_first_sales_order_without_history",
+  "allow_sales_order_item_requester_self_approval",
   "sales_order_item_approval_displaced_workflow",
   "grid_columns_tab",
   "grid_column_templates_section",
@@ -134,6 +135,14 @@
    "fieldname": "allow_first_sales_order_without_history",
    "fieldtype": "Check",
    "label": "Allow First Order Without History"
+  },
+  {
+   "default": "0",
+   "depends_on": "enable_sales_order_item_approval",
+   "description": "Allow a user who created the Sales Order to approve it themselves when they also have the Item Approval Role. Keep disabled to enforce maker-checker (no self-approval).",
+   "fieldname": "allow_sales_order_item_requester_self_approval",
+   "fieldtype": "Check",
+   "label": "Allow Requester Self-Approval"
   },
   {
    "description": "Internal: the Sales Order workflow that was active before this feature was enabled, so it can be restored when the feature is disabled.",
