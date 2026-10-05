@@ -60,7 +60,10 @@ EDIT_ROLE = "All"
 # Workflow condition checks the derived parent scalar. Frappe's workflow engine
 # (`safe_eval`) cannot read child-table rows, so the per-row truth is aggregated
 # onto the parent by the validate hook.
+# `Send for Approval` applies when at least one row needs approval; the
+# complementary `Submit` applies when none do.
 ITEMS_REQUIRE_APPROVAL_CONDITION = f"doc.{APPROVAL_REQUIRED_FIELD} == 1"
+NO_ITEMS_REQUIRE_APPROVAL_CONDITION = f"doc.{APPROVAL_REQUIRED_FIELD} != 1"
 
 
 def build_sales_order_item_approval_workflow(
@@ -120,7 +123,8 @@ def build_sales_order_item_approval_workflow(
 				"next_state": STATE_APPROVED,
 				"allowed": EDIT_ROLE,
 				"allow_self_approval": 1,
-				"condition": ITEMS_REQUIRE_APPROVAL_CONDITION,
+				# No new items: submit directly, no approval needed.
+				"condition": NO_ITEMS_REQUIRE_APPROVAL_CONDITION,
 			},
 			{
 				"state": STATE_DRAFT,
@@ -128,8 +132,8 @@ def build_sales_order_item_approval_workflow(
 				"next_state": STATE_PENDING,
 				"allowed": EDIT_ROLE,
 				"allow_self_approval": 1,
-				# Complementary of the submit condition.
-				"condition": f"not ({ITEMS_REQUIRE_APPROVAL_CONDITION})",
+				# At least one new item: route through approval.
+				"condition": ITEMS_REQUIRE_APPROVAL_CONDITION,
 			},
 			{
 				"state": STATE_PENDING,

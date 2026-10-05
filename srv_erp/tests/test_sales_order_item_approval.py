@@ -314,19 +314,23 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 	def test_submit_and_approval_conditions_gate_on_required_flag(self):
 		from srv_erp.selling.sales_order_item_approval_setup import (
 			ITEMS_REQUIRE_APPROVAL_CONDITION,
+			NO_ITEMS_REQUIRE_APPROVAL_CONDITION,
 		)
 
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 		transitions = {(t["state"], t["action"]): t for t in workflow["transitions"]}
 
+		# Known items only: submit directly, no approval.
 		submit = transitions[(STATE_DRAFT, ACTION_SUBMIT)]
 		self.assertEqual(submit["next_state"], STATE_APPROVED)
-		self.assertEqual(submit["condition"], ITEMS_REQUIRE_APPROVAL_CONDITION)
-		self.assertIn(APPROVAL_REQUIRED_FIELD, submit["condition"])
+		self.assertEqual(submit["condition"], NO_ITEMS_REQUIRE_APPROVAL_CONDITION)
+		self.assertIn(f"{APPROVAL_REQUIRED_FIELD} != 1", submit["condition"])
 
+		# New items: must be routed through approval.
 		send = transitions[(STATE_DRAFT, ACTION_SEND_FOR_APPROVAL)]
 		self.assertEqual(send["next_state"], STATE_PENDING)
-		self.assertIn(f"not ({ITEMS_REQUIRE_APPROVAL_CONDITION})", send["condition"])
+		self.assertEqual(send["condition"], ITEMS_REQUIRE_APPROVAL_CONDITION)
+		self.assertIn(f"{APPROVAL_REQUIRED_FIELD} == 1", send["condition"])
 
 	def test_approved_state_submits_and_sets_approval_flag(self):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
