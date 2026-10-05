@@ -621,11 +621,11 @@ function refresh_sales_order_item_approval_indicator(frm) {
 
 	const items = get_items_requiring_approval(frm);
 	const required = items.length > 0;
-	const is_pending = frm.doc.workflow_state === "Pending Item Approval";
+	const is_pending = frm.doc.workflow_state === "Pending";
 	const is_rejected = frm.doc.workflow_state === "Rejected";
 
 	if (is_pending) {
-		frm.page.set_indicator(__("Pending Item Approval"), "orange");
+		frm.page.set_indicator(__("Pending"), "orange");
 	} else if (is_rejected) {
 		frm.page.set_indicator(__("Rejected"), "red");
 	}

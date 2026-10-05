@@ -19,9 +19,9 @@ DEFAULT_APPROVER_ROLE = "Sales Manager"
 ITEM_APPROVAL_FIELD = "custom_item_requires_approval"
 # Document-level approval flag, set by the approval workflow transition.
 APPROVED_FIELD = "custom_sales_order_item_approved"
-# Derived parent scalar: `any(row.custom_item_requires_approval)`. Written on every
-# save. It exists only because Frappe's workflow condition engine (safe_eval)
-# cannot read child table rows — it is not a source of truth.
+# Derived parent scalar: `any(row.custom_item_requires_approval)`. Written on
+# every save so approvers can filter for orders holding new items; the child
+# rows remain the source of truth.
 APPROVAL_REQUIRED_FIELD = "custom_items_require_approval"
 # Display-only HTML pill on the parent, derived from the child rows on every save.
 APPROVAL_SUMMARY_FIELD = "custom_item_approval_summary"
@@ -32,24 +32,11 @@ WORKFLOW_STATE_FIELD = "workflow_state"
 WORKFLOW_NAME = "Sales Order Item Approval"
 REQUESTER_ROLE = "Sales User"
 
-STATE_DRAFT = "Draft"
-STATE_PENDING = "Pending Item Approval"
+STATE_PENDING = "Pending"
 STATE_APPROVED = "Approved"
 STATE_REJECTED = "Rejected"
 STATE_CANCELLED = "Cancelled"
 
-# Legacy states from the pre-existing "Sales Approval" workflow that this one
-# supersedes. Existing documents may still sit in these states, so the merged
-# workflow keeps accepting them and the data is migrated to the canonical
-# states below.
-LEGACY_STATE_PENDING = "Pending"
-LEGACY_STATE_CANCEL = "Cancle"
-LEGACY_STATE_MIGRATION = {
-	LEGACY_STATE_PENDING: STATE_PENDING,
-	LEGACY_STATE_CANCEL: STATE_CANCELLED,
-}
-
-ACTION_SUBMIT = "Submit"
 ACTION_SEND_FOR_APPROVAL = "Send for Approval"
 ACTION_APPROVE = "Approve"
 ACTION_REJECT = "Reject"
@@ -74,14 +61,6 @@ def is_self_approval_allowed() -> bool:
 	return bool(
 		cint(frappe.db.get_single_value("SRV Settings", ALLOW_SELF_APPROVAL_SETTING))
 	)
-
-
-def can_user_approve_own_order(doc, user: str | None = None) -> bool:
-	"""Whether `user` may approve the given Sales Order (maker-checker aware)."""
-	user = user or frappe.session.user
-	if user == "Administrator" or is_self_approval_allowed():
-		return True
-	return user != doc.get("owner")
 
 
 def add_sales_order_item_approval_to_boot(bootinfo):
@@ -231,12 +210,12 @@ def normalize_sales_order_workflow_state(doc, method=None):
 	"""Keep `workflow_state` valid for the active workflow.
 
 	A stale client (an open tab from before the workflow was swapped) can send a
-	state that belonged to the superseded "Sales Approval" workflow, e.g. a new
-	order arriving with `workflow_state = "Pending"`. The active workflow has no
-	transition from its first state to that one, so the save fails with
-	"Workflow State transition not allowed from Draft to Pending". Map any
-	unknown state onto its canonical equivalent (or the workflow's first state)
-	before Frappe validates the transition.
+	state that is not part of the active workflow, e.g. `"Pending Item Approval"`
+	or the old `"Cancle"`. Frappe has no transition from the workflow's first
+	state to such a value and the save would fail with
+	"Workflow State transition not allowed". Clamp any unknown state to the
+	state the active workflow defines for the document's docstatus, before
+	Frappe validates the transition.
 
 	Runs on `before_validate` so it executes before `_validate`/`validate_workflow`.
 	"""
@@ -248,12 +227,7 @@ def normalize_sales_order_workflow_state(doc, method=None):
 	if state in valid_states:
 		return
 
-	if doc.is_new():
-		# A brand-new doc must start at the workflow's first state; the
-		# legacy-state mapping below is only meaningful for existing docs.
-		normalized = get_default_workflow_state(doc)
-	else:
-		normalized = LEGACY_STATE_MIGRATION.get(state, get_default_workflow_state(doc))
+	normalized = get_default_workflow_state(doc)
 
 	doc.set(WORKFLOW_STATE_FIELD, normalized)
 
@@ -272,13 +246,13 @@ def get_default_workflow_state(doc) -> str:
 		"Workflow", {"document_type": SALES_ORDER, "is_active": 1}, "name"
 	)
 	if not name:
-		return STATE_DRAFT
+		return STATE_PENDING
 
 	for row in frappe.get_doc("Workflow", name).states:
 		if cstr(row.doc_status) == docstatus:
 			return row.state
 
-	return STATE_DRAFT
+	return STATE_PENDING
 
 
 def validate_sales_order_item_history(doc, method=None):
