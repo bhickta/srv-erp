@@ -63,7 +63,9 @@ def build_sales_order_item_approval_workflow(
 		"document_type": SALES_ORDER,
 		"workflow_state_field": WORKFLOW_STATE_FIELD,
 		"is_active": 1,
-		"override_status": 1,
+		# Let the workflow state drive the list/form indicator (Pending, Approved,
+		# Rejected) instead of the ERPNext delivery/billing status.
+		"override_status": 0,
 		"send_email_alert": 0,
 		"states": [
 			# Requester owns the order while it waits for review; a rejected
@@ -75,8 +77,8 @@ def build_sales_order_item_approval_workflow(
 				"allow_edit": approver_role,
 				"update_field": APPROVED_FIELD,
 				"update_value": "1",
-				# Submitted orders fall back to the list indicator (status/Closed)
-				# instead of showing the raw workflow state.
+				# Fall through to the Sales Order list indicator so a Closed
+				# order still shows "Closed" while an open one shows "Approved".
 				"avoid_status_override": 1,
 			},
 			{"state": STATE_REJECTED, "doc_status": "0", "allow_edit": REQUESTER_ROLE},
