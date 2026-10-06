@@ -8,6 +8,22 @@ const CUSTOM_DELIVERY_STATUS = "Partly or Not Delivered";
 const CUSTOM_DELIVERY_STATUS_VALUE = "__partly_or_not_delivered__";
 
 
+function workflow_state_colour(state) {
+	const style = locals["Workflow State"]?.[state]?.style;
+
+	return (
+		{
+			Success: "green",
+			Warning: "orange",
+			Danger: "red",
+			Primary: "blue",
+			Inverse: "black",
+			Info: "light-blue",
+		}[style] || "gray"
+	);
+}
+
+
 function setup_live_customer_group_filter(listview) {
 	listview.method = "srv_erp.selling.sales_order_list.get";
 
@@ -134,19 +150,20 @@ frappe.listview_settings["Sales Order"] = {
 		"workflow_state",
 	],
 	get_indicator(doc) {
-		// Approval states take precedence so pending/rejected orders stand out.
-		if (doc.workflow_state === "Pending") {
-			return [__("Pending"), "orange", "workflow_state,=,Pending"];
-		}
-
-		if (doc.workflow_state === "Rejected") {
-			return [__("Rejected"), "red", "workflow_state,=,Rejected"];
-		}
-
-		// Closed orders are inactive: show them in grey so they stand apart
-		// from the green "Completed" indicator used by the standard list.
+		// Closed is a terminal fulfillment state and always wins, even though
+		// the workflow state of a closed order is still "Approved".
 		if (doc.status === "Closed") {
 			return [__("Closed"), "gray", "status,=,Closed"];
+		}
+
+		// Everything else follows the workflow state (Pending/Approved/Rejected)
+		// instead of the ERPNext delivery/billing status.
+		if (doc.workflow_state) {
+			return [
+				__(doc.workflow_state),
+				workflow_state_colour(doc.workflow_state),
+				`workflow_state,=,${doc.workflow_state}`,
+			];
 		}
 
 		return standard_sales_order_get_indicator?.(doc);

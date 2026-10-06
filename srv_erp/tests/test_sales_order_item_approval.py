@@ -346,14 +346,16 @@ class TestSalesOrderItemApprovalWorkflowDefinition(TestCase):
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 
 		self.assertEqual(workflow["workflow_state_field"], "workflow_state")
-		self.assertEqual(workflow["override_status"], 1)
+		self.assertEqual(workflow["override_status"], 0)
 		self.assertEqual(workflow["document_type"], "Sales Order")
 
 	def test_submitted_and_inactive_states_defer_to_status_indicator(self):
-		"""Submitted/Closed orders must fall back to the list indicator.
+		"""Approved orders fall through to the list indicator so a Closed order
+		shows "Closed" while an open one shows "Approved".
 
-		Otherwise a Closed order that is in the Approved workflow state would
-		render "Approved" in the list view instead of "Closed".
+		Pending/Rejected must NOT avoid the override, otherwise they would fall
+		through to the draft indicator and render "Draft" instead of their
+		workflow state.
 		"""
 		workflow = build_sales_order_item_approval_workflow("Sales Manager")
 		avoid = {
