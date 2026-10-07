@@ -387,3 +387,16 @@ override_whitelisted_methods = {
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# OEM privacy is enforced on generic REST reads as well as command endpoints.
+permission_query_conditions = {
+    "OEM Configuration Draft": "srv_erp.oem_catalog.permissions.private_query",
+    "OEM Configuration Request": "srv_erp.oem_catalog.permissions.private_query",
+    "OEM Request Source": "srv_erp.oem_catalog.permissions.private_query",
+}
+has_permission = {
+    "OEM Configuration Draft": "srv_erp.oem_catalog.permissions.private_permission",
+    "OEM Configuration Request": "srv_erp.oem_catalog.permissions.private_permission",
+    "OEM Request Source": "srv_erp.oem_catalog.permissions.private_permission",
+}
+doc_events["File"] = {"validate": "srv_erp.oem_catalog.application.assets.protect_file", "on_trash": "srv_erp.oem_catalog.application.assets.protect_file"}
