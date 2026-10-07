@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew only the development ERP certificate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --config-dir /home/bhickta/development/dev-frappe-bench/runtime/letsencrypt --work-dir /home/bhickta/development/dev-frappe-bench/runtime/certbot-work --logs-dir /home/bhickta/development/dev-frappe-bench/logs/certbot --deploy-hook "/usr/sbin/nginx -t && /usr/bin/systemctl reload nginx"

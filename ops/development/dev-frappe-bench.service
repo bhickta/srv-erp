@@ -1,0 +1,33 @@
+[Unit]
+Description=Isolated SRV ERP development bench
+After=network.target
+
+[Service]
+Type=simple
+User=bhickta
+Group=bhickta
+WorkingDirectory=/home/bhickta/development/dev-frappe-bench
+Environment=XDG_CACHE_HOME=/home/bhickta/development/dev-frappe-bench/runtime/cache
+ExecStartPre=/home/bhickta/development/dev-frappe-bench/env/bin/python /home/bhickta/development/dev-frappe-bench/config/sanitize.py --config-only
+ExecStart=/usr/bin/supervisord -n -c /home/bhickta/development/dev-frappe-bench/config/supervisord.conf
+ExecStop=/usr/bin/supervisorctl -c /home/bhickta/development/dev-frappe-bench/config/supervisord.conf shutdown
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+KillMode=mixed
+Nice=10
+CPUQuota=100%
+MemoryHigh=1536M
+MemoryMax=2G
+TasksMax=128
+IOWeight=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/bhickta/development/dev-frappe-bench
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
