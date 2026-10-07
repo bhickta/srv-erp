@@ -3,6 +3,7 @@
 Run from the Bench root: env/bin/python apps/srv_erp/ops/oem/guard.py
     --site oem-test.localhost migrate
 """
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -45,7 +46,9 @@ def main():
         raise SystemExit('Usage: guard.py --site oem-test.localhost <bench-command>')
     bench = inspect(Path.cwd(), sys.argv[2])
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-    return subprocess.call([str(bench / 'env/bin/python'), '-m', 'frappe.utils.bench_helper', 'frappe', *sys.argv[1:]], cwd=bench / 'sites')
+    with (bench / 'run/command.lock').open('a') as command_lock:
+        fcntl.flock(command_lock, fcntl.LOCK_EX)
+        return subprocess.call([str(bench / 'env/bin/python'), '-m', 'frappe.utils.bench_helper', 'frappe', *sys.argv[1:]], cwd=bench / 'sites')
 
 
 if __name__ == '__main__':
