@@ -94,7 +94,9 @@ processes, or runs a production database command. The existing Nginx service
 must reload to pick up the additional development hostname.
 
 If DNS is pending, the service and HTTP hostname are installed; rerun the
-script when DNS resolves. Certbot uses a separate configuration/work/log
+script when DNS resolves. Until the HTTPS certificate is installed, the HTTP
+hostname serves only certificate challenges and returns 503 for the app.
+Certbot uses a separate configuration/work/log
 directory under the development bench and a webroot challenge, without
 rewriting production Nginx or using its certificate. A separate renewal timer
 renews only the development certificate and gracefully reloads Nginx.
