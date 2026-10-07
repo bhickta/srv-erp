@@ -72,9 +72,13 @@ Do not run unrestricted bulk tests on the shared host.
 
 ## Public HTTPS activation
 
-Until activation, the tested bench runs locally using its own Supervisor
-daemon. It is not yet publicly accessible and does not yet start after a
-server reboot.
+Server activation completed on October 7, 2026. The development systemd service
+is enabled and running with its resource limits, and the additional Nginx
+hostname is installed. All functional checks passed under the service's
+filesystem restrictions. The domain's authoritative nameserver still returns
+NXDOMAIN for `deverp`, so public HTTPS remains pending its DNS A record.
+Rerun the activation script after creating that record to issue the certificate
+and enable HTTPS and its renewal timer.
 
 1. Create a DNS **A** record: **deverp → 13.205.90.92**. The working record for
    `proderp` is a separate hostname. Remove any conflicting AAAA record unless
