@@ -31,5 +31,5 @@ frappe.pages['oem-catalog'].on_page_load = function (wrapper) {
     }
     $('<button type="button" class="btn btn-default">').text(__('My requests')).on('click', () => render(false)).appendTo(actions);
     if (frappe.user_roles.includes('OEM Catalog Approver')) $('<button type="button" class="btn btn-default">').text(__('Approvals')).on('click', () => render(true)).appendTo(actions);
-    if (frappe.user_roles.includes('OEM Catalog Manager')) $('<button type="button" class="btn btn-default">').text(__('Catalogue administration')).on('click', () => frappe.set_route('List', 'OEM Product')).appendTo(actions);
+    if (frappe.user_roles.includes('OEM Catalog Manager')) $('<button type="button" class="btn btn-default">').text(__('Catalogue administration')).on('click', () => srv_erp.oem.admin_menu()).appendTo(actions);
 };

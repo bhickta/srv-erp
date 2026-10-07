@@ -23,7 +23,7 @@ def generate(specification, context, package_code, count, idempotency_key):
         authorize_batch(receipt.replay['batch'])
         return receipt.replay
     spec = lock('OEM Specification', specification)
-    binding, item = active_binding(spec.name, context)
+    binding, item = active_binding(spec.name, context, current=True)
     if not binding: frappe.throw(_('Physical Item is not released.'))
     binding = lock('OEM Item Binding', binding.name)
     item = lock('Item', item.name)
@@ -35,8 +35,8 @@ def generate(specification, context, package_code, count, idempotency_key):
         frappe.throw(_('UNSUPPORTED_SCAN_UOM: package factor does not match stock.'))
     from srv_erp.oem_catalog.application.assets import verified_bytes
     if package.asset_revision: verified_bytes(readable('OEM Asset Revision', package.asset_revision), context)
-    from srv_erp.package_barcode.service import PackageBarcodeGenerator
-    result = dict(PackageBarcodeGenerator(item_code=item.name, uom=package.transaction_uom, no_of_barcodes=int(count)).generate())
+    from srv_erp.oem_catalog.infrastructure.barcode_adapter import generate as generate_batch
+    result = generate_batch(item.name, package.transaction_uom, int(count))
     snapshot = {'code': package.code, 'uom': package.transaction_uom, 'factor': str(factor), 'asset_revision': package.asset_revision}
     intent = insert('OEM Barcode Intent', command_key=receipt.key, specification=spec.name, binding=binding.name,
                     package_choice_snapshot_json=encoded(snapshot), conversion_factor_snapshot=str(factor),

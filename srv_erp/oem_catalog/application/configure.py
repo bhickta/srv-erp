@@ -85,13 +85,13 @@ def validated(payload):
     return payload, product, revision, identity, provenance, package
 
 
-def active_binding(specification, context, permission=True):
-    name = frappe.db.get_value('OEM Item Binding', {'specification': specification}, 'name')
+def active_binding(specification, context, permission=True, current=False):
+    name = frappe.db.get_value('OEM Item Binding', {'specification': specification}, 'name', for_update=current)
     if not name: return None, None
-    binding = frappe.get_doc('OEM Item Binding', name)
+    binding = frappe.get_doc('OEM Item Binding', name, for_update=current)
     if binding.binding_state != 'Active':
         frappe.throw(_('ITEM_DRIFT: binding is unavailable.'))
-    item = frappe.get_doc('Item', binding.stock_item)
+    item = frappe.get_doc('Item', binding.stock_item, for_update=current)
     if permission: item.check_permission('read')
     if item.disabled or item.has_variants:
         frappe.throw(_('DISABLED_MATCH: exact Item is unavailable.'))

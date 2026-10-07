@@ -103,3 +103,51 @@ class TestOEMIntegration(FrappeTestCase):
                             'transaction_date': today(), 'delivery_date': add_days(today(), 7), 'oem_order_entry_enabled': 1}).insert()
         with self.assertRaises(frappe.PermissionError):
             frappe.get_doc({'doctype': 'OEM Configuration Request', 'status': 'Approved'}).insert()
+
+    def test_barcode_replay_old_route_denial_and_frozen_factors(self):
+        result = api.submit_configuration(self.payload, str(uuid4()))
+        request = frappe.get_doc('OEM Configuration Request', result['request'])
+        frappe.set_user(self.approver)
+        approved = api.approve_request(request.name, str(request.modified), str(uuid4()))
+        frappe.set_user('Administrator')
+        operator = 'oem-barcode@example.com'
+        if not frappe.db.exists('User', operator):
+            frappe.get_doc({'doctype': 'User', 'email': operator, 'first_name': 'Synthetic Barcode Operator', 'send_welcome_email': 0,
+                'roles': [{'role': 'OEM Catalog User'}, {'role': 'Stock Manager'}, {'role': 'Sales User'}]}).insert(ignore_permissions=True)
+        frappe.set_user(operator)
+        key = str(uuid4())
+        generated = api.generate_barcodes(result['specification'], self.context, 'unit', 2, key)
+        self.assertEqual(generated, api.generate_barcodes(result['specification'], self.context, 'unit', 2, key))
+        self.assertEqual(frappe.db.count('Package Barcode', {'generation_batch': generated['batch']}), 2)
+        from srv_erp.package_barcode.api import generate_package_barcodes
+        with self.assertRaises(frappe.PermissionError): generate_package_barcodes(approved['item_code'], 'Nos', 2)
+        frappe.set_user('Administrator')
+        item = frappe.get_doc('Item', approved['item_code'])
+        item.uoms[0].conversion_factor = 2
+        with self.assertRaises(frappe.ValidationError): item.save()
+
+    def test_materializer_failure_rolls_back_receipt_and_item(self):
+        result = api.submit_configuration(self.payload, str(uuid4()))
+        request = frappe.get_doc('OEM Configuration Request', result['request'])
+        before = {dt: frappe.db.count(dt) for dt in ('Item', 'OEM Item Binding', 'OEM Command Receipt', 'OEM Audit Event')}
+        frappe.set_user(self.approver)
+        from unittest.mock import patch
+        from srv_erp.oem_catalog.application.approve import materialize
+        def fail_after_insert(*args):
+            materialize(*args)
+            raise frappe.ValidationError('Synthetic controller failure after insertion')
+        with patch('srv_erp.oem_catalog.application.approve.materialize', side_effect=fail_after_insert):
+            with self.assertRaises(frappe.ValidationError): api.approve_request(request.name, str(request.modified), str(uuid4()))
+        self.assertEqual(before, {dt: frappe.db.count(dt) for dt in before})
+        self.assertEqual(frappe.db.get_value('OEM Configuration Request', request.name, 'status'), 'Pending')
+
+    def test_missing_association_and_generic_request_read_denied(self):
+        result = api.submit_configuration(self.payload, str(uuid4()))
+        self.assertFalse(frappe.has_permission('OEM Configuration Request', doc=frappe.get_doc('OEM Configuration Request', result['request'])))
+        self.assertEqual(api.get_request_status(result['request'])['status'], 'Pending')
+        frappe.set_user('Administrator')
+        if not frappe.db.exists('Brand', 'OEM Other Brand'):
+            frappe.get_doc({'doctype': 'Brand', 'brand': 'OEM Other Brand'}).insert()
+        frappe.set_user(self.requester)
+        with self.assertRaises(frappe.PermissionError):
+            api.get_configuration(self.product.name, dict(self.context, brand='OEM Other Brand'))

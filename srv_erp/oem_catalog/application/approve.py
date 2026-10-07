@@ -24,7 +24,7 @@ def approve(request_name, expected_modified, reason, idempotency_key):
     spec = lock('OEM Specification', request.specification)
     request = lock('OEM Configuration Request', request_name)
     if request.status == 'Approved':
-        binding, item = active_binding(spec.name, payload['context'])
+        binding, item = active_binding(spec.name, payload['context'], current=True)
         return receipt.finish({'request': request.name, 'binding': binding.name, 'item_code': item.name, 'status': 'Approved'})
     if str(request.modified) != expected_modified:
         frappe.throw(_('REQUEST_STATE_CONFLICT: refresh this request.'))
@@ -32,7 +32,7 @@ def approve(request_name, expected_modified, reason, idempotency_key):
     payload_now, product, revision, identity, provenance, package = validated(payload)
     if identity.canonical_json != spec.canonical_json:
         frappe.throw(_('STALE_CONFIGURATION: physical configuration changed.'))
-    binding, item = active_binding(spec.name, payload['context'])
+    binding, item = active_binding(spec.name, payload['context'], current=True)
     if request.kind == 'Add Transaction UOM':
         if not binding or not cfg.allow_create_items: frappe.throw(_('Approved UOM writes are disabled or binding is unavailable.'))
         from srv_erp.oem_catalog.infrastructure.uom_adapter import append_approved

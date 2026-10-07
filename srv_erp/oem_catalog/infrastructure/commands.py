@@ -31,7 +31,7 @@ def lock(doctype, name):
     if not doctype.startswith('OEM ') and doctype != 'Item':
         raise ValueError('Unsupported lock table')
     frappe.db.sql(f'select name from `tab{doctype}` where name=%s for update', name)
-    return frappe.get_doc(doctype, name)
+    return frappe.get_doc(doctype, name, for_update=True)
 
 
 def get_or_insert(doctype, filters, values):
@@ -47,7 +47,7 @@ def get_or_insert(doctype, filters, values):
         name = frappe.db.get_value(doctype, filters, 'name', for_update=True)
         if not name:
             raise
-        return frappe.get_doc(doctype, name), False
+        return frappe.get_doc(doctype, name, for_update=True), False
 
 
 class Receipt:

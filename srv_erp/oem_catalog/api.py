@@ -15,17 +15,25 @@ def endpoint(write=False):
         def call(*args, **kwargs):
             if frappe.session.user == 'Guest':
                 frappe.throw(_('Sign in to use OEM Catalog.'), frappe.PermissionError)
-            if write: frappe.db.savepoint('oem_command_boundary')
-            try:
-                result = fn(*args, **kwargs)
-                if isinstance(result, dict): result.setdefault('api_version', 1)
-                return result
-            except CatalogError as error:
-                if write: frappe.db.rollback(save_point='oem_command_boundary')
-                frappe.throw(_(error.code + ': ' + str(error)))
-            except Exception:
-                if write: frappe.db.rollback(save_point='oem_command_boundary')
-                raise
+            import time
+            for attempt in range(3):
+                if write: frappe.db.savepoint('oem_command_boundary')
+                try:
+                    result = fn(*args, **kwargs)
+                    if isinstance(result, dict): result.setdefault('api_version', 1)
+                    return result
+                except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+                    # InnoDB deadlocks invalidate every savepoint. Retry the
+                    # entire actor-scoped command in a fresh transaction.
+                    frappe.db.rollback()
+                    if not write or attempt == 2: raise
+                    time.sleep(.05 * (attempt + 1))
+                except CatalogError as error:
+                    if write: frappe.db.rollback(save_point='oem_command_boundary')
+                    frappe.throw(_(error.code + ': ' + str(error)))
+                except Exception:
+                    if write: frappe.db.rollback(save_point='oem_command_boundary')
+                    raise
         return frappe.whitelist(methods=['POST'] if write else ['GET', 'POST'])(call)
     return decorate
 
@@ -220,3 +228,22 @@ def get_ui_settings():
 def quarantine_binding(binding, reason, idempotency_key):
     from .application.integrity import quarantine
     return quarantine(binding, reason, idempotency_key)
+
+
+@endpoint()
+def get_admin_schema(doctype):
+    from .application.admin import schema
+    return schema(doctype)
+
+
+@endpoint()
+def get_admin_record(doctype, name):
+    from .application.admin import schema
+    schema(doctype)
+    return readable(doctype, name, 'write').as_dict()
+
+
+@endpoint(write=True)
+def save_catalogue_record(doctype, payload, idempotency_key, name=None, expected_modified=None):
+    from .application.admin import save_master
+    return save_master(doctype, payload, idempotency_key, name, expected_modified)

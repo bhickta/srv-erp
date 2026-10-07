@@ -422,3 +422,5 @@ for _oem_private_doctype in ("OEM Configuration Request", "OEM Request Source", 
     has_permission[_oem_private_doctype] = "srv_erp.oem_catalog.permissions.deny_generic_operational_read"
 
 scheduler_events = {"hourly": ["srv_erp.oem_catalog.infrastructure.outbox.deliver_pending"]}
+
+app_include_js.append("/assets/srv_erp/js/oem_catalog/admin.js")

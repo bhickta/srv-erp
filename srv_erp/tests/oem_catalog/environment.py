@@ -29,3 +29,21 @@ def complete_setup():
                         'language': 'english', 'email': 'oem-setup@example.com', 'password': 'synthetic-tests-only',
                         'chart_of_accounts': 'Standard', 'fy_start_date': '2026-01-01', 'fy_end_date': '2026-12-31'}))
     return {'synthetic_setup': True}
+
+
+def race_fixture():
+    prepare()
+    from .test_integration import TestOEMIntegration
+    case = TestOEMIntegration()
+    case.setUp()
+    frappe.set_user('Administrator')
+    for email in ('oem-approver-two@example.com', 'oem-barcode@example.com'):
+        if not frappe.db.exists('User', email):
+            frappe.get_doc({'doctype': 'User', 'email': email, 'first_name': 'Synthetic Race Operator', 'send_welcome_email': 0,
+                            'roles': [{'role': 'OEM Catalog User'}, {'role': 'OEM Catalog Approver'}, {'role': 'Stock Manager'}, {'role': 'Sales User'}]}).insert(ignore_permissions=True)
+    from pathlib import Path
+    import json
+    path = Path('/home/bhickta/development/oem-bench/config/race-fixture.json')
+    path.write_text(json.dumps({'payload': case.payload, 'requester': case.requester, 'approver': case.approver}))
+    path.chmod(0o600)
+    return {'fixture': 'synthetic concurrency fixture prepared'}

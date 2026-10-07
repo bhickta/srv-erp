@@ -29,7 +29,7 @@ def submit(payload, idempotency_key):
     spec = lock('OEM Specification', spec.name)
     if spec.canonical_json != identity.canonical_json:
         frappe.throw(_('CONFIGURATION_CONFLICT: identity collision.'))
-    binding, item = active_binding(spec.name, payload['context'])
+    binding, item = active_binding(spec.name, payload['context'], current=True)
     kind, active_key, proposals = 'Release Specification', 'release:' + identity.digest, []
     if binding:
         from decimal import Decimal
