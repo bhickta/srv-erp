@@ -193,3 +193,9 @@ def validate_apply(source, document_context, row_intent_id):
 def save_pending_sales_order(order_payload, idempotency_key, expected_modified=None):
     from .application.source_intents import save_order
     return save_order(order_payload, expected_modified, idempotency_key)
+
+
+@endpoint(write=True)
+def generate_barcodes(specification, context, package_choice, count, idempotency_key):
+    from .application.barcode_commands import generate
+    return generate(specification, object_input(context, {'customer', 'company', 'brand', 'effective_date'}), package_choice, count, idempotency_key)
