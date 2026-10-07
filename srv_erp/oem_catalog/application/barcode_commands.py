@@ -9,7 +9,7 @@ from .configure import active_binding
 
 
 def generate(specification, context, package_code, count, idempotency_key):
-    spec = readable('OEM Specification', specification)
+    spec = frappe.get_doc('OEM Specification', specification)
     cfg = authorize_context(context, spec.product, write=True)
     if not cfg.enable_barcode_picker:
         frappe.throw(_('OEM barcode generation is disabled.'))

@@ -12,6 +12,7 @@ def setup():
     execute()
     fields = {
         'Sales Order': [
+            {'fieldname': 'oem_line_cards', 'label': 'OEM Order Lines', 'fieldtype': 'HTML', 'insert_after': 'items', 'hidden': 1},
             {'fieldname': 'oem_pending_lines', 'label': 'OEM Pending Lines', 'fieldtype': 'Table', 'options': 'OEM Pending Sales Order Line', 'insert_after': 'items'},
             {'fieldname': 'oem_order_entry_enabled', 'label': 'OEM Order Entry', 'fieldtype': 'Check', 'default': '0', 'hidden': 1},
             {'fieldname': 'oem_configuration_status', 'label': 'OEM Configuration Status', 'fieldtype': 'Data', 'read_only': 1},

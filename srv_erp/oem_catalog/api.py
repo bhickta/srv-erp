@@ -15,12 +15,17 @@ def endpoint(write=False):
         def call(*args, **kwargs):
             if frappe.session.user == 'Guest':
                 frappe.throw(_('Sign in to use OEM Catalog.'), frappe.PermissionError)
+            if write: frappe.db.savepoint('oem_command_boundary')
             try:
                 result = fn(*args, **kwargs)
                 if isinstance(result, dict): result.setdefault('api_version', 1)
                 return result
             except CatalogError as error:
+                if write: frappe.db.rollback(save_point='oem_command_boundary')
                 frappe.throw(_(error.code + ': ' + str(error)))
+            except Exception:
+                if write: frappe.db.rollback(save_point='oem_command_boundary')
+                raise
         return frappe.whitelist(methods=['POST'] if write else ['GET', 'POST'])(call)
     return decorate
 

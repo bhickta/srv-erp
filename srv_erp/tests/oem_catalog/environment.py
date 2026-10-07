@@ -23,9 +23,9 @@ def prepare():
 def complete_setup():
     prepare()
     from erpnext.setup.setup_wizard.setup_wizard import setup_complete
-    if not frappe.db.exists('Customer Group', 'All Customer Groups'):
-        setup_complete({'currency': 'INR', 'full_name': 'Synthetic Operator', 'company_name': 'OEM Example Company',
+    if not frappe.db.exists('Company', 'OEM Example Company'):
+        setup_complete(frappe._dict({'currency': 'INR', 'full_name': 'Synthetic Operator', 'company_name': 'OEM Example Company',
                         'company_abbr': 'OEM', 'timezone': 'Etc/UTC', 'industry': 'Manufacturing', 'country': 'India',
                         'language': 'english', 'email': 'oem-setup@example.com', 'password': 'synthetic-tests-only',
-                        'chart_of_accounts': 'Standard', 'fy_start_date': '2026-01-01', 'fy_end_date': '2026-12-31'})
+                        'chart_of_accounts': 'Standard', 'fy_start_date': '2026-01-01', 'fy_end_date': '2026-12-31'}))
     return {'synthetic_setup': True}

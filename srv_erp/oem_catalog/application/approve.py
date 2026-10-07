@@ -33,7 +33,12 @@ def approve(request_name, expected_modified, reason, idempotency_key):
     if identity.canonical_json != spec.canonical_json:
         frappe.throw(_('STALE_CONFIGURATION: physical configuration changed.'))
     binding, item = active_binding(spec.name, payload['context'])
-    if not binding:
+    if request.kind == 'Add Transaction UOM':
+        if not binding or not cfg.allow_create_items: frappe.throw(_('Approved UOM writes are disabled or binding is unavailable.'))
+        from srv_erp.oem_catalog.infrastructure.uom_adapter import append_approved
+        binding = lock('OEM Item Binding', binding.name)
+        item = append_approved(binding, json.loads(request.proposed_uoms_json))
+    elif not binding:
         item = materialize(product, revision, identity, payload['context'], cfg)
         binding = insert('OEM Item Binding', specification=spec.name, stock_item=item.name, ownership='Module Created',
                          binding_state='Active', expected_stock_fingerprint=fingerprint(item.as_dict()),

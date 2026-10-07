@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 
 from .models import Attribute, CatalogError, Identity, Schema
 
@@ -23,7 +23,10 @@ def decimal_value(value, attribute: Attribute):
     if not number.is_finite() or len(number.as_tuple().digits) > 30 or abs(number.adjusted()) > 30:
         fail('Decimal is not finite or exceeds bounds', attribute.key)
     quantum = Decimal(1).scaleb(-attribute.precision)
-    if number != number.quantize(quantum):
+    with localcontext() as context:
+        context.prec = 80
+        rounded = number.quantize(quantum)
+    if number != rounded:
         fail('Excessive decimal precision', attribute.key)
     if attribute.minimum is not None and number < Decimal(attribute.minimum):
         fail('Value is below minimum', attribute.key)

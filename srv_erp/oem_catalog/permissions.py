@@ -88,3 +88,9 @@ def private_permission(doc, user=None, permission_type=None):
             return True
         return False
     return doc.get('draft_owner') == user or doc.get('actor') == user
+
+
+def deny_generic_operational_read(doc, user=None, permission_type=None):
+    # Dedicated DTO endpoints enforce source/context authorization and omit
+    # other customers' submitted commercial payloads. Generic exports cannot.
+    return (user or frappe.session.user) == 'Administrator'

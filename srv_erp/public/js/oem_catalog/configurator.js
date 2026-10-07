@@ -38,7 +38,7 @@ class OEMConfigurator {
     }
     async configure(product) {
         const sequence = ++this.sequence;
-        this.product = product; this.command = null;
+        this.product = product; this.command = null; this.draftCommand = null;
         this.status(__('Loading configuration…'));
         try {
             const configuration = await srv_erp.oem.call('get_configuration', {product, context: this.context});
@@ -69,14 +69,14 @@ class OEMConfigurator {
                 const note = $('<small>').text(field.default ? `${__('From')} ${field.default.source_type} · ${field.default.locked ? __('Locked') : field.default.explanation || ''}` : __('Choose an approved value.'));
                 input.on('change input', () => {
                     this.values[key] = field.data_type === 'Boolean' ? input.prop('checked') : input.val();
-                    this.edited.add(key); this.command = null; ++this.sequence;
+                    this.edited.add(key); this.command = null; this.draftCommand = null; this.draftCommand = null; ++this.sequence;
                     this.root.find('.oem-review').text(__('Choices changed. Review again.'));
                 });
                 wrapper.append(label, input, note); attributes.append(wrapper);
             });
             const pack = $('<select class="form-control oem-package-choice">').attr('aria-label', __('Packaging'));
             configuration.packages.forEach(p => pack.append($('<option>').val(p.code).text(`${p.label}: 1 ${p.uom} = ${p.factor} ${p.stock_uom}`)));
-            pack.on('change', () => { this.command = null; ++this.sequence; });
+            pack.on('change', () => { this.command = null; this.draftCommand = null; ++this.sequence; });
             this.root.find('.oem-package').append($('<label>').text(__('Packaging')), pack);
             const actions = this.root.find('.oem-actions');
             $('<button type="button" class="btn btn-primary">').text(__('Review')).on('click', () => this.review()).appendTo(actions);
@@ -119,7 +119,7 @@ class OEMConfigurator {
         this.draftCommand ||= srv_erp.oem.uuid();
         try {
             const result = await srv_erp.oem.call('save_draft', {payload: this.payload(), idempotency_key: this.draftCommand});
-            this.root.find('.oem-review').text(`${__('Draft saved')}: ${result.draft}`);
+            this.root.find('.oem-review').text(`${__('Draft saved')}: ${result.draft}`); this.draftCommand = null;
         } finally { button.prop('disabled', false); }
     }
 }

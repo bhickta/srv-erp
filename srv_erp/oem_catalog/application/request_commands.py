@@ -30,15 +30,24 @@ def submit(payload, idempotency_key):
     if spec.canonical_json != identity.canonical_json:
         frappe.throw(_('CONFIGURATION_CONFLICT: identity collision.'))
     binding, item = active_binding(spec.name, payload['context'])
+    kind, active_key, proposals = 'Release Specification', 'release:' + identity.digest, []
     if binding:
-        return receipt.finish({'api_version': 1, 'outcome': 'EXISTING', 'specification': spec.name, 'item_code': item.name, 'binding': binding.name})
+        from decimal import Decimal
+        factor = next((row.conversion_factor for row in item.uoms if row.uom == package.uom), 1 if package.uom == item.stock_uom else None)
+        if factor is None:
+            kind, proposals = 'Add Transaction UOM', [{'uom': package.uom, 'factor': str(package.factor)}]
+            active_key = 'uom:' + binding.name + ':' + digest(proposals)
+        elif Decimal(str(factor)) != package.factor:
+            frappe.throw(_('CONFIGURATION_CONFLICT: released UOM factor cannot change.'))
+        else:
+            return receipt.finish({'api_version': 1, 'outcome': 'EXISTING', 'specification': spec.name, 'item_code': item.name, 'binding': binding.name})
     snapshot = {'revision': revision.name, 'publication_hash': revision.publication_hash, 'identity': identity.canonical_json,
                 'values': identity.values, 'provenance': provenance,
                 'package': {'code': package.code, 'uom': package.uom, 'factor': str(package.factor)}}
-    request, created = get_or_insert('OEM Configuration Request', {'active_key': 'release:' + identity.digest},
-                                    {'kind': 'Release Specification', 'specification': spec.name,
+    request, created = get_or_insert('OEM Configuration Request', {'active_key': active_key},
+                                    {'kind': kind, 'binding': binding.name if binding else None, 'proposed_uoms_json': encoded(proposals), 'specification': spec.name,
                                      'submitted_payload_json': encoded(payload), 'configuration_snapshot_json': encoded(snapshot),
-                                     'payload_hash': digest(payload), 'active_key': 'release:' + identity.digest, 'status': 'Pending',
+                                     'payload_hash': digest(payload), 'active_key': active_key, 'status': 'Pending',
                                      'requested_by': frappe.session.user, 'requested_on': now_datetime(), 'expected_configuration_token': payload['configuration_token']})
     source = payload['source']
     intent = source.get('row_intent_id') or str(uuid4())

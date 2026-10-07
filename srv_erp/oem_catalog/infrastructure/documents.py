@@ -38,6 +38,8 @@ class OEMDocument(Document):
                 'OEM Audit Event': tuple(self.meta.get_valid_columns()),
             }.get(self.doctype, ())
             for field in fixed:
+                from .uom_adapter import EXTENDING_UOM
+                if field == 'expected_stock_fingerprint' and EXTENDING_UOM.get(): continue
                 if field not in ('modified', 'modified_by') and self.get(field) != old.get(field):
                     frappe.throw(_('OEM immutable content cannot be changed.'))
 
