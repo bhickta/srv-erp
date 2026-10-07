@@ -404,3 +404,14 @@ doc_events["File"] = {"validate": "srv_erp.oem_catalog.application.assets.protec
 override_doctype_class["Sales Order"] = "srv_erp.oem_catalog.adapters.sales_order_controller.OEMSalesOrder"
 doc_events["Sales Order"]["validate"].append("srv_erp.oem_catalog.hooks.sales_order.validate")
 doc_events["Sales Order"]["on_update"] = "srv_erp.oem_catalog.adapters.pending_order_lines.persist_sources"
+
+doc_events["Item"]["validate"].append("srv_erp.oem_catalog.hooks.item.protect")
+doc_events["Item"]["on_trash"] = "srv_erp.oem_catalog.hooks.item.protect_delete"
+for _oem_doctype in ("Delivery Note", "Sales Invoice", "Stock Entry", "Stock Reconciliation", "Purchase Receipt", "BOM", "Work Order", "Pick List"):
+    _oem_events = doc_events.setdefault(_oem_doctype, {})
+    _oem_validate = _oem_events.get("validate", [])
+    if isinstance(_oem_validate, str): _oem_validate = [_oem_validate]
+    _oem_events["validate"] = [*_oem_validate, "srv_erp.oem_catalog.hooks.downstream.validate"]
+
+app_include_js.extend(["/assets/srv_erp/js/oem_catalog/api.js", "/assets/srv_erp/js/oem_catalog/configurator.js"])
+app_include_css = [app_include_css, "/assets/srv_erp/css/oem_catalog.css"]
