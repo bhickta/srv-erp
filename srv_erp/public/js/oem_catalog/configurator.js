@@ -1,8 +1,8 @@
 frappe.provide('srv_erp.oem');
 class OEMConfigurator {
-    constructor(context, source, on_result) {
+    constructor(context, source, on_result, initial_values = {}) {
         this.context = {...context}; this.source = source; this.on_result = on_result;
-        this.values = {}; this.edited = new Set(); this.sequence = 0; this.command = null;
+        this.values = {...initial_values}; this.edited = new Set(Object.keys(initial_values)); this.sequence = 0; this.command = null;
         this.dialog = new frappe.ui.Dialog({title: __('Configure OEM Product'), size: 'extra-large', fields: [
             {fieldname: 'body', fieldtype: 'HTML'},
         ]});
@@ -23,10 +23,10 @@ class OEMConfigurator {
                 if (sequence !== this.sequence) return;
                 const container = this.root.find('.oem-products').empty();
                 result.products.forEach(product => {
-                    const button = $('<button type="button" class="oem-product btn btn-default"></button>');
+                    const button = $('<button type="button" class="oem-product btn btn-default"></button>').attr('data-product', product.name);
                     button.append($('<strong>').text(product.display_name), $('<small>').text(`${product.catalogue_code} · ${product.item_group}`));
                     // File previews are served by the ordinary authenticated File route.
-                    if (product.image && product.image.startsWith('/private/files/')) button.prepend($('<img loading="lazy">').attr({src: product.image, alt: product.display_name}));
+                    if (product.image && (product.image.startsWith('/private/files/') || product.image.startsWith('/files/'))) button.prepend($('<img loading="lazy">').attr({src: product.image, alt: product.display_name}));
                     button.on('click', () => this.configure(product.name)); container.append(button);
                 });
                 this.status(result.products.length ? __('Choose a product.') : __('No permitted products found.'));

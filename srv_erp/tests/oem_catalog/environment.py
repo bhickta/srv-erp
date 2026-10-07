@@ -47,3 +47,14 @@ def race_fixture():
     path.write_text(json.dumps({'payload': case.payload, 'requester': case.requester, 'approver': case.approver}))
     path.chmod(0o600)
     return {'fixture': 'synthetic concurrency fixture prepared'}
+
+
+def finish_browser_setup():
+    prepare()
+    if not frappe.db.exists('Company', 'OEM Example Company'):
+        raise RuntimeError('Synthetic company setup must complete first')
+    frappe.db.set_single_value('System Settings', 'setup_complete', 1)
+    for name in frappe.get_all('Installed Application', pluck='name'):
+        frappe.db.set_value('Installed Application', name, 'is_setup_complete', 1)
+    frappe.clear_cache()
+    return {'synthetic_browser_setup': True}

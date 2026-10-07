@@ -20,7 +20,7 @@ def load_configuration(product_name, context):
     if product.lifecycle != 'Active' or not product.current_revision:
         frappe.throw(_('Product is not published.'))
     revision = readable('OEM Product Revision', product.current_revision)
-    if revision.state != 'Published':
+    if revision.product != product.name or revision.state != 'Published':
         frappe.throw(_('Product revision is not published.'))
     schema, choices, packages, rules = schema_for(revision, context)
     defaults = []
@@ -29,9 +29,12 @@ def load_configuration(product_name, context):
             defaults.append(Default(row.attribute_key, json.loads(row.default_value_json), 'product_revision', revision.name, revision.revision, locked=bool(row.default_locked)))
     profile_hashes = []
     effective = getdate(context.get('effective_date') or today())
-    filters = {'product': product.name, 'state': 'Published', 'is_current': 1}
-    for name in frappe.get_list('OEM Default Profile', filters=filters, pluck='name', limit_page_length=200):
+    filters = {'state': 'Published', 'is_current': 1}
+    names = frappe.get_list('OEM Default Profile', filters=filters, or_filters=[['product', '=', product.name], ['product', 'is', 'not set']], pluck='name', limit_page_length=201)
+    if len(names) > 200: frappe.throw(_('CONFIGURATION_CONFLICT: too many applicable default profiles.'))
+    for name in names:
         profile = readable('OEM Default Profile', name)
+        if profile.product and profile.product != product.name: continue
         if any(profile.get(key) and profile.get(key) != context.get(key) for key in ('company', 'customer', 'brand')):
             continue
         if (profile.valid_from and effective < getdate(profile.valid_from)) or (profile.valid_until and effective > getdate(profile.valid_until)):
@@ -40,10 +43,12 @@ def load_configuration(product_name, context):
             group = readable('Item Group', profile.item_group)
             actual = readable('Item Group', product.item_group)
             if not (group.lft <= actual.lft and group.rgt >= actual.rgt): continue
-        scope = 'customer_brand_product' if profile.customer else 'brand_product' if profile.brand else 'company' if profile.company else 'product_revision'
+        scope = ('customer_brand_product' if profile.customer and profile.product else 'customer_brand' if profile.customer else
+                 'brand_product' if profile.brand and profile.product else 'brand_group' if profile.brand and profile.item_group else
+                 'brand' if profile.brand else 'company' if profile.company else 'product_revision')
         profile_hashes.append(profile.publication_hash)
         for row in profile.defaults:
-            defaults.append(Default(row.attribute_key, json.loads(row.value_json), scope, profile.name, profile.revision, priority=profile.priority, locked=bool(row.locked), explanation=row.explanation or ''))
+            defaults.append(Default(row.attribute_key, json.loads(row.value_json), scope, profile.name, profile.revision, specificity=(group.lft if profile.item_group else 0), priority=profile.priority, locked=bool(row.locked), explanation=row.explanation or ''))
     if context.get('brand'):
         defaults.append(Default('brand', context['brand'], 'source', 'Context', locked=True))
     provenance = resolve(defaults)

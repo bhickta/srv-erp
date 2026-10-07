@@ -25,7 +25,13 @@ def configuration_input(payload):
         frappe.throw(_('INVALID_INPUT: invalid configuration.'))
     payload['context'] = object_input(payload.get('context'), {'customer', 'company', 'brand', 'effective_date'})
     payload['source'] = object_input(payload.get('source', {}), SOURCE_KEYS)
+    for value in payload['context'].values():
+        if value is not None and (not isinstance(value, str) or len(value) > 140):
+            frappe.throw(_('INVALID_INPUT: invalid master context.'))
     source = payload['source']
+    if source.get('row_intent_id'):
+        try: UUID(source['row_intent_id'])
+        except (ValueError, TypeError, AttributeError): frappe.throw(_('INVALID_INPUT: source intent must be a UUID.'))
     if source.get('adapter', 'standalone') not in {'standalone', 'sales_order', 'barcode'}:
         frappe.throw(_('INVALID_INPUT: unsupported source adapter.'))
     if source.get('adapter') == 'sales_order':

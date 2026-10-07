@@ -80,6 +80,14 @@ def validate_master(doc, old, internal):
     if doc.doctype in {'OEM Product Revision', 'OEM Default Profile', 'OEM Asset Revision'}:
         if not internal and (doc.get('state') != (old.get('state') if old else 'Draft') or doc.get('publication_hash') or doc.get('approved_by') or doc.get('is_current')):
             frappe.throw(_('Use the publication command for state transitions.'))
+    if doc.doctype == 'OEM Product':
+        readable('Item Group', doc.item_group)
+        if doc.current_revision:
+            current = readable('OEM Product Revision', doc.current_revision)
+            if current.product != doc.name or current.state != 'Published':
+                frappe.throw(_('Current revision must be published for this Product.'))
+        if doc.lifecycle == 'Active' and not doc.current_revision:
+            frappe.throw(_('Active Products require a published revision.'))
     if doc.doctype == 'OEM Product Revision':
         validate_revision(doc)
     if doc.doctype == 'OEM Customer Brand':
@@ -137,24 +145,41 @@ def publish_profile(name, expected_modified, idempotency_key):
     from srv_erp.oem_catalog.infrastructure.commands import Receipt, audit, digest, encoded, lock, save
     require_role('manager')
     doc = readable('OEM Default Profile', name, 'write')
-    if not doc.product:
-        frappe.throw(_('Default profiles require an explicit Product in this release.'))
     context = {key: doc.get(key) for key in ('company', 'customer', 'brand') if doc.get(key)}
-    for field, doctype in (('company', 'Company'), ('customer', 'Customer'), ('brand', 'Brand')):
+    for field, doctype in (('company', 'Company'), ('customer', 'Customer'), ('brand', 'Brand'), ('item_group', 'Item Group')):
         if doc.get(field): readable(doctype, doc.get(field))
-    revision = readable('OEM Product Revision', readable('OEM Product', doc.product).current_revision)
-    schema, _, _, _ = schema_for(revision, context)
-    attributes = {a.key: a for a in schema.attributes}
-    for value in doc.defaults:
-        if value.attribute_key not in attributes:
-            frappe.throw(_('Unknown default attribute.'))
-        typed_value(attributes[value.attribute_key], json.loads(value.value_json))
+    if doc.customer and not doc.brand: frappe.throw(_('Customer defaults require an explicit Brand.'))
+    products = [doc.product] if doc.product else frappe.get_list('OEM Product', filters={'lifecycle': 'Active'}, pluck='name', limit_page_length=501)
+    if not products or len(products) > 500: frappe.throw(_('Select a Product or narrow scope before publishing defaults.'))
+    validated_products = 0
+    for name in products:
+        product = readable('OEM Product', name)
+        if doc.item_group:
+            group, actual = readable('Item Group', doc.item_group), readable('Item Group', product.item_group)
+            if not group.lft <= actual.lft < group.rgt: continue
+        revision = readable('OEM Product Revision', product.current_revision)
+        schema, _, _, _ = schema_for(revision, context)
+        attributes = {a.key: a for a in schema.attributes}
+        for value in doc.defaults:
+            if value.attribute_key not in attributes: frappe.throw(_('Unknown default attribute in a scoped Product.'))
+            typed_value(attributes[value.attribute_key], json.loads(value.value_json))
+        validated_products += 1
+    if not validated_products: frappe.throw(_('No published Product in this default scope.'))
     receipt = Receipt('publish_profile', idempotency_key, {'name': name, 'modified': expected_modified})
     if receipt.replay: return receipt.replay
-    lock('OEM Product', doc.product)
+    frappe.db.sql('select field from `tabSingles` where doctype=%s for update', 'OEM Catalog Settings')
     doc = lock('OEM Default Profile', name)
     if str(doc.modified) != expected_modified or doc.state != 'Draft':
         frappe.throw(_('STALE_CONFIGURATION: refresh the default profile.'))
+    from frappe.utils import getdate
+    filters = {'state': 'Published', 'is_current': 1, 'priority': doc.priority, 'profile_code': ['!=', doc.profile_code]}
+    for other_name in frappe.get_all('OEM Default Profile', filters=filters, pluck='name'):
+        other = frappe.get_doc('OEM Default Profile', other_name)
+        if any((other.get(k) or '') != (doc.get(k) or '') for k in ('company', 'customer', 'brand', 'product', 'item_group')): continue
+        if (doc.valid_until and other.valid_from and getdate(doc.valid_until) < getdate(other.valid_from)) or (other.valid_until and doc.valid_from and getdate(other.valid_until) < getdate(doc.valid_from)): continue
+        previous = {v.attribute_key: json.loads(v.value_json) for v in other.defaults}
+        if any(v.attribute_key in previous and previous[v.attribute_key] != json.loads(v.value_json) for v in doc.defaults):
+            frappe.throw(_('Equal-priority default profiles overlap and conflict.'))
     rows = frappe.get_all('OEM Default Profile', filters={'profile_code': doc.profile_code, 'is_current': 1}, pluck='name')
     for previous in rows:
         older = lock('OEM Default Profile', previous)

@@ -247,3 +247,32 @@ def get_admin_record(doctype, name):
 def save_catalogue_record(doctype, payload, idempotency_key, name=None, expected_modified=None):
     from .application.admin import save_master
     return save_master(doctype, payload, idempotency_key, name, expected_modified)
+
+
+@endpoint()
+def get_saved_drafts(cursor=0):
+    require_role()
+    rows = frappe.get_all('OEM Configuration Draft', filters={'draft_owner': frappe.session.user},
+                    fields=['name', 'product_revision', 'context_json', 'values_json', 'modified'], start=max(0, int(cursor)), page_length=30, order_by='modified desc')
+    for row in rows: row['product'] = frappe.db.get_value('OEM Product Revision', row.product_revision, 'product')
+    return {'drafts': rows}
+
+
+
+@endpoint()
+def get_saved_orders(cursor=0):
+    require_role()
+    return {'orders': frappe.get_list('Sales Order', filters={'docstatus': 0, 'oem_order_entry_enabled': 1},
+                    fields=['name', 'customer', 'oem_configuration_status', 'oem_unresolved_line_count', 'modified'], start=max(0, int(cursor)), page_length=30, order_by='modified desc')}
+
+
+@endpoint(write=True)
+def set_customer_alias(payload, idempotency_key):
+    from .application.assortment import alias
+    return alias(payload, idempotency_key)
+
+
+@endpoint()
+def get_customer_assortment(context, cursor=0, favourites=False):
+    from .application.assortment import list_assortment
+    return list_assortment(object_input(context, {'customer', 'company', 'brand', 'effective_date'}), cursor, bool(favourites))

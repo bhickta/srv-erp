@@ -45,6 +45,7 @@ function oem_render_lines(frm) {
     frm.doc.items.forEach(row => {
         const card = $('<div class="oem-line-card">').append($('<strong>').text(row.item_name || row.item_code), $('<span>').text(`${row.qty} ${row.uom} · ${row.rate || 0}`)).appendTo(stack);
         $('<button type="button" class="btn btn-default">').text(__('Edit line')).on('click', () => oem_edit_line(frm, row, false)).appendTo(card);
+        if (!row.item_code) $('<button type="button" class="btn btn-default">').text(__('Remove blank row')).on('click', () => { frappe.model.clear_doc(row.doctype, row.name); frm.dirty(); frm.refresh_field('items'); oem_render_lines(frm); }).appendTo(card);
     });
     (frm.doc.oem_pending_lines || []).filter(r => r.status !== 'Applied').forEach(row => {
         const card = $('<div class="oem-line-card">').append($('<strong>').text(row.physical_summary || row.product), $('<span>').text(`${row.status} · ${row.proposed_qty} ${row.proposed_uom} · ${__('Estimate')}: ${row.estimated_unit_rate || 0}`)).appendTo(stack);
@@ -62,6 +63,8 @@ function oem_render_lines(frm) {
         }
     });
     const pending = (frm.doc.oem_pending_lines || []).some(r => !['Applied', 'Withdrawn'].includes(r.status));
+    frm.set_df_property('oem_pending_lines', 'hidden', true);
+    frm.set_df_property('items', 'hidden', window.innerWidth < 576 && Boolean(frm.doc.oem_order_entry_enabled));
     frm.set_df_property('items', 'reqd', !(!frm.doc.docstatus && !frm.doc.items.length && pending));
 }
 frappe.ui.form.on('Sales Order', {
