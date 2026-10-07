@@ -28,3 +28,4 @@ srv_erp.patches.activate_dynamic_item_creation
 srv_erp.patches.enforce_predefined_dynamic_item_attributes
 srv_erp.patches.add_sales_order_brand_filter
 srv_erp.patches.selling.sales_order_workflow_states
+srv_erp.oem_catalog.infrastructure.setup_patch

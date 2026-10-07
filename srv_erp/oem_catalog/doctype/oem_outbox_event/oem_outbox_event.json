@@ -1,0 +1,77 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Outbox Event",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "event_key",
+    "kind",
+    "payload_json",
+    "state",
+    "attempts",
+    "next_attempt_on",
+    "last_error_code"
+  ],
+  "fields": [
+    {
+      "fieldname": "event_key",
+      "label": "Event Key",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "kind",
+      "label": "Kind",
+      "fieldtype": "Select",
+      "options": "Notify Request\nNotify Decision"
+    },
+    {
+      "fieldname": "payload_json",
+      "label": "Payload Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "default": "Pending",
+      "options": "Pending\nSent\nFailed"
+    },
+    {
+      "fieldname": "attempts",
+      "label": "Attempts",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "next_attempt_on",
+      "label": "Next Attempt On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "last_error_code",
+      "label": "Last Error Code",
+      "fieldtype": "Data"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

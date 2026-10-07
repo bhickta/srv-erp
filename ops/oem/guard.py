@@ -45,7 +45,7 @@ def main():
         raise SystemExit('Usage: guard.py --site oem-test.localhost <bench-command>')
     bench = inspect(Path.cwd(), sys.argv[2])
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-    return subprocess.call([str(bench / 'env/bin/python'), '-m', 'frappe.utils.bench_helper', 'frappe', *sys.argv[1:]], cwd=bench)
+    return subprocess.call([str(bench / 'env/bin/python'), '-m', 'frappe.utils.bench_helper', 'frappe', *sys.argv[1:]], cwd=bench / 'sites')
 
 
 if __name__ == '__main__':

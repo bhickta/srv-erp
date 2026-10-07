@@ -1,0 +1,95 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Item Binding",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "specification",
+    "stock_item",
+    "ownership",
+    "binding_state",
+    "expected_stock_fingerprint",
+    "created_from_request",
+    "bound_by",
+    "bound_on",
+    "legacy_evidence_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "specification",
+      "label": "Specification",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "unique": 1,
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "stock_item",
+      "label": "Stock Item",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "unique": 1,
+      "options": "Item"
+    },
+    {
+      "fieldname": "ownership",
+      "label": "Ownership",
+      "fieldtype": "Select",
+      "options": "Module Created\nLegacy Adopted"
+    },
+    {
+      "fieldname": "binding_state",
+      "label": "Binding State",
+      "fieldtype": "Select",
+      "default": "Active",
+      "options": "Active\nQuarantined\nRetired"
+    },
+    {
+      "fieldname": "expected_stock_fingerprint",
+      "label": "Expected Stock Fingerprint",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "created_from_request",
+      "label": "Created From Request",
+      "fieldtype": "Link",
+      "options": "OEM Configuration Request"
+    },
+    {
+      "fieldname": "bound_by",
+      "label": "Bound By",
+      "fieldtype": "Link",
+      "options": "User"
+    },
+    {
+      "fieldname": "bound_on",
+      "label": "Bound On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "legacy_evidence_json",
+      "label": "Legacy Evidence Json",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

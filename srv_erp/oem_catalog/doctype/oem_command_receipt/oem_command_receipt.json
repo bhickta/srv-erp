@@ -1,0 +1,76 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Command Receipt",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "command_key",
+    "actor",
+    "operation",
+    "payload_hash",
+    "state",
+    "result_json",
+    "created_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "command_key",
+      "label": "Command Key",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "actor",
+      "label": "Actor",
+      "fieldtype": "Link",
+      "options": "User"
+    },
+    {
+      "fieldname": "operation",
+      "label": "Operation",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "payload_hash",
+      "label": "Payload Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "options": "Processing\nCompleted"
+    },
+    {
+      "fieldname": "result_json",
+      "label": "Result Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "created_on",
+      "label": "Created On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

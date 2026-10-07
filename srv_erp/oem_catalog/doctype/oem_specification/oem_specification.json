@@ -1,0 +1,87 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Specification",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "identity_hash",
+    "canonical_json",
+    "product",
+    "product_revision",
+    "identity_namespace",
+    "summary",
+    "identity_values",
+    "release_state"
+  ],
+  "fields": [
+    {
+      "fieldname": "identity_hash",
+      "label": "Identity Hash",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "canonical_json",
+      "label": "Canonical Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "product",
+      "label": "Product",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Product"
+    },
+    {
+      "fieldname": "product_revision",
+      "label": "Product Revision",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Product Revision"
+    },
+    {
+      "fieldname": "identity_namespace",
+      "label": "Identity Namespace",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "summary",
+      "label": "Summary",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "identity_values",
+      "label": "Identity Values",
+      "fieldtype": "Table",
+      "options": "OEM Specification Value"
+    },
+    {
+      "fieldname": "release_state",
+      "label": "Release State",
+      "fieldtype": "Select",
+      "default": "Unreleased",
+      "options": "Unreleased\nReleased\nRetired"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

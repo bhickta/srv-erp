@@ -1,0 +1,106 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Request Source",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "request",
+    "actor",
+    "source_adapter",
+    "source_doctype",
+    "source_document",
+    "source_field",
+    "child_row_name",
+    "row_intent_id",
+    "document_modified_token",
+    "context_json",
+    "result_state"
+  ],
+  "fields": [
+    {
+      "fieldname": "request",
+      "label": "Request",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Configuration Request"
+    },
+    {
+      "fieldname": "actor",
+      "label": "Actor",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "source_adapter",
+      "label": "Source Adapter",
+      "fieldtype": "Select",
+      "reqd": 1,
+      "options": "sales_order\nbarcode\nstandalone"
+    },
+    {
+      "fieldname": "source_doctype",
+      "label": "Source Doctype",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "source_document",
+      "label": "Source Document",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "source_field",
+      "label": "Source Field",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "child_row_name",
+      "label": "Child Row Name",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "row_intent_id",
+      "label": "Row Intent Id",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "document_modified_token",
+      "label": "Document Modified Token",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "context_json",
+      "label": "Context Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "result_state",
+      "label": "Result State",
+      "fieldtype": "Select",
+      "default": "Pending",
+      "options": "Pending\nReady\nApplied\nStale\nAbandoned"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1,
+      "if_owner": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

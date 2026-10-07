@@ -1,0 +1,30 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Pilot Scope",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "kind",
+    "reference"
+  ],
+  "fields": [
+    {
+      "fieldname": "kind",
+      "label": "Kind",
+      "fieldtype": "Select",
+      "options": "User\nRole\nProduct\nCompany"
+    },
+    {
+      "fieldname": "reference",
+      "label": "Reference",
+      "fieldtype": "Data"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

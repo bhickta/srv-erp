@@ -1,0 +1,81 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Customer Item Alias",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "customer",
+    "specification",
+    "customer_item_code",
+    "alias_key",
+    "display_name",
+    "favourite",
+    "last_used_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "Customer"
+    },
+    {
+      "fieldname": "specification",
+      "label": "Specification",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "customer_item_code",
+      "label": "Customer Item Code",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "alias_key",
+      "label": "Alias Key",
+      "fieldtype": "Data",
+      "unique": 1
+    },
+    {
+      "fieldname": "display_name",
+      "label": "Display Name",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "favourite",
+      "label": "Favourite",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "last_used_on",
+      "label": "Last Used On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

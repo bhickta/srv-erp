@@ -1,0 +1,144 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Catalog Settings",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "field_order": [
+    "mode",
+    "allow_create_items",
+    "enable_sales_order_picker",
+    "enable_barcode_picker",
+    "default_new_item_series",
+    "allow_self_approval",
+    "require_customer_brand",
+    "max_barcode_batch_size",
+    "search_page_size",
+    "max_config_attributes",
+    "max_option_values",
+    "max_rule_count",
+    "configuration_payload_limit_kb",
+    "notification_retry_limit",
+    "pilot_scope",
+    "physical_field_mapping_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "mode",
+      "label": "Mode",
+      "fieldtype": "Select",
+      "default": "Off",
+      "options": "Off\nRead Only\nPilot\nActive"
+    },
+    {
+      "fieldname": "allow_create_items",
+      "label": "Allow Create Items",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "enable_sales_order_picker",
+      "label": "Enable Sales Order Picker",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "enable_barcode_picker",
+      "label": "Enable Barcode Picker",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "default_new_item_series",
+      "label": "Default New Item Series",
+      "fieldtype": "Data",
+      "default": "OEM-STK-.#######"
+    },
+    {
+      "fieldname": "allow_self_approval",
+      "label": "Allow Self Approval",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "require_customer_brand",
+      "label": "Require Customer Brand",
+      "fieldtype": "Check",
+      "default": "1"
+    },
+    {
+      "fieldname": "max_barcode_batch_size",
+      "label": "Max Barcode Batch Size",
+      "fieldtype": "Int",
+      "default": "500"
+    },
+    {
+      "fieldname": "search_page_size",
+      "label": "Search Page Size",
+      "fieldtype": "Int",
+      "default": "30"
+    },
+    {
+      "fieldname": "max_config_attributes",
+      "label": "Max Config Attributes",
+      "fieldtype": "Int",
+      "default": "64"
+    },
+    {
+      "fieldname": "max_option_values",
+      "label": "Max Option Values",
+      "fieldtype": "Int",
+      "default": "500"
+    },
+    {
+      "fieldname": "max_rule_count",
+      "label": "Max Rule Count",
+      "fieldtype": "Int",
+      "default": "200"
+    },
+    {
+      "fieldname": "configuration_payload_limit_kb",
+      "label": "Configuration Payload Limit Kb",
+      "fieldtype": "Int",
+      "default": "128"
+    },
+    {
+      "fieldname": "notification_retry_limit",
+      "label": "Notification Retry Limit",
+      "fieldtype": "Int",
+      "default": "5"
+    },
+    {
+      "fieldname": "pilot_scope",
+      "label": "Pilot Scope",
+      "fieldtype": "Table",
+      "options": "OEM Pilot Scope"
+    },
+    {
+      "fieldname": "physical_field_mapping_json",
+      "label": "Physical Field Mapping Json",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 1,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

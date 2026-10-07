@@ -1,0 +1,85 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Audit Event",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "actor",
+    "occurred_on",
+    "operation",
+    "entity_type",
+    "entity_name",
+    "correlation_id",
+    "before_hash",
+    "after_hash",
+    "redacted_details_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "actor",
+      "label": "Actor",
+      "fieldtype": "Link",
+      "options": "User"
+    },
+    {
+      "fieldname": "occurred_on",
+      "label": "Occurred On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "operation",
+      "label": "Operation",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "entity_type",
+      "label": "Entity Type",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "entity_name",
+      "label": "Entity Name",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "correlation_id",
+      "label": "Correlation Id",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "before_hash",
+      "label": "Before Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "after_hash",
+      "label": "After Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "redacted_details_json",
+      "label": "Redacted Details Json",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

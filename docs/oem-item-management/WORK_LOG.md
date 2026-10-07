@@ -16,3 +16,7 @@ Next actions:
 3. Implement contracts and pure domain before persistence/UI.
 
 Release evidence: not yet established. Physical Android/iOS UAT requires operator execution; emulation alone cannot close that gate.
+
+Completed P01-P03 outputs: architecture/API contracts, pure canonicalization, typed attributes, fixed packages, transitions, fingerprints, bounded rules, defaults/provenance. Unit command `python3 -m unittest discover -s srv_erp/tests/oem_catalog -v`: 10 passing. Commits 964a37b, e857969, c67bb3d. P00 guard committed 05a7dac; isolated stack setup still in progress, so baseline integration evidence is pending.
+
+Current package P04/P05: additive schemas and protected publication. Generated metadata creates no business catalogue records. Role definitions have no user grants. Only namespaced SO/row/batch Custom Fields are added. Database install/migration checks remain pending.

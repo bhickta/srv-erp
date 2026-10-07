@@ -1,0 +1,109 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Asset Revision",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "asset",
+    "revision",
+    "state",
+    "private_file",
+    "content_sha256",
+    "physical_reference",
+    "certification_scheme",
+    "valid_from",
+    "valid_until",
+    "approved_by",
+    "approved_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "asset",
+      "label": "Asset",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Asset"
+    },
+    {
+      "fieldname": "revision",
+      "label": "Revision",
+      "fieldtype": "Int",
+      "reqd": 1
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "default": "Draft",
+      "options": "Draft\nApproved\nRetired"
+    },
+    {
+      "fieldname": "private_file",
+      "label": "Private File",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "File"
+    },
+    {
+      "fieldname": "content_sha256",
+      "label": "Content Sha256",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "physical_reference",
+      "label": "Physical Reference",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "certification_scheme",
+      "label": "Certification Scheme",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "valid_from",
+      "label": "Valid From",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "valid_until",
+      "label": "Valid Until",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "approved_by",
+      "label": "Approved By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "approved_on",
+      "label": "Approved On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

@@ -1,0 +1,129 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Default Profile",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "profile_code",
+    "revision",
+    "state",
+    "is_current",
+    "publication_hash",
+    "company",
+    "customer",
+    "brand",
+    "product",
+    "item_group",
+    "priority",
+    "valid_from",
+    "valid_until",
+    "defaults"
+  ],
+  "fields": [
+    {
+      "fieldname": "profile_code",
+      "label": "Profile Code",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "revision",
+      "label": "Revision",
+      "fieldtype": "Int",
+      "reqd": 1
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "default": "Draft",
+      "options": "Draft\nPublished\nRetired"
+    },
+    {
+      "fieldname": "is_current",
+      "label": "Is Current",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "publication_hash",
+      "label": "Publication Hash",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "company",
+      "label": "Company",
+      "fieldtype": "Link",
+      "options": "Company"
+    },
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "options": "Customer"
+    },
+    {
+      "fieldname": "brand",
+      "label": "Brand",
+      "fieldtype": "Link",
+      "options": "Brand"
+    },
+    {
+      "fieldname": "product",
+      "label": "Product",
+      "fieldtype": "Link",
+      "options": "OEM Product"
+    },
+    {
+      "fieldname": "item_group",
+      "label": "Item Group",
+      "fieldtype": "Link",
+      "options": "Item Group"
+    },
+    {
+      "fieldname": "priority",
+      "label": "Priority",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "valid_from",
+      "label": "Valid From",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "valid_until",
+      "label": "Valid Until",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "defaults",
+      "label": "Defaults",
+      "fieldtype": "Table",
+      "options": "OEM Default Value"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

@@ -1,0 +1,96 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Product",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "catalogue_code",
+    "display_name",
+    "item_group",
+    "image",
+    "description",
+    "lifecycle",
+    "legacy_template",
+    "current_revision",
+    "search_terms"
+  ],
+  "fields": [
+    {
+      "fieldname": "catalogue_code",
+      "label": "Catalogue Code",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "display_name",
+      "label": "Display Name",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "item_group",
+      "label": "Item Group",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "Item Group"
+    },
+    {
+      "fieldname": "image",
+      "label": "Image",
+      "fieldtype": "Attach Image"
+    },
+    {
+      "fieldname": "description",
+      "label": "Description",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "lifecycle",
+      "label": "Lifecycle",
+      "fieldtype": "Select",
+      "default": "Draft",
+      "options": "Draft\nActive\nRetired"
+    },
+    {
+      "fieldname": "legacy_template",
+      "label": "Legacy Template",
+      "fieldtype": "Link",
+      "options": "Item"
+    },
+    {
+      "fieldname": "current_revision",
+      "label": "Current Revision",
+      "fieldtype": "Link",
+      "options": "OEM Product Revision"
+    },
+    {
+      "fieldname": "search_terms",
+      "label": "Search Terms",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

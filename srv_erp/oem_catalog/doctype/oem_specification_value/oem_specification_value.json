@@ -1,0 +1,35 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Specification Value",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "attribute_key",
+    "typed_value_json",
+    "display_label_snapshot"
+  ],
+  "fields": [
+    {
+      "fieldname": "attribute_key",
+      "label": "Attribute Key",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "typed_value_json",
+      "label": "Typed Value Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "display_label_snapshot",
+      "label": "Display Label Snapshot",
+      "fieldtype": "Data"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}
