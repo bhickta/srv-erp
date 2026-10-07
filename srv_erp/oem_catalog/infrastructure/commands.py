@@ -44,7 +44,7 @@ def get_or_insert(doctype, filters, values):
         return insert(doctype, **values), True
     except (frappe.DuplicateEntryError, frappe.UniqueValidationError):
         frappe.db.rollback(save_point=point)
-        name = frappe.db.get_value(doctype, filters, 'name')
+        name = frappe.db.get_value(doctype, filters, 'name', for_update=True)
         if not name:
             raise
         return frappe.get_doc(doctype, name), False

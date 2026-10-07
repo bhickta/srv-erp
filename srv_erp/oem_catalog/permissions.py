@@ -11,7 +11,8 @@ def require_role(capability='user'):
     if frappe.session.user == 'Guest':
         frappe.throw(_('Sign in to use OEM Catalog.'), frappe.PermissionError)
     roles = set(frappe.get_roles())
-    if frappe.session.user != 'Administrator' and ROLES[capability] not in roles:
+    allowed = {ROLES[capability]} if capability != 'user' else set(ROLES.values())
+    if frappe.session.user != 'Administrator' and not roles.intersection(allowed):
         frappe.throw(_('You do not have this OEM capability.'), frappe.PermissionError)
 
 

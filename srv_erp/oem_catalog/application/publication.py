@@ -73,7 +73,7 @@ def validate_master(doc, old, internal):
         if stable and doc.get(stable) != old.get(stable):
             frappe.throw(_('Stable catalogue codes cannot change.'))
         if old.get('state') in {'Published', 'Approved', 'Retired'}:
-            before, after = old.as_dict(), doc.as_dict()
+            before, after = stable_content(old.as_dict()), stable_content(doc.as_dict())
             ignored = {'modified', 'modified_by', '_comments', '_assign', '_liked_by', '__onload', 'is_current'}
             if any(before.get(k) != after.get(k) for k in before if k not in ignored):
                 frappe.throw(_('Published content is immutable. Clone a new revision.'))
@@ -165,3 +165,11 @@ def publish_profile(name, expected_modified, idempotency_key):
     save(doc)
     audit('publish_profile', doc, receipt.key)
     return receipt.finish({'profile': doc.name, 'publication_hash': doc.publication_hash})
+
+
+def stable_content(value):
+    if isinstance(value, dict):
+        return {k: stable_content(v) for k, v in value.items() if k not in {'modified', 'modified_by', '__onload'}}
+    if isinstance(value, list):
+        return [stable_content(v) for v in value]
+    return value
