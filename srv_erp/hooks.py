@@ -415,3 +415,10 @@ for _oem_doctype in ("Delivery Note", "Sales Invoice", "Stock Entry", "Stock Rec
 
 app_include_js.extend(["/assets/srv_erp/js/oem_catalog/api.js", "/assets/srv_erp/js/oem_catalog/configurator.js"])
 app_include_css = [app_include_css, "/assets/srv_erp/css/oem_catalog.css"]
+
+doctype_js["Sales Order"] = [doctype_js["Sales Order"], "public/js/oem_catalog/sales_order.js"]
+
+for _oem_private_doctype in ("OEM Configuration Request", "OEM Request Source", "OEM Specification", "OEM Item Binding", "OEM Command Receipt", "OEM Barcode Intent", "OEM Import Review", "OEM Audit Event", "OEM Outbox Event"):
+    has_permission[_oem_private_doctype] = "srv_erp.oem_catalog.permissions.deny_generic_operational_read"
+
+scheduler_events = {"hourly": ["srv_erp.oem_catalog.infrastructure.outbox.deliver_pending"]}

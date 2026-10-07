@@ -199,3 +199,19 @@ def save_pending_sales_order(order_payload, idempotency_key, expected_modified=N
 def generate_barcodes(specification, context, package_choice, count, idempotency_key):
     from .application.barcode_commands import generate
     return generate(specification, object_input(context, {'customer', 'company', 'brand', 'effective_date'}), package_choice, count, idempotency_key)
+
+
+@endpoint()
+def get_ui_settings():
+    from .permissions import settings
+    cfg = settings()
+    roles = set(frappe.get_roles())
+    permitted = frappe.session.user == 'Administrator' or bool(roles & {'OEM Catalog User', 'OEM Catalog Approver', 'OEM Catalog Manager'})
+    return {'sales_order': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_sales_order_picker),
+            'barcode': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_barcode_picker)}
+
+
+@endpoint(write=True)
+def quarantine_binding(binding, reason, idempotency_key):
+    from .application.integrity import quarantine
+    return quarantine(binding, reason, idempotency_key)
