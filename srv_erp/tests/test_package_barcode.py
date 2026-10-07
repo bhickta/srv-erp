@@ -1,6 +1,6 @@
 import frappe
 from erpnext.stock.doctype.item.test_item import make_item
-from erpnext.tests.utils import ERPNextTestSuite
+from frappe.tests.utils import FrappeTestCase
 
 from srv_erp.package_barcode.api import generate_package_barcodes, scan_package_barcode
 from srv_erp.package_barcode.service import (
@@ -14,7 +14,7 @@ from srv_erp.package_barcode.service import (
 )
 
 
-class TestPackageBarcode(ERPNextTestSuite):
+class TestPackageBarcode(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 		self.item = make_item(

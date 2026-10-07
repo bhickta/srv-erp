@@ -2,12 +2,12 @@ from datetime import datetime
 from unittest.mock import patch
 
 import frappe
-from erpnext.tests.utils import ERPNextTestSuite
+from frappe.tests.utils import FrappeTestCase
 
 from srv_erp.selling.dsr import validate_dsr_submission_deadline
 
 
-class TestDSR(ERPNextTestSuite):
+class TestDSR(FrappeTestCase):
 	def make_dsr(self, **values):
 		data = {
 			"doctype": "DSR",
