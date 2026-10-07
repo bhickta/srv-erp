@@ -33,7 +33,7 @@ def available():
 
 
 def authorize_context(context, product=None, write=False, capability='user', existing=False):
-    require_role(capability)
+    if not existing: require_role(capability)
     if set(context) - {'customer', 'company', 'brand', 'effective_date'}:
         frappe.throw(_('Unsupported OEM context fields.'))
     cfg = settings()

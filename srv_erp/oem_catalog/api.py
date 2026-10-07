@@ -163,3 +163,33 @@ def publish_default_profile(profile, expected_modified, idempotency_key):
 def approve_asset_revision(revision, expected_modified, idempotency_key):
     from .application.assets import approve_asset
     return approve_asset(revision, expected_modified, idempotency_key)
+
+
+@endpoint(write=True)
+def create_import_preview(scope, kind, idempotency_key):
+    from .application.adoption import preview_import
+    return preview_import(scope, kind, idempotency_key)
+
+
+@endpoint(write=True)
+def approve_import_plan(review, expected_plan_hash, selected_rows, idempotency_key):
+    from .application.adoption import approve_import
+    return approve_import(review, expected_plan_hash, selected_rows, idempotency_key)
+
+
+@endpoint(write=True)
+def apply_import_plan(review, expected_plan_hash, idempotency_key):
+    from .application.adoption import apply_import
+    return apply_import(review, expected_plan_hash, idempotency_key)
+
+
+@endpoint()
+def validate_apply(source, document_context, row_intent_id):
+    from .application.source_intents import validate_apply as validate
+    return validate(source, document_context, row_intent_id)
+
+
+@endpoint(write=True)
+def save_pending_sales_order(order_payload, idempotency_key, expected_modified=None):
+    from .application.source_intents import save_order
+    return save_order(order_payload, expected_modified, idempotency_key)

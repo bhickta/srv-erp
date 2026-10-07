@@ -158,7 +158,7 @@ doctype_list_js = {
 # ------------
 
 before_install = "srv_erp.install.before_install"
-after_install = "srv_erp.install.after_install"
+after_install = ["srv_erp.install.after_install", "srv_erp.oem_catalog.infrastructure.setup.setup"]
 before_migrate = "srv_erp.install.before_migrate"
 after_migrate = ["srv_erp.install.after_migrate", "srv_erp.oem_catalog.infrastructure.setup.setup"]
 
@@ -400,3 +400,7 @@ has_permission = {
     "OEM Request Source": "srv_erp.oem_catalog.permissions.private_permission",
 }
 doc_events["File"] = {"validate": "srv_erp.oem_catalog.application.assets.protect_file", "on_trash": "srv_erp.oem_catalog.application.assets.protect_file"}
+
+override_doctype_class["Sales Order"] = "srv_erp.oem_catalog.adapters.sales_order_controller.OEMSalesOrder"
+doc_events["Sales Order"]["validate"].append("srv_erp.oem_catalog.hooks.sales_order.validate")
+doc_events["Sales Order"]["on_update"] = "srv_erp.oem_catalog.adapters.pending_order_lines.persist_sources"
