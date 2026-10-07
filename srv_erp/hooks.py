@@ -157,7 +157,7 @@ doctype_list_js = {
 # Installation
 # ------------
 
-# before_install = "srv_erp.install.before_install"
+before_install = "srv_erp.install.before_install"
 after_install = "srv_erp.install.after_install"
 before_migrate = "srv_erp.install.before_migrate"
 after_migrate = ["srv_erp.install.after_migrate", "srv_erp.oem_catalog.infrastructure.setup.setup"]

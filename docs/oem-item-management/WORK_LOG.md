@@ -22,3 +22,7 @@ Completed P01-P03 outputs: architecture/API contracts, pure canonicalization, ty
 Current package P04/P05: additive schemas and protected publication. Generated metadata creates no business catalogue records. Role definitions have no user grants. Only namespaced SO/row/batch Custom Fields are added. Database install/migration checks remain pending.
 
 P05: governed Product revision validation/publication, immutable approved private File checks, explicit customer-brand association approval, and Product-scoped default profile publication. Broader default profile scopes remain a documented unsupported path until their publication overlap checks are proven. P06: scoped role/context helpers and private generic REST permission hooks. Receipts use savepoint-protected database uniqueness and same-transaction completion; no manual commit. Integration validation pending clean installation.
+
+Clean-install prerequisite found on the pinned baseline: Frappe `init_singles` runs before SRV `after_install`, but SRV Settings has mandatory `variant_auto_create_attribute=Brand` before that Item Attribute exists. A narrow `before_install` creates the missing empty Brand attribute on a clean installation only. Existing installs/migrations never execute this hook; no variant creation or Brand save occurs.
+
+P07-P10 committed: b97819b scoped search/configuration/preview, 86ec6de private drafts and requests, c53c41c atomic Item materialization and separate readiness. Runtime tests are pending and these capabilities are not marked production-ready.

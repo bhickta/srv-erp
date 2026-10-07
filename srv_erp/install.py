@@ -362,3 +362,10 @@ def set_package_barcode_settings_defaults():
 		frappe.db.set_single_value(
 			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_ALLOW_MANUAL
 		)
+
+
+def before_install():
+    # init_singles runs before after_install; SRV Settings already has a
+    # mandatory Brand Link default at that point on a clean ERPNext site.
+    if not frappe.db.exists("Item Attribute", "Brand"):
+        frappe.get_doc({"doctype": "Item Attribute", "attribute_name": "Brand"}).insert(ignore_permissions=True)
