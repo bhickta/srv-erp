@@ -389,7 +389,7 @@ def get_item_uom_conversion_factor(item_code: str, uom: str) -> float:
 
 
 def get_row_precision(row, fieldname: str, default: int = 3) -> int:
-	if hasattr(row, "precision"):
+	if callable(getattr(row, "precision", None)):
 		return row.precision(fieldname)
 	return default
 
