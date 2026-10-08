@@ -425,3 +425,5 @@ for _oem_private_doctype in ("OEM Configuration Request", "OEM Request Source", 
 scheduler_events = {"hourly": ["srv_erp.oem_catalog.infrastructure.outbox.deliver_pending"]}
 
 app_include_js.append("/assets/srv_erp/js/oem_catalog/admin.js")
+
+doc_events["Sales Order"]["before_print"] = "srv_erp.oem_catalog.hooks.printing.before_print"

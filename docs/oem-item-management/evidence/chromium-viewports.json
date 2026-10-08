@@ -1,0 +1,41 @@
+{
+  "browser": "153.0.8010.12",
+  "viewports": [
+    {
+      "width": 320,
+      "content_width": 303,
+      "scroll_width": 303
+    },
+    {
+      "width": 360,
+      "content_width": 343,
+      "scroll_width": 343
+    },
+    {
+      "width": 390,
+      "content_width": 373,
+      "scroll_width": 373
+    },
+    {
+      "width": 412,
+      "content_width": 395,
+      "scroll_width": 395
+    },
+    {
+      "width": 768,
+      "content_width": 573,
+      "scroll_width": 573
+    },
+    {
+      "width": 1024,
+      "content_width": 798,
+      "scroll_width": 798
+    },
+    {
+      "width": 1440,
+      "content_width": 1138,
+      "scroll_width": 1138
+    }
+  ],
+  "javascript_errors": []
+}

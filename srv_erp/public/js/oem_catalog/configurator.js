@@ -45,7 +45,7 @@ class OEMConfigurator {
             if (sequence !== this.sequence) return;
             this.configuration = configuration;
             this.root.html('<div class="oem-stack"><div class="oem-heading"></div><div class="oem-attributes"></div><div class="oem-package"></div><div class="oem-review" role="status" aria-live="polite"></div><div class="oem-actions"></div></div>');
-            this.root.find('.oem-heading').append($('<h4>').text(configuration.display_name), $('<button class="btn btn-default" type="button">').text(__('Change product')).on('click', () => this.catalogue()));
+            this.root.find('.oem-heading').append($('<p>').text([this.context.customer, this.context.company, this.context.brand].filter(Boolean).join(' · ')), $('<h4>').text(configuration.display_name), $('<button class="btn btn-default" type="button">').text(__('Change product')).on('click', () => this.catalogue()));
             const attributes = this.root.find('.oem-attributes');
             configuration.fields.forEach(field => {
                 const key = field.attribute_key, previous = this.values[key];
@@ -97,7 +97,7 @@ class OEMConfigurator {
             const preview = await srv_erp.oem.call('preview_configuration', {payload});
             if (sequence !== this.sequence) return;
             panel.empty().append($('<h5>').text(preview.summary));
-            Object.entries(preview.values).forEach(([key, value]) => panel.append($('<p>').text(`${key}: ${Array.isArray(value) ? value.join(', ') : value}`)));
+            Object.entries(preview.values).forEach(([key, value]) => { const field = this.configuration.fields.find(f => f.attribute_key === key); const option = field?.options?.find(o => o.value === value); panel.append($('<p>').text(`${field?.label || key}: ${option?.label || (Array.isArray(value) ? value.join(', ') : value)}`)); });
             panel.append($('<p>').text(preview.item_code ? `${__('Existing stock Item')}: ${preview.item_code}` : __('Approval is required. No Item will be created by this request.')));
             if (preview.readiness.missing?.length) panel.append($('<p>').text(preview.readiness.missing.join(', ')));
             const confirm = $('<button type="button" class="btn btn-primary oem-confirm">').text(preview.item_code ? __('Use existing Item') : __('Request approval'));

@@ -19,9 +19,14 @@ TAX_FIELDS = ('tax_amount', 'base_tax_amount', 'tax_amount_after_discount_amount
 
 def validate_pending(doc):
     rows = doc.get('oem_pending_lines') or []
-    if not rows:
-        return False
     old = doc.get_doc_before_save()
+    if old:
+        current_intents = {r.row_intent_id for r in rows}
+        if any(r.status not in FINAL and r.row_intent_id not in current_intents for r in old.get('oem_pending_lines', [])):
+            frappe.throw(_('Withdraw unresolved OEM lines with a reason before removing them.'))
+    if not rows:
+        doc.oem_unresolved_line_count, doc.oem_estimated_pending_amount, doc.oem_configuration_status = 0, 0, 'No OEM Lines'
+        return False
     prior = {r.row_intent_id: r for r in old.get('oem_pending_lines', [])} if old else {}
     if doc.docstatus != 0 and any(row.status not in FINAL for row in rows):
         frappe.throw(_('Resolve or explicitly withdraw every OEM line before submission.'))
