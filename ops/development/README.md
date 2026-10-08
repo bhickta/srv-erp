@@ -75,10 +75,11 @@ Do not run unrestricted bulk tests on the shared host.
 Server activation completed on October 7, 2026. The development systemd service
 is enabled and running with its resource limits, and the additional Nginx
 hostname is installed. All functional checks passed under the service's
-filesystem restrictions. The domain's authoritative nameserver still returns
-NXDOMAIN for `deverp`, so public HTTPS remains pending its DNS A record.
-Rerun the activation script after creating that record to issue the certificate
-and enable HTTPS and its renewal timer.
+filesystem restrictions. Public HTTPS activation completed on October 8,
+2026 after the DNS A record resolved to `13.205.90.92`. The site is live at
+<https://deverp.srvelectricals.in/> with a Let's Encrypt certificate expiring
+January 6, 2027, an HTTP-to-HTTPS redirect and an enabled renewal timer.
+The public HTTPS smoke checks and a Certbot renewal dry run passed.
 
 1. Create a DNS **A** record: **deverp → 13.205.90.92**. The working record for
    `proderp` is a separate hostname. Remove any conflicting AAAA record unless
@@ -150,6 +151,7 @@ PR. The development setup does not deploy to production.
 cd /home/bhickta/development/dev-frappe-bench
 env/bin/python config/sanitize.py
 env/bin/python /home/bhickta/development/srv-erp/ops/development/smoke.py
+env/bin/python /home/bhickta/development/srv-erp/ops/development/smoke.py --public
 /usr/bin/supervisorctl -c config/supervisord.conf status
 ```
 
@@ -158,6 +160,8 @@ and ERP reads, a ToDo create/delete, private-file access controls and an actual
 background job. It uses temporary development Administrator API credentials
 and removes those credentials/documents in `finally`. Do not run it during
 another API-key test involving Administrator.
+Use `--public` to exercise the exact development hostname through its public
+HTTPS proxy with certificate verification, instead of the local loopback proxy.
 
 Always pass the bench-local Supervisor configuration. Never run a blanket
 `supervisorctl restart all`, a production `bench` command, or `bench setup

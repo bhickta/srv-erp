@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Exercise the isolated bench locally; remove temporary credentials/documents afterwards."""
+"""Exercise the isolated bench; remove temporary credentials/documents afterwards."""
 
+import argparse
 import os
 import secrets
 import time
@@ -10,7 +11,7 @@ import requests
 from sanitize import BENCH, SITE, connect, run
 
 
-def main():
+def main(public=False):
     run()
     connect().close()
     os.chdir(BENCH / "sites")
@@ -21,14 +22,14 @@ def main():
     frappe.init(site=SITE)
     frappe.connect()
     frappe.set_user("Administrator")
-    base = "http://127.0.0.1:8081"
+    base = f"https://{SITE}" if public else "http://127.0.0.1:8081"
     headers = {"Host": SITE, "X-Forwarded-Proto": "https"}
     api_key, api_secret = secrets.token_hex(20), secrets.token_hex(32)
     todo_name, file_doc, job = None, None, None
     try:
         response = requests.get(base + "/login", headers=headers, timeout=20)
         assert response.status_code == 200, f"Login page: {response.status_code}"
-        assert response.headers.get("X-SRV-Environment") == "development"
+        assert {value.strip() for value in response.headers.get("X-SRV-Environment", "").split(",")} == {"development"}
         response = requests.get(base + "/api/method/ping", headers=headers, timeout=20)
         assert response.json() == {"message": "pong"}
         response = requests.get(base + "/assets/frappe/images/frappe-framework-logo.svg", headers=headers, timeout=20)
@@ -94,4 +95,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--public", action="store_true", help="Exercise the public HTTPS hostname with certificate verification")
+    main(public=parser.parse_args().public)
