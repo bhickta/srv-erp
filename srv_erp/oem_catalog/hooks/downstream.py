@@ -33,7 +33,7 @@ def validate(doc, method=None):
             spec = frappe.get_doc('OEM Specification', mapping[row.item_code])
             physical = json.loads(spec.canonical_json)
             from srv_erp.oem_catalog.permissions import authorize_context
-            authorize_context({'customer': doc.customer, 'company': doc.company, 'brand': physical['attributes']['brand']}, spec.product, existing=True)
+            authorize_context({'customer': doc.customer, 'company': doc.company, 'brand': physical['attributes']['brand']}, spec.product, existing=True, transaction=True)
     if doc.doctype in {'Stock Entry', 'Delivery Note', 'Stock Reconciliation'}:
         from srv_erp.package_barcode.service import get_item_qty_entry_rules, get_default_qty_entry_rule, get_effective_qty_entry_rule, QTY_RULE_FORCE_BARCODE
         item_rules = get_item_qty_entry_rules(sorted(uoms))

@@ -32,7 +32,7 @@ def available():
     return frappe.db.exists('DocType', 'OEM Item Binding')
 
 
-def authorize_context(context, product=None, write=False, capability='user', existing=False):
+def authorize_context(context, product=None, write=False, capability='user', existing=False, transaction=False):
     if not existing: require_role(capability)
     if set(context) - {'customer', 'company', 'brand', 'effective_date'}:
         frappe.throw(_('Unsupported OEM context fields.'))
@@ -42,7 +42,7 @@ def authorize_context(context, product=None, write=False, capability='user', exi
     for field, doctype in (('customer', 'Customer'), ('company', 'Company'), ('brand', 'Brand')):
         if context.get(field):
             readable(doctype, context[field])
-    if product:
+    if product and not transaction:
         readable('OEM Product', product)
     if cfg.mode == 'Pilot' and not existing:
         scopes = cfg.pilot_scope

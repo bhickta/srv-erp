@@ -151,3 +151,19 @@ class TestOEMIntegration(FrappeTestCase):
         frappe.set_user(self.requester)
         with self.assertRaises(frappe.PermissionError):
             api.get_configuration(self.product.name, dict(self.context, brand='OEM Other Brand'))
+
+    def test_off_mode_keeps_existing_item_context_authorized_for_erp_roles(self):
+        result = api.submit_configuration(self.payload, str(uuid4()))
+        request = frappe.get_doc('OEM Configuration Request', result['request'])
+        frappe.set_user(self.approver)
+        approved = api.approve_request(request.name, str(request.modified), str(uuid4()))
+        frappe.set_user('Administrator')
+        cfg = frappe.get_doc('OEM Catalog Settings'); cfg.mode = 'Off'; cfg.save()
+        seller = 'oem-ordinary-seller@example.com'
+        if not frappe.db.exists('User', seller):
+            frappe.get_doc({'doctype': 'User', 'email': seller, 'first_name': 'Synthetic Ordinary Seller', 'send_welcome_email': 0,
+                            'roles': [{'role': 'Sales User'}]}).insert(ignore_permissions=True)
+        frappe.set_user(seller)
+        from srv_erp.oem_catalog.permissions import authorize_context
+        authorize_context(self.context, self.product.name, existing=True, transaction=True)
+        with self.assertRaises(frappe.PermissionError): api.get_configuration(self.product.name, self.context)

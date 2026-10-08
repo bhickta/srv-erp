@@ -29,7 +29,7 @@ def validate(doc, method=None):
         # and physical/UOM integrity still apply to newly managed usage.
         physical = json.loads(spec.canonical_json)
         item_context = dict(context, brand=context.get('brand') or physical['attributes'].get('brand'))
-        authorize_context(item_context, spec.product, existing=True)
+        authorize_context(item_context, spec.product, existing=True, transaction=True)
         if physical['attributes'].get('brand') != item_context.get('brand'):
             frappe.throw(_('Managed physical Brand must agree with order context.'))
         binding, item = active_binding(spec.name, item_context)
