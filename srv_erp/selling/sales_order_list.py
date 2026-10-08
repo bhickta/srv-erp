@@ -8,9 +8,10 @@ LIVE_GROUP_OPERATOR = "descendants of (inclusive)"
 
 
 class LiveCustomerGroupSalesOrderQuery(DatabaseQuery):
-	def __init__(self, group_bounds=None):
+	def __init__(self, group_bounds=None, group_names=None):
 		super().__init__("Sales Order")
 		self.group_bounds = group_bounds or []
+		self.group_names = group_names or []
 
 	def build_conditions(self):
 		super().build_conditions()
@@ -34,12 +35,29 @@ class LiveCustomerGroupSalesOrderQuery(DatabaseQuery):
 				)"""
 			)
 
+		for index, names in enumerate(self.group_names):
+			if not names:
+				self.conditions.append("1 = 0")
+				continue
+
+			escaped_names = ", ".join(frappe.db.escape(name) for name in names)
+			customer_alias = f"live_customer_names_{index}"
+			self.conditions.append(
+				f"""EXISTS (
+					SELECT 1 FROM `tabCustomer` {customer_alias}
+					WHERE {customer_alias}.name = `tabSales Order`.customer
+						AND {customer_alias}.customer_group IN ({escaped_names})
+				)"""
+			)
+
 
 @frappe.whitelist()
 @frappe.read_only()
 def get():
 	args = _get_query_args()
-	query = LiveCustomerGroupSalesOrderQuery(_extract_live_group_bounds(args))
+	query = LiveCustomerGroupSalesOrderQuery(
+		_extract_live_group_bounds(args), _extract_live_group_names(args)
+	)
 	data = query.execute(**_without_doctype(args))
 	return reportview.compress(data, args=args)
 
@@ -48,7 +66,9 @@ def get():
 @frappe.read_only()
 def get_count():
 	args = _get_query_args()
-	query = LiveCustomerGroupSalesOrderQuery(_extract_live_group_bounds(args))
+	query = LiveCustomerGroupSalesOrderQuery(
+		_extract_live_group_bounds(args), _extract_live_group_names(args)
+	)
 
 	args.distinct = sbool(args.distinct)
 	distinct = "distinct " if args.distinct else ""
@@ -96,3 +116,21 @@ def _normalise_filter(condition):
 	if len(condition) == 3:
 		return "Sales Order", condition[0], condition[1], condition[2]
 	return condition[0], condition[1], condition[2], condition[3]
+
+
+def _extract_live_group_names(args):
+	"""Resolve the Tour multi-select against Customer, including older orders."""
+	group_names = []
+	remaining_filters = []
+
+	for condition in args.filters or []:
+		doctype, fieldname, operator, value = _normalise_filter(condition)
+		if doctype == "Sales Order" and fieldname == "customer_group" and operator.lower() == "in":
+			if isinstance(value, str):
+				value = value.split(",")
+			group_names.append(list(value or []))
+		else:
+			remaining_filters.append(condition)
+
+	args.filters = remaining_filters
+	return group_names
