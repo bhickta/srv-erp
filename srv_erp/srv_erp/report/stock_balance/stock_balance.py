@@ -1,8 +1,8 @@
 import frappe
+from erpnext.stock.report.stock_balance.stock_balance import StockBalanceReport
+from erpnext.stock.report.stock_balance.stock_balance import execute as erpnext_execute
 from frappe import _
 from frappe.utils import cint, flt
-
-from erpnext.stock.report.stock_balance.stock_balance import StockBalanceReport, execute as erpnext_execute
 
 
 def execute(filters=None):
