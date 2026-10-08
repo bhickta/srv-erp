@@ -21,7 +21,10 @@ def inspect(bench, site):
     bench = Path(bench).resolve()
     if bench != BENCH or site not in SITES:
         raise ValueError('Only the declared synthetic OEM Bench/sites are allowed')
-    config = json.loads((bench / 'sites/common_site_config.json').read_text())
+    paths = (bench / 'sites/common_site_config.json', bench / 'sites' / site / 'site_config.json')
+    if any(not path.resolve().is_relative_to(bench / 'sites') for path in paths):
+        raise ValueError('Site configuration must remain inside the isolated Bench')
+    config = json.loads(paths[0].read_text())
     config.update(json.loads((bench / 'sites' / site / 'site_config.json').read_text()))
     if config.get('db_name') != SITES[site] or config.get('db_host') != '127.0.0.1' or int(config.get('db_port', 0)) != 3311:
         raise ValueError('Database must be the dedicated OEM instance and database')

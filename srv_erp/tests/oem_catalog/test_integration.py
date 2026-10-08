@@ -96,6 +96,21 @@ class TestOEMIntegration(FrappeTestCase):
         with self.assertRaises(frappe.ValidationError): doc.submit()
         doc.reload(); doc.save()
         self.assertEqual(doc.oem_pending_lines[0].proposed_qty, '5')
+        frappe.set_user(self.approver)
+        request = frappe.get_doc('OEM Configuration Request', result['request'])
+        approved = api.approve_request(request.name, str(request.modified), str(uuid4()))
+        frappe.set_user(self.requester)
+        doc.reload()
+        dto = api.validate_apply(result['source'], dict(self.context, document=doc.name, modified=str(doc.modified)), result['row_intent_id'])
+        actual = doc.append('items', dict(dto, qty=5, uom='Nos', stock_uom='Nos', conversion_factor=1, rate=10, delivery_date=doc.delivery_date))
+        doc.oem_pending_lines[0].status = 'Applied'
+        doc.oem_pending_lines[0].applied_sales_order_row = 'temporary-client-row-name'
+        doc.save(); doc.reload()
+        self.assertEqual(doc.oem_pending_lines[0].applied_sales_order_row, doc.items[0].name)
+        self.assertEqual(doc.oem_unresolved_line_count, 0)
+        self.assertEqual(doc.grand_total, 50)
+        self.assertEqual(frappe.db.get_value('OEM Request Source', result['source'], 'result_state'), 'Applied')
+
 
     def test_forged_empty_order_and_direct_workflow_insert(self):
         with self.assertRaises(frappe.MandatoryError):
@@ -167,3 +182,23 @@ class TestOEMIntegration(FrappeTestCase):
         from srv_erp.oem_catalog.permissions import authorize_context
         authorize_context(self.context, self.product.name, existing=True, transaction=True)
         with self.assertRaises(frappe.PermissionError): api.get_configuration(self.product.name, self.context)
+
+    def test_saved_all_pending_order_can_withdraw_last_line_in_off_mode(self):
+        self.payload['source'] = {'adapter': 'sales_order', 'doctype': 'Sales Order', 'field': 'items', 'row_intent_id': str(uuid4())}
+        result = api.submit_configuration(self.payload, str(uuid4()))
+        line = dict(row_intent_id=result['row_intent_id'], product=self.product.name, product_revision=self.revision.name,
+                    specification=result['specification'], configuration_request=result['request'], request_source=result['source'],
+                    configuration_snapshot_json=encoded(result['snapshot']), proposed_qty='1', proposed_uom='Nos', proposed_package_code='unit',
+                    delivery_date=add_days(today(), 7), status='Pending')
+        saved = api.save_pending_sales_order(dict(customer=self.customer, company=self.company, brand_filter=self.context['brand'], transaction_date=today(),
+                    delivery_date=add_days(today(), 7), oem_order_entry_enabled=1, oem_pending_lines=[line]), str(uuid4()))
+        doc = frappe.get_doc('Sales Order', saved['name'])
+        frappe.set_user('Administrator')
+        cfg = frappe.get_doc('OEM Catalog Settings'); cfg.mode = 'Off'; cfg.save()
+        frappe.set_user(self.requester)
+        doc.oem_pending_lines[0].status = 'Withdrawn'; doc.oem_pending_lines[0].withdrawal_reason = 'Synthetic cancellation of intent'
+        doc.save(); doc.reload()
+        self.assertEqual(doc.docstatus, 0)
+        self.assertEqual(doc.oem_configuration_status, 'Withdrawn')
+        self.assertEqual(len(doc.items), 0)
+        self.assertEqual(frappe.db.get_value('OEM Request Source', result['source'], 'result_state'), 'Abandoned')

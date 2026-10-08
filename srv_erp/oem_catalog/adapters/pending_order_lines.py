@@ -78,10 +78,12 @@ def validate_pending(doc):
             if not row.withdrawal_reason or not row.withdrawal_reason.strip():
                 frappe.throw(_('A withdrawal reason is required.'))
         elif row.status == 'Applied':
-            actual = next((r for r in doc.items if r.name == row.applied_sales_order_row and r.get('oem_row_intent_id') == row.row_intent_id), None)
+            matches = [r for r in doc.items if r.get('oem_row_intent_id') == row.row_intent_id and r.get('oem_request_source') == row.request_source]
+            actual = matches[0] if len(matches) == 1 else None
             binding = frappe.db.get_value('OEM Item Binding', {'specification': spec.name}, ['stock_item', 'binding_state'], as_dict=True)
             if request.status != 'Approved' or not actual or not binding or binding.binding_state != 'Active' or actual.item_code != binding.stock_item:
                 frappe.throw(_('Applied OEM line requires its approved real order row.'))
+            row.applied_sales_order_row = actual.name
         else:
             row.status = {'Pending': 'Pending', 'Approved': 'Ready', 'Rejected': 'Rejected', 'Cancelled': 'Cancelled'}[request.status]
         row.price_is_estimate = 1
@@ -93,8 +95,8 @@ def validate_pending(doc):
             if any(previous.get(k) != row.get(k) for k in ('specification', 'product_revision', 'request_source', 'configuration_request', 'configuration_snapshot_json')):
                 frappe.throw(_('Reconfiguration requires an explicit new source line.'))
     doc.oem_unresolved_line_count, doc.oem_estimated_pending_amount = unresolved, estimate
-    doc.oem_configuration_status = 'Resolved' if not unresolved else 'Needs Correction' if any(r.status in {'Rejected', 'Cancelled', 'Stale'} for r in rows) else 'Ready to Apply' if any(r.status == 'Ready' for r in rows) else 'Pending Item Approval'
-    return any(row.status not in FINAL for row in rows)
+    doc.oem_configuration_status = 'Withdrawn' if rows and all(r.status == 'Withdrawn' for r in rows) else 'Resolved' if not unresolved else 'Needs Correction' if any(r.status in {'Rejected', 'Cancelled', 'Stale'} for r in rows) else 'Ready to Apply' if any(r.status == 'Ready' for r in rows) else 'Pending Item Approval'
+    return any(row.status not in FINAL for row in rows) or bool(old and old.get('oem_pending_lines') and rows and all(row.status == 'Withdrawn' for row in rows))
 
 
 def clear_empty_totals(doc):

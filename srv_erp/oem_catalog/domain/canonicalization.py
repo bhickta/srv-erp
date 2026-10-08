@@ -36,7 +36,9 @@ def decimal_value(value, attribute: Attribute):
         step = Decimal(attribute.step)
         if step <= 0 or (number - Decimal(attribute.minimum or '0')) % step:
             fail('Value does not follow the published step', attribute.key)
-    return '0' if number == 0 else format(number.normalize(), 'f')
+    with localcontext() as context:
+        context.prec = 80
+        return '0' if number == 0 else format(number.normalize(), 'f')
 
 
 def typed_value(attribute, value):
