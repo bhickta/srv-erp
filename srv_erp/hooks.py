@@ -267,6 +267,10 @@ doc_events = {
 		"validate": [
 			"srv_erp.package_barcode.service.validate_stock_transaction",
 		],
+  		"before_validate": [
+			"srv_erp.selling.delivery_note.remove_zero_quantity_items_on_submit",
+			"srv_erp.selling.delivery_note.prepare_delivery_note_quantities"
+		],
 	},
 	"Stock Reconciliation": {
 		"before_validate": "srv_erp.package_barcode.service.sync_stock_transaction_package_quantities",
@@ -316,8 +320,8 @@ override_doctype_class = {
 override_whitelisted_methods = {
 	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "srv_erp.masters.dynamic_item.bulk_guard.enqueue_multiple_variant_creation",
 	"erpnext.controllers.item_variant.create_variant_doc_for_quick_entry": "srv_erp.masters.dynamic_item.bulk_guard.create_variant_doc_for_quick_entry",
-}
-#
+	"erpnext.selling.doctype.sales_order.sales_order.make_delivery_note": "srv_erp.selling.delivery_note.make_delivery_note",
+}#
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
