@@ -23,6 +23,106 @@ function workflow_state_colour(state) {
 	);
 }
 
+function setup_customer_multiselect_filter(listview) {
+	const customer_field = listview.page.fields_dict?.customer;
+
+	if (!customer_field) {
+		console.warn("[Sales Order] Customer standard filter was not found.");
+		return;
+	}
+
+	listview.__srv_customer_multiselect_filter =
+		listview.__srv_customer_multiselect_filter || {};
+
+	if (listview.__srv_customer_multiselect_filter.control) {
+		return;
+	}
+
+	const selected_customers = customer_field.get_value?.();
+	const state = {
+		selected_values: Array.isArray(selected_customers)
+			? selected_customers.filter(Boolean)
+			: selected_customers
+				? [selected_customers]
+				: [],
+	};
+
+	customer_field.$wrapper.hide();
+
+	const custom_fieldname = "__srv_customer";
+	const multi_select = listview.page.add_field({
+		fieldname: custom_fieldname,
+		label: customer_field.df.label,
+		fieldtype: "MultiSelectList",
+		options: customer_field.df.options,
+
+		get_data(txt) {
+			return frappe.db.get_link_options(
+				customer_field.df.options,
+				txt
+			);
+		},
+
+		onchange() {
+			const value = this.get_value();
+			state.selected_values = Array.isArray(value)
+				? value.filter(Boolean)
+				: value
+					? [value]
+					: [];
+			listview.refresh();
+		},
+	});
+
+	if (multi_select?.$wrapper) {
+		multi_select.$wrapper.insertBefore(customer_field.$wrapper);
+	}
+
+	const original_get_filters_for_args =
+		listview.get_filters_for_args.bind(listview);
+
+	listview.get_filters_for_args = function () {
+		const page_fields = listview.page.fields_dict;
+		const custom_field = page_fields[custom_fieldname];
+
+		if (custom_field) {
+			delete page_fields[custom_fieldname];
+		}
+
+		let filters;
+		try {
+			filters = original_get_filters_for_args();
+		} finally {
+			if (custom_field) {
+				page_fields[custom_fieldname] = custom_field;
+			}
+		}
+
+		filters = filters.filter(
+			(filter) =>
+				!(
+					Array.isArray(filter) &&
+					filter[0] === listview.doctype &&
+					filter[1] === "customer"
+				)
+		);
+
+		if (state.selected_values.length) {
+			filters.push([
+				listview.doctype,
+				"customer",
+				"in",
+				state.selected_values,
+			]);
+		}
+
+		return filters;
+	};
+
+	listview.__srv_customer_multiselect_filter.control = multi_select;
+	multi_select.set_value(state.selected_values);
+}
+
 
 function setup_live_customer_group_filter(listview) {
 	listview.method = "srv_erp.selling.sales_order_list.get";
@@ -181,6 +281,7 @@ frappe.listview_settings["Sales Order"] = {
 			{ fieldname: "customer_group" },
 		]);
 
+		setup_customer_multiselect_filter(listview);
 		setup_live_customer_group_filter(listview);
 		setup_custom_delivery_status_filter(listview);
 
