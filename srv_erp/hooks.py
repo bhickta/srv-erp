@@ -267,6 +267,10 @@ doc_events = {
 		"validate": [
 			"srv_erp.package_barcode.service.validate_stock_transaction",
 		],
+  		"before_validate": [
+			"srv_erp.selling.delivery_note.remove_zero_quantity_items_on_submit",
+			"srv_erp.selling.delivery_note.prepare_delivery_note_quantities"
+		],
 	},
 	"Stock Reconciliation": {
 		"before_validate": "srv_erp.package_barcode.service.sync_stock_transaction_package_quantities",

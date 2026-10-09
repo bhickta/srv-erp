@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 CLOSED_SALES_ORDER_STATUSES = ("Closed", "Completed")
 
@@ -116,5 +117,43 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 	for row in doc.get("items", []):
 		print(row.name)
 		row.qty = 0
+		row.stock_qty = 0
 
 	return doc
+
+
+def remove_zero_quantity_items_on_submit(doc, method=None):
+	if doc.get("_action") != "submit":
+		return
+
+	if doc.get("is_return"):
+		return
+
+	doc.items = [
+		row for row in doc.items
+		if row.get("qty") is None or row.qty != 0
+	]
+
+	if not doc.items:
+		frappe.throw(
+			_("Cannot submit a Delivery Note without any items having a non-zero quantity."),
+			title=_("No Items to Deliver"),
+		)
+  
+  
+def prepare_delivery_note_quantities(doc, method=None):
+    if doc.get("is_return"):
+        return
+
+    if doc.get("_action") == "submit":
+        doc.set(
+            "items",
+            [row for row in doc.items if flt(row.qty) != 0],
+        )
+
+        if not doc.items:
+            frappe.throw(
+                _("Your Delivery Note Does not have any item to dispatch.")
+            )
+    else:
+        doc.flags.allow_zero_qty = True
