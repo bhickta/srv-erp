@@ -5,13 +5,7 @@ CLOSED_SALES_ORDER_STATUSES = ("Closed", "Completed")
 
 
 def validate_sales_order_reference(doc, method=None):
-	"""Require a Sales Order reference for items pending in an open Sales Order.
-
-	When a Delivery Note row's item is still to be delivered against a
-	submitted Sales Order of the same customer, the row must carry
-	`against_sales_order` so the stock movement stays linked to the order it
-	fulfils.
-	"""
+	"""Require a Sales Order reference for items pending in an open Sales Order."""
 	if doc.get("is_return"):
 		return
 
@@ -54,7 +48,7 @@ def validate_sales_order_reference(doc, method=None):
 
 
 def get_open_sales_order_items(customer, item_codes):
-	"""Return the set of item codes pending in an open Sales Order."""
+	"""Return the set of item codes pending in an open Sales Order.s"""
 	if not customer or not item_codes:
 		return set()
 
@@ -78,3 +72,49 @@ def get_open_sales_order_items(customer, item_codes):
 	)
 
 	return {row.item_code for row in rows}
+
+
+@frappe.whitelist()
+def get_sales_order_items_for_delivery_note(sales_order):
+	"""Return Sales Order item references for Delivery Note item mapping."""
+	if not sales_order:
+		return []
+
+	so = frappe.get_doc("Sales Order", sales_order)
+
+	if so.docstatus != 1:
+		return []
+
+	return [
+		{
+			"item_code": row.item_code,
+			"so_detail": row.name,
+			"against_sales_order": so.name,
+			"qty": row.qty,
+			"uom": row.uom,
+			"stock_uom": row.stock_uom,
+			"conversion_factor": row.conversion_factor,
+			"warehouse": row.warehouse,
+		}
+		for row in so.items
+		if row.item_code
+	]
+ 
+@frappe.whitelist()
+def make_delivery_note(source_name, target_doc=None, kwargs=None):
+    
+	from erpnext.selling.doctype.sales_order.sales_order import (
+		make_delivery_note as erpnext_make_delivery_note,
+	)
+	print("override method calls")
+	doc = erpnext_make_delivery_note(
+		source_name,
+		target_doc=target_doc,
+		kwargs=kwargs,
+	)
+
+	for row in doc.get("items", []):
+		print(row.name)
+		row.qty = 0
+
+	return doc

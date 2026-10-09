@@ -273,6 +273,53 @@ srv_erp.package_barcode.handle_stock_reconciliation_qty_change = function (frm, 
 	srv_erp.package_barcode.handle_qty_change(frm);
 };
 
+
+
+srv_erp.package_barcode.initialize_delivery_note_quantities = function (frm) {
+	if (frm.doctype !== "Delivery Note") {
+		return;
+	}
+
+	if (!frm.doc.__islocal) {
+		return;
+	}
+
+	if (frm.__srv_erp_dn_so_qty_initialized) {
+		return;
+	}
+
+	const so_rows = (frm.doc.items || []).filter(
+		(row) => row.item_code && row.so_detail && row.against_sales_order
+	);
+
+	if (!so_rows.length) {
+		return;
+	}
+
+	frm.__srv_erp_dn_so_qty_initialized = true;
+
+	const updates = so_rows
+		.filter((row) => flt(row.qty) !== 0)
+		.map((row) =>
+			frappe.model.set_value(
+				row.doctype,
+				row.name,
+				"qty",
+				0
+			)
+		);
+
+	if (!updates.length) {
+		return;
+	}
+
+	Promise.all(updates).then(() => {
+		frm.refresh_field("items");
+	});
+};
+
+
+
 frappe.ui.form.on("Stock Entry", {
 	setup: srv_erp.package_barcode.setup_stock_scanner,
 	refresh: srv_erp.package_barcode.setup_stock_scanner,
@@ -285,8 +332,14 @@ frappe.ui.form.on("Purchase Receipt", {
 });
 
 frappe.ui.form.on("Delivery Note", {
-	setup: srv_erp.package_barcode.setup_stock_scanner,
-	refresh: srv_erp.package_barcode.setup_stock_scanner,
+	setup: function (frm) {
+		srv_erp.package_barcode.setup_stock_scanner(frm);
+	},
+
+	refresh: function (frm) {
+		srv_erp.package_barcode.setup_stock_scanner(frm);
+		srv_erp.package_barcode.initialize_delivery_note_quantities(frm);
+	},
 });
 
 frappe.ui.form.on("Stock Reconciliation", {
@@ -310,3 +363,4 @@ frappe.ui.form.on("Stock Reconciliation Item", {
 	package_qty: srv_erp.package_barcode.recalculate_stock_reconciliation_qty,
 	package_uom: srv_erp.package_barcode.recalculate_stock_reconciliation_qty,
 });
+

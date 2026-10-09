@@ -13,6 +13,17 @@ class LiveCustomerGroupSalesOrderQuery(DatabaseQuery):
 		self.group_bounds = group_bounds or []
 		self.group_names = group_names or []
 
+	def prepare_args(self):
+		args = super().prepare_args()
+		if self.group_bounds or self.group_names:
+			customer_joins = """ INNER JOIN `tabCustomer` live_customer
+				ON live_customer.name = `tabSales Order`.customer
+				INNER JOIN `tabCustomer Group` live_customer_group
+				ON live_customer_group.name = live_customer.customer_group"""
+			args.tables += customer_joins
+			self._user_tables += customer_joins
+		return args
+
 	def build_conditions(self):
 		super().build_conditions()
 		for index, bounds in enumerate(self.group_bounds):
@@ -21,33 +32,18 @@ class LiveCustomerGroupSalesOrderQuery(DatabaseQuery):
 				continue
 
 			lft, rgt = (cint(value) for value in bounds)
-			customer_alias = f"live_customer_{index}"
-			group_alias = f"live_customer_group_{index}"
 			self.conditions.append(
-				f"""EXISTS (
-					SELECT 1
-					FROM `tabCustomer` {customer_alias}
-					INNER JOIN `tabCustomer Group` {group_alias}
-						ON {group_alias}.name = {customer_alias}.customer_group
-					WHERE {customer_alias}.name = `tabSales Order`.customer
-						AND {group_alias}.lft >= {lft}
-						AND {group_alias}.rgt <= {rgt}
-				)"""
+				f"live_customer_group.lft >= {lft} AND live_customer_group.rgt <= {rgt}"
 			)
 
-		for index, names in enumerate(self.group_names):
+		for names in self.group_names:
 			if not names:
 				self.conditions.append("1 = 0")
 				continue
 
 			escaped_names = ", ".join(frappe.db.escape(name) for name in names)
-			customer_alias = f"live_customer_names_{index}"
 			self.conditions.append(
-				f"""EXISTS (
-					SELECT 1 FROM `tabCustomer` {customer_alias}
-					WHERE {customer_alias}.name = `tabSales Order`.customer
-						AND {customer_alias}.customer_group IN ({escaped_names})
-				)"""
+				f"live_customer.customer_group IN ({escaped_names})"
 			)
 
 
