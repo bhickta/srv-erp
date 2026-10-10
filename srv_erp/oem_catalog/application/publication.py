@@ -92,8 +92,14 @@ def validate_master(doc, old, internal):
         validate_revision(doc)
     if doc.doctype == 'OEM Customer Brand':
         readable('Customer', doc.customer); readable('Brand', doc.brand)
-        if not internal and (doc.enabled or doc.approved_by):
-            frappe.throw(_('Use the association approval command.'))
+        # Associations are managed directly for now: enabling one records the
+        # acting user as approver so downstream authorization keeps working.
+        # The approve_customer_brand command remains available for later re-gating.
+        if doc.enabled:
+            if not doc.approved_by:
+                doc.approved_by, doc.approved_on = frappe.session.user, now_datetime()
+        else:
+            doc.approved_by, doc.approved_on = None, None
     if doc.doctype == 'OEM Option Set':
         ids = [v.value_code for v in doc.values]
         if len(ids) != len(set(ids)) or len(ids) > 500 or any(not v or ':' in v for v in ids):
