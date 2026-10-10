@@ -31,28 +31,19 @@ function setup_customer_multiselect_filter(listview) {
 		return;
 	}
 
-	listview.__srv_customer_multiselect_filter =
-		listview.__srv_customer_multiselect_filter || {};
-
+	listview.__srv_customer_multiselect_filter = listview.__srv_customer_multiselect_filter || {};
 	if (listview.__srv_customer_multiselect_filter.control) {
 		return;
 	}
 
-	const selected_customers = customer_field.get_value?.();
 	const state = {
-		selected_values: Array.isArray(selected_customers)
-			? selected_customers.filter(Boolean)
-			: selected_customers
-				? [selected_customers]
-				: [],
+		selected_values: [],
 	};
-
-	customer_field.$wrapper.hide();
 
 	const custom_fieldname = "__srv_customer";
 	const multi_select = listview.page.add_field({
 		fieldname: custom_fieldname,
-		label: customer_field.df.label,
+		label: "Select Customers",
 		fieldtype: "MultiSelectList",
 		options: customer_field.df.options,
 
@@ -98,15 +89,6 @@ function setup_customer_multiselect_filter(listview) {
 			}
 		}
 
-		filters = filters.filter(
-			(filter) =>
-				!(
-					Array.isArray(filter) &&
-					filter[0] === listview.doctype &&
-					filter[1] === "customer"
-				)
-		);
-
 		if (state.selected_values.length) {
 			filters.push([
 				listview.doctype,
@@ -121,6 +103,37 @@ function setup_customer_multiselect_filter(listview) {
 
 	listview.__srv_customer_multiselect_filter.control = multi_select;
 	multi_select.set_value(state.selected_values);
+}
+
+function setup_default_workflow_state_filter(listview) {
+	const has_workflow_state_filter = listview.filter_area
+		.get()
+		.some(
+			([doctype, fieldname]) =>
+				doctype === listview.doctype && fieldname === "workflow_state"
+		);
+
+	if (!has_workflow_state_filter) {
+		listview.filter_area.add(
+			listview.doctype,
+			"workflow_state",
+			"in",
+			"Approved, Pending"
+		);
+	}
+}
+
+function clear_default_delivery_status_filter(listview) {
+	const has_delivery_status_filter = listview.filter_area
+		.get()
+		.some(
+			([doctype, fieldname]) =>
+				doctype === listview.doctype && fieldname === "delivery_status"
+		);
+
+	if (has_delivery_status_filter) {
+		listview.filter_area.remove("delivery_status");
+	}
 }
 
 
@@ -177,16 +190,11 @@ function setup_custom_delivery_status_filter(listview) {
 		listview.page.fields_dict?.delivery_status;
 
 	if (!delivery_status_field) {
-		console.warn(
-			"[Sales Order] Delivery Status standard filter was not found."
-		);
-
+		console.warn("[Sales Order] Delivery Status standard filter was not found.");
 		return;
 	}
 
-
 	let options = delivery_status_field.df.options || "";
-
 	if (typeof options === "string") {
 		options = options
 			.split("\n")
@@ -210,8 +218,7 @@ function setup_custom_delivery_status_filter(listview) {
 		return;
 	}
 
-	const original_get_filters_for_args =
-		listview.get_filters_for_args.bind(listview);
+	const original_get_filters_for_args = listview.get_filters_for_args.bind(listview);
 
 	listview.get_filters_for_args = function () {
 		const filters = original_get_filters_for_args();
@@ -268,13 +275,7 @@ frappe.listview_settings["Sales Order"] = {
 
 		return standard_sales_order_get_indicator?.(doc);
 	},
-	// filters: [
-	// 	[
-	// 		"delivery_status",
-	// 		"=",
-	// 		CUSTOM_DELIVERY_STATUS_VALUE,
-	// 	],
-	// ],	
+	filters: [["workflow_state", "in", "Approved, Pending"]],
 	onload(listview) {
 		standard_sales_order_listview_settings.onload?.(listview);
 		srv_erp.list_view.setup_tree_group_filters(listview, [
@@ -284,6 +285,8 @@ frappe.listview_settings["Sales Order"] = {
 		setup_customer_multiselect_filter(listview);
 		setup_live_customer_group_filter(listview);
 		setup_custom_delivery_status_filter(listview);
+		setup_default_workflow_state_filter(listview);
+		clear_default_delivery_status_filter(listview);
 
 
 		listview.page.add_actions_menu_item(
