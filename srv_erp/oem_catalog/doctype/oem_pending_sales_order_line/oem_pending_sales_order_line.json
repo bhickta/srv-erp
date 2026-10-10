@@ -1,0 +1,162 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Pending Sales Order Line",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "row_intent_id",
+    "product",
+    "product_revision",
+    "specification",
+    "configuration_request",
+    "request_source",
+    "configuration_snapshot_json",
+    "physical_summary",
+    "proposed_qty",
+    "proposed_uom",
+    "proposed_package_code",
+    "delivery_date",
+    "warehouse",
+    "estimated_unit_rate",
+    "estimated_amount",
+    "price_is_estimate",
+    "discount_preference",
+    "commercial_notes",
+    "status",
+    "applied_sales_order_row",
+    "withdrawal_reason"
+  ],
+  "fields": [
+    {
+      "fieldname": "row_intent_id",
+      "label": "Row Intent Id",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "product",
+      "label": "Product",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Product"
+    },
+    {
+      "fieldname": "product_revision",
+      "label": "Product Revision",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Product Revision"
+    },
+    {
+      "fieldname": "specification",
+      "label": "Specification",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "configuration_request",
+      "label": "Configuration Request",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Configuration Request"
+    },
+    {
+      "fieldname": "request_source",
+      "label": "Request Source",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Request Source"
+    },
+    {
+      "fieldname": "configuration_snapshot_json",
+      "label": "Configuration Snapshot Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "physical_summary",
+      "label": "Physical Summary",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "proposed_qty",
+      "label": "Proposed Qty",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "proposed_uom",
+      "label": "Proposed Uom",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "UOM"
+    },
+    {
+      "fieldname": "proposed_package_code",
+      "label": "Proposed Package Code",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "delivery_date",
+      "label": "Delivery Date",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "warehouse",
+      "label": "Warehouse",
+      "fieldtype": "Link",
+      "options": "Warehouse"
+    },
+    {
+      "fieldname": "estimated_unit_rate",
+      "label": "Estimated Unit Rate",
+      "fieldtype": "Currency"
+    },
+    {
+      "fieldname": "estimated_amount",
+      "label": "Estimated Amount",
+      "fieldtype": "Currency"
+    },
+    {
+      "fieldname": "price_is_estimate",
+      "label": "Price Is Estimate",
+      "fieldtype": "Check",
+      "default": "1"
+    },
+    {
+      "fieldname": "discount_preference",
+      "label": "Discount Preference",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "commercial_notes",
+      "label": "Commercial Notes",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "default": "Pending",
+      "options": "Pending\nReady\nApplied\nRejected\nCancelled\nStale\nWithdrawn"
+    },
+    {
+      "fieldname": "applied_sales_order_row",
+      "label": "Applied Sales Order Row",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "withdrawal_reason",
+      "label": "Withdrawal Reason",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

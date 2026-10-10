@@ -1,6 +1,6 @@
 import frappe
 from erpnext.stock.doctype.item.test_item import make_item
-from erpnext.tests.utils import ERPNextTestSuite
+from frappe.tests.utils import FrappeTestCase
 
 from srv_erp.package_barcode.api import generate_package_barcodes, scan_package_barcode
 from srv_erp.package_barcode.service import (
@@ -14,7 +14,7 @@ from srv_erp.package_barcode.service import (
 )
 
 
-class TestPackageBarcode(ERPNextTestSuite):
+class TestPackageBarcode(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 		self.item = make_item(
@@ -240,8 +240,8 @@ class TestPackageBarcode(ERPNextTestSuite):
 
 		validate_stock_transaction(doc)
 
-		self.assertEqual(doc.items[0].qty, 10)
-		self.assertEqual(doc.items[0].package_conversion_factor, 10)
+		self.assertEqual(doc["items"][0].qty, 10)
+		self.assertEqual(doc["items"][0].package_conversion_factor, 10)
 
 	def test_stock_reconciliation_manual_stock_uom_qty_clears_package_fields(self):
 		frappe.db.set_single_value(
@@ -267,10 +267,10 @@ class TestPackageBarcode(ERPNextTestSuite):
 
 		validate_stock_transaction(doc)
 
-		self.assertEqual(doc.items[0].qty, 1)
-		self.assertEqual(doc.items[0].package_qty, 0)
-		self.assertIsNone(doc.items[0].package_uom)
-		self.assertEqual(doc.items[0].package_conversion_factor, 0)
+		self.assertEqual(doc["items"][0].qty, 1)
+		self.assertEqual(doc["items"][0].package_qty, 0)
+		self.assertIsNone(doc["items"][0].package_uom)
+		self.assertEqual(doc["items"][0].package_conversion_factor, 0)
 
 	def test_stock_reconciliation_barcode_only_qty_accepts_mixed_package_uom_rows(self):
 		frappe.db.set_single_value(

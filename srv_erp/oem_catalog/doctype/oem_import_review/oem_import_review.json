@@ -1,0 +1,88 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Import Review",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "kind",
+    "source_scope_json",
+    "plan_hash",
+    "status",
+    "reviewed_by",
+    "reviewed_on",
+    "source_baseline",
+    "summary_json",
+    "rows"
+  ],
+  "fields": [
+    {
+      "fieldname": "kind",
+      "label": "Kind",
+      "fieldtype": "Select",
+      "options": "Product Bootstrap\nLegacy Mapping"
+    },
+    {
+      "fieldname": "source_scope_json",
+      "label": "Source Scope Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "plan_hash",
+      "label": "Plan Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Previewed\nApproved\nApplied\nFailed"
+    },
+    {
+      "fieldname": "reviewed_by",
+      "label": "Reviewed By",
+      "fieldtype": "Link",
+      "options": "User"
+    },
+    {
+      "fieldname": "reviewed_on",
+      "label": "Reviewed On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "source_baseline",
+      "label": "Source Baseline",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "summary_json",
+      "label": "Summary Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "rows",
+      "label": "Rows",
+      "fieldtype": "Table",
+      "options": "OEM Import Review Row"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

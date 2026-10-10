@@ -1,0 +1,78 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Asset",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "code",
+    "kind",
+    "label",
+    "permitted_brand",
+    "lifecycle",
+    "current_revision"
+  ],
+  "fields": [
+    {
+      "fieldname": "code",
+      "label": "Code",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "kind",
+      "label": "Kind",
+      "fieldtype": "Select",
+      "reqd": 1,
+      "options": "Sticker\nArtwork\nDesign\nCertification"
+    },
+    {
+      "fieldname": "label",
+      "label": "Label",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "permitted_brand",
+      "label": "Permitted Brand",
+      "fieldtype": "Link",
+      "options": "Brand"
+    },
+    {
+      "fieldname": "lifecycle",
+      "label": "Lifecycle",
+      "fieldtype": "Select",
+      "default": "Draft",
+      "options": "Draft\nActive\nRetired"
+    },
+    {
+      "fieldname": "current_revision",
+      "label": "Current Revision",
+      "fieldtype": "Link",
+      "options": "OEM Asset Revision"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

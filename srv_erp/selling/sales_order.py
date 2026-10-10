@@ -78,12 +78,17 @@ def get_brand_filtered_items(
 	if not brand:
 		return []
 
+	from srv_erp.oem_catalog.adapters.brand_lookup import extend_candidates
+	managed = extend_candidates(brand, txt, filters)
+	managed_names = [row[0] for row in managed]
 	conditions = [
 		"iva.attribute = 'Brand'",
 		"iva.attribute_value = %(brand)s",
 		"i.disabled = 0",
 	]
 
+	if managed_names:
+		conditions = ["((iva.attribute = 'Brand' AND iva.attribute_value = %(brand)s) OR i.name IN %(managed_names)s)", "i.disabled = 0"]
 	if txt:
 		conditions.append("""
 			(
@@ -98,7 +103,7 @@ def get_brand_filtered_items(
 			i.name,
 			i.item_name
 		FROM `tabItem Variant Attribute` iva
-		INNER JOIN `tabItem` i
+		RIGHT JOIN `tabItem` i
 			ON i.name = iva.parent
 		WHERE {" AND ".join(conditions)}
 		ORDER BY i.name
@@ -106,6 +111,7 @@ def get_brand_filtered_items(
 		""",
 		{
 			"brand": brand,
+			"managed_names": managed_names or [""],
 			"txt": f"%{txt}%",
 			"start": cint(start),
 			"page_len": cint(page_len),
@@ -119,6 +125,11 @@ def validate_sales_order_item_brand(item_code, brand):
             "allowed": True,
             "reason": None,
         }
+
+    from srv_erp.oem_catalog.adapters.brand_lookup import managed_item_brand
+    physical_brand = managed_item_brand(item_code)
+    if physical_brand is not None:
+        return {"allowed": physical_brand == brand, "reason": None if physical_brand == brand else physical_brand}
 
     variant_brand = frappe.db.get_value(
         "Item Variant Attribute",

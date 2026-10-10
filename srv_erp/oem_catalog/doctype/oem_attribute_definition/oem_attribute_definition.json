@@ -1,0 +1,190 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Attribute Definition",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "attribute_key",
+    "label",
+    "description",
+    "data_type",
+    "role",
+    "group_label",
+    "sort_order",
+    "required",
+    "read_only_policy",
+    "hidden_if_not_applicable",
+    "input_widget",
+    "multi_select",
+    "searchable",
+    "option_set",
+    "asset_kind",
+    "allowed_master_type",
+    "decimal_unit",
+    "decimal_precision",
+    "min_value",
+    "max_value",
+    "increment",
+    "max_text_length",
+    "allowed_pattern_identifier",
+    "default_value_json",
+    "default_locked",
+    "explicit_na_value"
+  ],
+  "fields": [
+    {
+      "fieldname": "attribute_key",
+      "label": "Attribute Key",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "label",
+      "label": "Label",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "description",
+      "label": "Description",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "data_type",
+      "label": "Data Type",
+      "fieldtype": "Select",
+      "reqd": 1,
+      "options": "Enum\nDecimal\nText\nBoolean\nAssetRevision\nMasterLink"
+    },
+    {
+      "fieldname": "role",
+      "label": "Role",
+      "fieldtype": "Select",
+      "default": "Identity",
+      "options": "Identity\nTransaction\nInformational"
+    },
+    {
+      "fieldname": "group_label",
+      "label": "Group Label",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "sort_order",
+      "label": "Sort Order",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "required",
+      "label": "Required",
+      "fieldtype": "Check",
+      "default": "1"
+    },
+    {
+      "fieldname": "read_only_policy",
+      "label": "Read Only Policy",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "hidden_if_not_applicable",
+      "label": "Hidden If Not Applicable",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "input_widget",
+      "label": "Input Widget",
+      "fieldtype": "Select",
+      "default": "Auto",
+      "options": "Auto\nSearchableSelect\nDropdown\nRadio\nSwatch\nAssetCards\nMasterPicker\nNumber\nCheckbox\nText"
+    },
+    {
+      "fieldname": "multi_select",
+      "label": "Multi Select",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "searchable",
+      "label": "Searchable",
+      "fieldtype": "Check",
+      "default": "1"
+    },
+    {
+      "fieldname": "option_set",
+      "label": "Option Set",
+      "fieldtype": "Link",
+      "options": "OEM Option Set"
+    },
+    {
+      "fieldname": "asset_kind",
+      "label": "Asset Kind",
+      "fieldtype": "Select",
+      "options": "\nSticker\nArtwork\nDesign\nCertification"
+    },
+    {
+      "fieldname": "allowed_master_type",
+      "label": "Allowed Master Type",
+      "fieldtype": "Select",
+      "options": "\nBrand\nColor\nBranding Type"
+    },
+    {
+      "fieldname": "decimal_unit",
+      "label": "Decimal Unit",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "decimal_precision",
+      "label": "Decimal Precision",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "min_value",
+      "label": "Min Value",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "max_value",
+      "label": "Max Value",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "increment",
+      "label": "Increment",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "max_text_length",
+      "label": "Max Text Length",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "allowed_pattern_identifier",
+      "label": "Allowed Pattern Identifier",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "default_value_json",
+      "label": "Default Value Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "default_locked",
+      "label": "Default Locked",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "explicit_na_value",
+      "label": "Explicit Na Value",
+      "fieldtype": "Data"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

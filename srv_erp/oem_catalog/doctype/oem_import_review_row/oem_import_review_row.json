@@ -1,0 +1,62 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Import Review Row",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "source_record",
+    "target_product",
+    "target_specification",
+    "proposed_json",
+    "source_fingerprint",
+    "status",
+    "reason"
+  ],
+  "fields": [
+    {
+      "fieldname": "source_record",
+      "label": "Source Record",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "target_product",
+      "label": "Target Product",
+      "fieldtype": "Link",
+      "options": "OEM Product"
+    },
+    {
+      "fieldname": "target_specification",
+      "label": "Target Specification",
+      "fieldtype": "Link",
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "proposed_json",
+      "label": "Proposed Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "source_fingerprint",
+      "label": "Source Fingerprint",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Candidate\nConflict\nSkipped\nApproved\nApplied\nFailed"
+    },
+    {
+      "fieldname": "reason",
+      "label": "Reason",
+      "fieldtype": "Long Text"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

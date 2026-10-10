@@ -1,0 +1,56 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Option Value",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "value_code",
+    "label",
+    "description",
+    "image",
+    "sort_order",
+    "retired"
+  ],
+  "fields": [
+    {
+      "fieldname": "value_code",
+      "label": "Value Code",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "label",
+      "label": "Label",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "description",
+      "label": "Description",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "image",
+      "label": "Image",
+      "fieldtype": "Attach Image"
+    },
+    {
+      "fieldname": "sort_order",
+      "label": "Sort Order",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "retired",
+      "label": "Retired",
+      "fieldtype": "Check",
+      "default": "0"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

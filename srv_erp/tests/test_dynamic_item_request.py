@@ -1,6 +1,6 @@
 import frappe
 from erpnext.controllers.item_variant import create_variant
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 from srv_erp.masters.dynamic_item.api import get_dynamic_item_client_settings
 from srv_erp.masters.dynamic_item.bulk_guard import require_bulk_variant_creation
@@ -19,7 +19,7 @@ from srv_erp.masters.dynamic_item.service import (
 )
 
 
-class TestDynamicItemRequest(IntegrationTestCase):
+class TestDynamicItemRequest(FrappeTestCase):
 	REQUESTER = "dynamic.item.requester@example.com"
 	APPROVER = "dynamic.item.approver@example.com"
 	ATTRIBUTE = "_Test Dynamic Colour"

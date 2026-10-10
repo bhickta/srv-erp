@@ -1,0 +1,98 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Barcode Intent",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "command_key",
+    "specification",
+    "binding",
+    "package_choice_snapshot_json",
+    "conversion_factor_snapshot",
+    "customer",
+    "company",
+    "requested_count",
+    "barcode_batch",
+    "status"
+  ],
+  "fields": [
+    {
+      "fieldname": "command_key",
+      "label": "Command Key",
+      "fieldtype": "Data",
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "specification",
+      "label": "Specification",
+      "fieldtype": "Link",
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "binding",
+      "label": "Binding",
+      "fieldtype": "Link",
+      "options": "OEM Item Binding"
+    },
+    {
+      "fieldname": "package_choice_snapshot_json",
+      "label": "Package Choice Snapshot Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "conversion_factor_snapshot",
+      "label": "Conversion Factor Snapshot",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "options": "Customer"
+    },
+    {
+      "fieldname": "company",
+      "label": "Company",
+      "fieldtype": "Link",
+      "options": "Company"
+    },
+    {
+      "fieldname": "requested_count",
+      "label": "Requested Count",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "barcode_batch",
+      "label": "Barcode Batch",
+      "fieldtype": "Link",
+      "options": "Package Barcode Batch"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Completed"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

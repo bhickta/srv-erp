@@ -1,0 +1,82 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Configuration Draft",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "draft_owner",
+    "context_json",
+    "product_revision",
+    "values_json",
+    "value_provenance_json",
+    "configuration_hash",
+    "last_validated_on",
+    "expires_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "draft_owner",
+      "label": "Draft Owner",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "context_json",
+      "label": "Context Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "product_revision",
+      "label": "Product Revision",
+      "fieldtype": "Link",
+      "options": "OEM Product Revision"
+    },
+    {
+      "fieldname": "values_json",
+      "label": "Values Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "value_provenance_json",
+      "label": "Value Provenance Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "configuration_hash",
+      "label": "Configuration Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "last_validated_on",
+      "label": "Last Validated On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "expires_on",
+      "label": "Expires On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1,
+      "if_owner": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

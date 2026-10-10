@@ -1,0 +1,127 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Product Revision",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "product",
+    "revision",
+    "state",
+    "identity_namespace",
+    "stock_uom",
+    "attribute_definitions",
+    "constraint_rules",
+    "item_blueprint_json",
+    "company_defaults",
+    "packaging_choices",
+    "publication_hash",
+    "published_by",
+    "published_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "product",
+      "label": "Product",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Product"
+    },
+    {
+      "fieldname": "revision",
+      "label": "Revision",
+      "fieldtype": "Int",
+      "reqd": 1
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "default": "Draft",
+      "options": "Draft\nPublished\nRetired"
+    },
+    {
+      "fieldname": "identity_namespace",
+      "label": "Identity Namespace",
+      "fieldtype": "Data",
+      "default": "oem-v1",
+      "reqd": 1
+    },
+    {
+      "fieldname": "stock_uom",
+      "label": "Stock Uom",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "UOM"
+    },
+    {
+      "fieldname": "attribute_definitions",
+      "label": "Attribute Definitions",
+      "fieldtype": "Table",
+      "options": "OEM Attribute Definition"
+    },
+    {
+      "fieldname": "constraint_rules",
+      "label": "Constraint Rules",
+      "fieldtype": "Table",
+      "options": "OEM Constraint Rule"
+    },
+    {
+      "fieldname": "item_blueprint_json",
+      "label": "Item Blueprint Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "company_defaults",
+      "label": "Company Defaults",
+      "fieldtype": "Table",
+      "options": "OEM Product Company Default"
+    },
+    {
+      "fieldname": "packaging_choices",
+      "label": "Packaging Choices",
+      "fieldtype": "Table",
+      "options": "OEM Product Packaging Choice"
+    },
+    {
+      "fieldname": "publication_hash",
+      "label": "Publication Hash",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "published_by",
+      "label": "Published By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "published_on",
+      "label": "Published On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

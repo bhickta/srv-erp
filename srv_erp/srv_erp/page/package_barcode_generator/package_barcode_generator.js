@@ -209,3 +209,39 @@ frappe.dom.set_style(`
 		}
 	}
 `);
+
+// Additive guided action; the original concrete Item path remains available.
+const oem_barcode_original_load = frappe.pages['package-barcode-generator'].on_page_load;
+frappe.pages['package-barcode-generator'].on_page_load = function (wrapper) {
+    oem_barcode_original_load(wrapper);
+    srv_erp.oem.call('get_ui_settings').then(settings => {
+        if (!settings.barcode) return;
+        const page = wrapper.page;
+        page.add_inner_button(__('Configure OEM Item'), () => {
+            frappe.prompt([
+                {fieldname: 'company', label: __('Company'), fieldtype: 'Link', options: 'Company', reqd: 1},
+                {fieldname: 'customer', label: __('Customer'), fieldtype: 'Link', options: 'Customer'},
+                {fieldname: 'brand', label: __('Brand'), fieldtype: 'Link', options: 'Brand', reqd: 1},
+            ], context => new srv_erp.oem.Configurator(context, {adapter: 'barcode'}, async (result, payload, preview) => {
+                if (result.outcome !== 'EXISTING') { frappe.msgprint(__('Request saved. Reopen this configuration after approval to generate labels.')); return; }
+                const command = srv_erp.oem.uuid();
+                const dialog = new frappe.ui.Dialog({title: __('Generate OEM package labels'), fields: [
+                    {fieldname: 'summary', fieldtype: 'HTML', options: `<p>${srv_erp.oem.escape(preview.summary)}</p><p>${srv_erp.oem.escape(`1 ${preview.package.uom} = ${preview.package.factor} ${preview.package.stock_uom}`)}</p>`},
+                    {fieldname: 'count', label: __('Number of packages / labels'), fieldtype: 'Int', default: 1, reqd: 1},
+                    {fieldname: 'result', fieldtype: 'HTML'},
+                ], primary_action_label: __('Generate'), primary_action: async values => {
+                    dialog.get_primary_btn().prop('disabled', true);
+                    try {
+                        const generated = await srv_erp.oem.call('generate_barcodes', {specification: result.specification, context,
+                            package_choice: payload.package_choice, count: values.count, idempotency_key: command});
+                        const target = dialog.fields_dict.result.$wrapper.empty();
+                        target.append($('<p>').text(`${generated.generated_count} ${__('packages')} = ${generated.stock_quantity} ${generated.stock_uom}`));
+                        $('<a class="btn btn-primary">').text(__('Download Excel')).attr('href', '/api/method/srv_erp.package_barcode.api.download_package_barcode_batch?batch=' + encodeURIComponent(generated.batch)).appendTo(target);
+                        dialog.get_primary_btn().hide();
+                    } catch (error) { dialog.fields_dict.result.$wrapper.text(__('No confirmed generation. Retry the same package count to recover the existing result.')); dialog.get_primary_btn().prop('disabled', false); }
+                }});
+                dialog.$wrapper.addClass('oem-config-dialog'); dialog.show();
+            }), __('Barcode context'));
+        });
+    });
+};

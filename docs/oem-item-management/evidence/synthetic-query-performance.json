@@ -1,0 +1,36 @@
+{
+  "counts": {
+    "Item": 50001,
+    "OEM Product": 502,
+    "OEM Specification": 5002
+  },
+  "product_search": {
+    "p50_ms": 10.477,
+    "p95_ms": 12.142,
+    "samples": 50
+  },
+  "configuration": {
+    "p50_ms": 18.082,
+    "p95_ms": 23.239,
+    "samples": 50
+  },
+  "exact_preview": {
+    "p50_ms": 33.408,
+    "p95_ms": 39.613,
+    "samples": 50
+  },
+  "identity_query_plan": [
+    {
+      "id": 1,
+      "select_type": "SIMPLE",
+      "table": "tabOEM Specification",
+      "type": "const",
+      "possible_keys": "identity_hash",
+      "key": "identity_hash",
+      "key_len": "563",
+      "ref": "const",
+      "rows": "1",
+      "Extra": "Using index"
+    }
+  ]
+}

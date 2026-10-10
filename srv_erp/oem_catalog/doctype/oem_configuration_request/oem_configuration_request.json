@@ -1,0 +1,138 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Configuration Request",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "kind",
+    "specification",
+    "submitted_payload_json",
+    "configuration_snapshot_json",
+    "proposed_uoms_json",
+    "payload_hash",
+    "active_key",
+    "status",
+    "requested_by",
+    "requested_on",
+    "approved_by",
+    "approved_on",
+    "reason",
+    "expected_configuration_token",
+    "decision_snapshot_json",
+    "binding"
+  ],
+  "fields": [
+    {
+      "fieldname": "kind",
+      "label": "Kind",
+      "fieldtype": "Select",
+      "reqd": 1,
+      "options": "Release Specification\nAdd Transaction UOM"
+    },
+    {
+      "fieldname": "specification",
+      "label": "Specification",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "OEM Specification"
+    },
+    {
+      "fieldname": "submitted_payload_json",
+      "label": "Submitted Payload Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "configuration_snapshot_json",
+      "label": "Configuration Snapshot Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "proposed_uoms_json",
+      "label": "Proposed Uoms Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "payload_hash",
+      "label": "Payload Hash",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "active_key",
+      "label": "Active Key",
+      "fieldtype": "Data",
+      "unique": 1
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "default": "Pending",
+      "options": "Pending\nApproved\nRejected\nCancelled"
+    },
+    {
+      "fieldname": "requested_by",
+      "label": "Requested By",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "requested_on",
+      "label": "Requested On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "approved_by",
+      "label": "Approved By",
+      "fieldtype": "Link",
+      "options": "User"
+    },
+    {
+      "fieldname": "approved_on",
+      "label": "Approved On",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "reason",
+      "label": "Reason",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "expected_configuration_token",
+      "label": "Expected Configuration Token",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "decision_snapshot_json",
+      "label": "Decision Snapshot Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "binding",
+      "label": "Binding",
+      "fieldtype": "Link",
+      "options": "OEM Item Binding"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog User",
+      "read": 1,
+      "if_owner": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

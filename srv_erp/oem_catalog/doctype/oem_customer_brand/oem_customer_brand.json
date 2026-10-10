@@ -1,0 +1,103 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Customer Brand",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "customer",
+    "brand",
+    "relationship_label",
+    "enabled",
+    "valid_from",
+    "valid_until",
+    "default_for_customer",
+    "proof_reference",
+    "approved_by",
+    "approved_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "Customer"
+    },
+    {
+      "fieldname": "brand",
+      "label": "Brand",
+      "fieldtype": "Link",
+      "reqd": 1,
+      "options": "Brand"
+    },
+    {
+      "fieldname": "relationship_label",
+      "label": "Relationship Label",
+      "fieldtype": "Select",
+      "options": "Owner\nDistributor\nAuthorized Buyer\nOther"
+    },
+    {
+      "fieldname": "enabled",
+      "label": "Enabled",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "valid_from",
+      "label": "Valid From",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "valid_until",
+      "label": "Valid Until",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "default_for_customer",
+      "label": "Default For Customer",
+      "fieldtype": "Check",
+      "default": "0"
+    },
+    {
+      "fieldname": "proof_reference",
+      "label": "Proof Reference",
+      "fieldtype": "Link",
+      "options": "File"
+    },
+    {
+      "fieldname": "approved_by",
+      "label": "Approved By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "approved_on",
+      "label": "Approved On",
+      "fieldtype": "Datetime"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "OEM Catalog Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    },
+    {
+      "role": "OEM Catalog User",
+      "read": 1
+    },
+    {
+      "role": "OEM Catalog Approver",
+      "read": 1
+    }
+  ],
+  "istable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

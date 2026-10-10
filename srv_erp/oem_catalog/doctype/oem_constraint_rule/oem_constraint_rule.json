@@ -1,0 +1,49 @@
+{
+  "doctype": "DocType",
+  "name": "OEM Constraint Rule",
+  "module": "OEM Catalog",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "rule_code",
+    "rule_json",
+    "user_message",
+    "sort_order",
+    "enabled"
+  ],
+  "fields": [
+    {
+      "fieldname": "rule_code",
+      "label": "Rule Code",
+      "fieldtype": "Data",
+      "reqd": 1
+    },
+    {
+      "fieldname": "rule_json",
+      "label": "Rule Json",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "user_message",
+      "label": "User Message",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "sort_order",
+      "label": "Sort Order",
+      "fieldtype": "Int"
+    },
+    {
+      "fieldname": "enabled",
+      "label": "Enabled",
+      "fieldtype": "Check",
+      "default": "1"
+    }
+  ],
+  "permissions": [],
+  "istable": 1,
+  "issingle": 0,
+  "track_changes": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}
