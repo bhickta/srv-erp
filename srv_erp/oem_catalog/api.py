@@ -221,7 +221,8 @@ def get_ui_settings():
     roles = set(frappe.get_roles())
     permitted = frappe.session.user == 'Administrator' or bool(roles & {'OEM Catalog User', 'OEM Catalog Approver', 'OEM Catalog Manager'})
     return {'sales_order': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_sales_order_picker),
-            'barcode': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_barcode_picker)}
+            'barcode': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_barcode_picker),
+            'require_customer_brand': bool(cfg.require_customer_brand)}
 
 
 @endpoint(write=True)

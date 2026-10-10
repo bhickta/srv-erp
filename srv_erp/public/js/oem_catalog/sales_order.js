@@ -2,6 +2,20 @@ frappe.provide('srv_erp.oem');
 function oem_order_context(frm) {
     return {customer: frm.doc.customer, company: frm.doc.company, brand: frm.doc.brand_filter};
 }
+// Scope the Brand / Marka picker to the customer's authorized brands (mirrors the
+// server rule). No customer or governance off -> no restriction.
+async function oem_scope_brand(frm) {
+    const brands = await srv_erp.oem.customer_brands(frm.doc.customer, frm.doc.company);
+    frm.__oem_authorized_brands = brands;
+    frm.set_query('brand_filter', () => srv_erp.oem.brand_query(frm.__oem_authorized_brands));
+    if (brands !== null && frm.doc.brand_filter && !brands.some(brand => brand.value === frm.doc.brand_filter)) {
+        await frm.set_value('brand_filter', '');
+    }
+    if (brands !== null && !brands.length && !frm.__oem_brand_notice) {
+        frm.__oem_brand_notice = true;
+        frappe.show_alert({message: __('No authorized brand for this customer. A manager must add an OEM Customer Brand association.'), indicator: 'orange'});
+    }
+}
 async function oem_apply(frm, pending) {
     if (pending._oem_applying) return;
     pending._oem_applying = true;
@@ -69,6 +83,7 @@ function oem_render_lines(frm) {
 }
 frappe.ui.form.on('Sales Order', {
     async refresh(frm) {
+        oem_scope_brand(frm);
         const settings = await srv_erp.oem.call('get_ui_settings');
         if (!settings.sales_order && !frm.doc.oem_pending_lines?.length) return;
         frm.set_df_property('oem_line_cards', 'hidden', false);
@@ -97,4 +112,6 @@ frappe.ui.form.on('Sales Order', {
         frm.add_custom_button(__('Save pending SO'), () => frm.save());
     },
     validate(frm) { oem_render_lines(frm); },
+    customer(frm) { oem_scope_brand(frm); },
+    company(frm) { oem_scope_brand(frm); },
 });
