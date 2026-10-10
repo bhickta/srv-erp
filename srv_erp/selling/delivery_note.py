@@ -103,11 +103,17 @@ def get_sales_order_items_for_delivery_note(sales_order):
  
 @frappe.whitelist()
 def make_delivery_note(source_name, target_doc=None, kwargs=None):
-    
 	from erpnext.selling.doctype.sales_order.sales_order import (
 		make_delivery_note as erpnext_make_delivery_note,
 	)
-	print("override method calls")
+
+	existing_target_doc = frappe.parse_json(target_doc) if isinstance(target_doc, str) else target_doc
+	existing_item_names = {
+		row.get("name")
+		for row in (existing_target_doc or {}).get("items", [])
+		if row.get("name")
+	}
+
 	doc = erpnext_make_delivery_note(
 		source_name,
 		target_doc=target_doc,
@@ -115,9 +121,9 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 	)
 
 	for row in doc.get("items", []):
-		print(row.name)
-		row.qty = 0
-		row.stock_qty = 0
+		if row.get("name") not in existing_item_names:
+			row.qty = 0
+			row.stock_qty = 0
 
 	return doc
 
