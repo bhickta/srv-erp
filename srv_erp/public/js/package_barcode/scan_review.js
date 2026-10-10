@@ -19,7 +19,7 @@ srv_erp.package_barcode.record_blocked_scan = function (frm, barcode) {
 	const stats = srv_erp.package_barcode.get_scan_stats(frm);
 	stats.blocked_scans += 1;
 	stats.last_scanned = barcode;
-	srv_erp.package_barcode.render_scan_review(frm);
+	srv_erp.package_barcode.render_scan_review(frm);		
 };
 
 srv_erp.package_barcode.render_scan_review = function (frm) {

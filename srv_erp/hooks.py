@@ -73,10 +73,14 @@ doctype_js = {
 	"Brand": ["public/js/item_attribute_variant_sync.js", "public/js/brand_variant_rules.js"],
 	"Item Price": "public/js/item_price.js",
 	"Sales Order": "public/js/sales_order.js",
-    "Purchase Receipt": [
-        "public/js/package_barcode/namespace.js",
-        "public/js/package_barcode_stock.js",
-    ],
+	"Purchase Receipt": [
+		"public/js/package_barcode/namespace.js",
+		"public/js/package_barcode/stock_table_display.js",
+		"public/js/package_barcode/scan_review.js",
+		"public/js/package_barcode/quantity_control.js",
+		"public/js/package_barcode/stock_scanner.js",
+		"public/js/package_barcode_stock.js",
+	],
 	"Stock Entry": [
 		"public/js/package_barcode/namespace.js",
 		"public/js/package_barcode/stock_table_display.js",
@@ -261,6 +265,9 @@ doc_events = {
 		"on_trash": "srv_erp.selling.sales_person_user_mapping.delete_sales_person_user_permission",
 	},
 	"Stock Entry": {
+		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
+	},
+	"Purchase Receipt": {
 		"validate": "srv_erp.package_barcode.service.validate_stock_transaction",
 	},
 	"Delivery Note": {

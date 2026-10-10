@@ -146,7 +146,7 @@ def create_package_barcode_custom_fields():
 			},
 			{
 				"default": "Default",
-				"description": "Controls whether Stock Entry, Delivery Note, and Stock Reconciliation quantity must come from Package Barcode scans. Default uses Package Barcode Settings.",
+				"description": "Controls whether Purchase Receipt, Stock Entry, Delivery Note, and Stock Reconciliation quantity must come from Package Barcode scans. Default uses Package Barcode Settings.",
 				"fieldname": "package_barcode_qty_entry_rule",
 				"fieldtype": "Select",
 				"insert_after": "package_barcode_section",
@@ -154,7 +154,7 @@ def create_package_barcode_custom_fields():
 				"options": "Default\nAllow Manual Qty\nForce Barcode Only",
 			},
 		],
-		("Stock Entry", "Delivery Note", "Stock Reconciliation"): [
+		("Purchase Receipt", "Stock Entry", "Delivery Note", "Stock Reconciliation"): [
 			{
 				"fieldname": "package_barcodes_section",
 				"fieldtype": "Section Break",

@@ -327,8 +327,8 @@ frappe.ui.form.on("Stock Entry", {
 
 
 frappe.ui.form.on("Purchase Receipt", {
-	setup: (frm) => { srv_erp.package_barcode.add_scan_receipt_button(frm) },
-	refresh: (frm) => { srv_erp.package_barcode.add_scan_receipt_button(frm) },
+	setup: srv_erp.package_barcode.setup_stock_scanner,
+	refresh: srv_erp.package_barcode.setup_stock_scanner,
 });
 
 frappe.ui.form.on("Delivery Note", {
@@ -357,10 +357,14 @@ frappe.ui.form.on("Delivery Note Item", {
 	qty: srv_erp.package_barcode.handle_qty_change,
 });
 
+frappe.ui.form.on("Purchase Receipt Item", {
+	item_code: srv_erp.package_barcode.handle_item_change,
+	qty: srv_erp.package_barcode.handle_qty_change,
+});
+
 frappe.ui.form.on("Stock Reconciliation Item", {
 	item_code: srv_erp.package_barcode.handle_item_change,
 	qty: srv_erp.package_barcode.handle_stock_reconciliation_qty_change,
 	package_qty: srv_erp.package_barcode.recalculate_stock_reconciliation_qty,
 	package_uom: srv_erp.package_barcode.recalculate_stock_reconciliation_qty,
 });
-
