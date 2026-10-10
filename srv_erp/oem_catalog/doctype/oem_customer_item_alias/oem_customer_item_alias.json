@@ -19,19 +19,22 @@
       "label": "Customer",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "Customer"
+      "options": "Customer",
+      "in_list_view": 1
     },
     {
       "fieldname": "specification",
       "label": "Specification",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "OEM Specification"
+      "options": "OEM Specification",
+      "in_list_view": 1
     },
     {
       "fieldname": "customer_item_code",
       "label": "Customer Item Code",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "alias_key",
@@ -42,7 +45,8 @@
     {
       "fieldname": "display_name",
       "label": "Display Name",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "favourite",
@@ -56,6 +60,9 @@
       "fieldtype": "Datetime"
     }
   ],
+  "title_field": "customer_item_code",
+  "search_fields": "customer,customer_item_code,display_name",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",

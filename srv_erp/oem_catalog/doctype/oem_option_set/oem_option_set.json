@@ -15,13 +15,15 @@
       "label": "Code",
       "fieldtype": "Data",
       "unique": 1,
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "label",
       "label": "Label",
       "fieldtype": "Data",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "values",
@@ -30,6 +32,9 @@
       "options": "OEM Option Value"
     }
   ],
+  "title_field": "label",
+  "search_fields": "code,label",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",

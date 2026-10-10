@@ -23,20 +23,23 @@
       "label": "Asset",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "OEM Asset"
+      "options": "OEM Asset",
+      "in_list_view": 1
     },
     {
       "fieldname": "revision",
       "label": "Revision",
       "fieldtype": "Int",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "state",
       "label": "State",
       "fieldtype": "Select",
       "default": "Draft",
-      "options": "Draft\nApproved\nRetired"
+      "options": "Draft\nApproved\nRetired",
+      "in_list_view": 1
     },
     {
       "fieldname": "private_file",
@@ -76,7 +79,8 @@
       "label": "Approved By",
       "fieldtype": "Link",
       "read_only": 1,
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "approved_on",
@@ -84,6 +88,9 @@
       "fieldtype": "Datetime"
     }
   ],
+  "title_field": "asset",
+  "search_fields": "asset,state",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",

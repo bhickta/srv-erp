@@ -17,13 +17,15 @@
     {
       "fieldname": "source_record",
       "label": "Source Record",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "target_product",
       "label": "Target Product",
       "fieldtype": "Link",
-      "options": "OEM Product"
+      "options": "OEM Product",
+      "in_list_view": 1
     },
     {
       "fieldname": "target_specification",
@@ -45,12 +47,14 @@
       "fieldname": "status",
       "label": "Status",
       "fieldtype": "Select",
-      "options": "Candidate\nConflict\nSkipped\nApproved\nApplied\nFailed"
+      "options": "Candidate\nConflict\nSkipped\nApproved\nApplied\nFailed",
+      "in_list_view": 1
     },
     {
       "fieldname": "reason",
       "label": "Reason",
-      "fieldtype": "Long Text"
+      "fieldtype": "Long Text",
+      "in_list_view": 1
     }
   ],
   "permissions": [],

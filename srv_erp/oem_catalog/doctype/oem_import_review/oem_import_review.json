@@ -20,7 +20,8 @@
       "fieldname": "kind",
       "label": "Kind",
       "fieldtype": "Select",
-      "options": "Product Bootstrap\nLegacy Mapping"
+      "options": "Product Bootstrap\nLegacy Mapping",
+      "in_list_view": 1
     },
     {
       "fieldname": "source_scope_json",
@@ -36,18 +37,21 @@
       "fieldname": "status",
       "label": "Status",
       "fieldtype": "Select",
-      "options": "Previewed\nApproved\nApplied\nFailed"
+      "options": "Previewed\nApproved\nApplied\nFailed",
+      "in_list_view": 1
     },
     {
       "fieldname": "reviewed_by",
       "label": "Reviewed By",
       "fieldtype": "Link",
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "reviewed_on",
       "label": "Reviewed On",
-      "fieldtype": "Datetime"
+      "fieldtype": "Datetime",
+      "in_list_view": 1
     },
     {
       "fieldname": "source_baseline",
@@ -66,6 +70,9 @@
       "options": "OEM Import Review Row"
     }
   ],
+  "title_field": "kind",
+  "search_fields": "kind,status",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

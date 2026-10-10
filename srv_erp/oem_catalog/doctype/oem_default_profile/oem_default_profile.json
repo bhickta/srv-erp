@@ -25,26 +25,30 @@
       "fieldname": "profile_code",
       "label": "Profile Code",
       "fieldtype": "Data",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "revision",
       "label": "Revision",
       "fieldtype": "Int",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "state",
       "label": "State",
       "fieldtype": "Select",
       "default": "Draft",
-      "options": "Draft\nPublished\nRetired"
+      "options": "Draft\nPublished\nRetired",
+      "in_list_view": 1
     },
     {
       "fieldname": "is_current",
       "label": "Is Current",
       "fieldtype": "Check",
-      "default": "0"
+      "default": "0",
+      "in_list_view": 1
     },
     {
       "fieldname": "publication_hash",
@@ -68,13 +72,15 @@
       "fieldname": "brand",
       "label": "Brand",
       "fieldtype": "Link",
-      "options": "Brand"
+      "options": "Brand",
+      "in_list_view": 1
     },
     {
       "fieldname": "product",
       "label": "Product",
       "fieldtype": "Link",
-      "options": "OEM Product"
+      "options": "OEM Product",
+      "in_list_view": 1
     },
     {
       "fieldname": "item_group",
@@ -104,6 +110,9 @@
       "options": "OEM Default Value"
     }
   ],
+  "title_field": "profile_code",
+  "search_fields": "profile_code,state",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",

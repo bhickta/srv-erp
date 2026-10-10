@@ -23,21 +23,24 @@
       "label": "Request",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "OEM Configuration Request"
+      "options": "OEM Configuration Request",
+      "in_list_view": 1
     },
     {
       "fieldname": "actor",
       "label": "Actor",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "source_adapter",
       "label": "Source Adapter",
       "fieldtype": "Select",
       "reqd": 1,
-      "options": "sales_order\nbarcode\nstandalone"
+      "options": "sales_order\nbarcode\nstandalone",
+      "in_list_view": 1
     },
     {
       "fieldname": "source_doctype",
@@ -80,9 +83,13 @@
       "label": "Result State",
       "fieldtype": "Select",
       "default": "Pending",
-      "options": "Pending\nReady\nApplied\nStale\nAbandoned"
+      "options": "Pending\nReady\nApplied\nStale\nAbandoned",
+      "in_list_view": 1
     }
   ],
+  "title_field": "source_adapter",
+  "search_fields": "request,actor,source_adapter,source_document",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

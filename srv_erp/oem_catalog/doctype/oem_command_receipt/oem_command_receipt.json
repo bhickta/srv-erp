@@ -25,12 +25,14 @@
       "fieldname": "actor",
       "label": "Actor",
       "fieldtype": "Link",
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "operation",
       "label": "Operation",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "payload_hash",
@@ -41,7 +43,8 @@
       "fieldname": "state",
       "label": "State",
       "fieldtype": "Select",
-      "options": "Processing\nCompleted"
+      "options": "Processing\nCompleted",
+      "in_list_view": 1
     },
     {
       "fieldname": "result_json",
@@ -51,9 +54,13 @@
     {
       "fieldname": "created_on",
       "label": "Created On",
-      "fieldtype": "Datetime"
+      "fieldtype": "Datetime",
+      "in_list_view": 1
     }
   ],
+  "title_field": "operation",
+  "search_fields": "operation,actor,state",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

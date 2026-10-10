@@ -25,7 +25,8 @@
       "fieldname": "kind",
       "label": "Kind",
       "fieldtype": "Select",
-      "options": "Notify Request\nNotify Decision"
+      "options": "Notify Request\nNotify Decision",
+      "in_list_view": 1
     },
     {
       "fieldname": "payload_json",
@@ -37,17 +38,20 @@
       "label": "State",
       "fieldtype": "Select",
       "default": "Pending",
-      "options": "Pending\nSent\nFailed"
+      "options": "Pending\nSent\nFailed",
+      "in_list_view": 1
     },
     {
       "fieldname": "attempts",
       "label": "Attempts",
-      "fieldtype": "Int"
+      "fieldtype": "Int",
+      "in_list_view": 1
     },
     {
       "fieldname": "next_attempt_on",
       "label": "Next Attempt On",
-      "fieldtype": "Datetime"
+      "fieldtype": "Datetime",
+      "in_list_view": 1
     },
     {
       "fieldname": "last_error_code",
@@ -55,6 +59,9 @@
       "fieldtype": "Data"
     }
   ],
+  "title_field": "kind",
+  "search_fields": "kind,state",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

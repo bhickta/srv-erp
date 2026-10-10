@@ -37,13 +37,15 @@
       "fieldname": "attribute_key",
       "label": "Attribute Key",
       "fieldtype": "Data",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "label",
       "label": "Label",
       "fieldtype": "Data",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "description",
@@ -55,7 +57,8 @@
       "label": "Data Type",
       "fieldtype": "Select",
       "reqd": 1,
-      "options": "Enum\nDecimal\nText\nBoolean\nAssetRevision\nMasterLink"
+      "options": "Enum\nDecimal\nText\nBoolean\nAssetRevision\nMasterLink",
+      "in_list_view": 1
     },
     {
       "fieldname": "role",
@@ -78,7 +81,8 @@
       "fieldname": "required",
       "label": "Required",
       "fieldtype": "Check",
-      "default": "1"
+      "default": "1",
+      "in_list_view": 1
     },
     {
       "fieldname": "read_only_policy",

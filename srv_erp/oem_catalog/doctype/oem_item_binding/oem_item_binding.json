@@ -22,7 +22,8 @@
       "fieldtype": "Link",
       "reqd": 1,
       "unique": 1,
-      "options": "OEM Specification"
+      "options": "OEM Specification",
+      "in_list_view": 1
     },
     {
       "fieldname": "stock_item",
@@ -30,20 +31,23 @@
       "fieldtype": "Link",
       "reqd": 1,
       "unique": 1,
-      "options": "Item"
+      "options": "Item",
+      "in_list_view": 1
     },
     {
       "fieldname": "ownership",
       "label": "Ownership",
       "fieldtype": "Select",
-      "options": "Module Created\nLegacy Adopted"
+      "options": "Module Created\nLegacy Adopted",
+      "in_list_view": 1
     },
     {
       "fieldname": "binding_state",
       "label": "Binding State",
       "fieldtype": "Select",
       "default": "Active",
-      "options": "Active\nQuarantined\nRetired"
+      "options": "Active\nQuarantined\nRetired",
+      "in_list_view": 1
     },
     {
       "fieldname": "expected_stock_fingerprint",
@@ -73,6 +77,9 @@
       "fieldtype": "Long Text"
     }
   ],
+  "title_field": "stock_item",
+  "search_fields": "specification,stock_item",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",
