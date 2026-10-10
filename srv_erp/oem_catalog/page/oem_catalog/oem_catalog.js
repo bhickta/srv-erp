@@ -3,9 +3,20 @@ frappe.pages['oem-catalog'].on_page_load = function (wrapper) {
     const root = $('<div class="oem-stack">').appendTo(page.body);
     const context = {}, controls = {};
     const current_context = () => { Object.entries(controls).forEach(([key, control]) => { context[key] = control.get_value() || null; }); return {...context}; };
+    const scope_brand = async () => {
+        const brands = await srv_erp.oem.customer_brands(controls.customer.get_value(), controls.company.get_value());
+        controls.brand.df.get_query = () => srv_erp.oem.brand_query(brands);
+        const current = controls.brand.get_value();
+        if (brands !== null && !brands.some(brand => brand.value === current)) {
+            const preferred = brands.find(brand => brand.default) || (brands.length === 1 ? brands[0] : null);
+            controls.brand.set_value(preferred ? preferred.value : '');
+        }
+        controls.brand.refresh();
+        if (brands !== null && !brands.length) frappe.show_alert({message: __('No authorized brand for this customer. A manager must add an OEM Customer Brand association.'), indicator: 'orange'});
+    };
     [['customer', 'Customer'], ['company', 'Company'], ['brand', 'Brand']].forEach(([field, type]) => {
         const input = frappe.ui.form.make_control({parent: $('<div>').appendTo(root), df: {fieldname: field, label: __(type), fieldtype: 'Link', options: type,
-            onchange: () => { context[field] = input.get_value(); }}, render_input: true});
+            onchange: () => { context[field] = input.get_value(); if (field !== 'brand') scope_brand(); }}, render_input: true});
         controls[field] = input;
     });
     const actions = $('<div class="oem-actions">').appendTo(root);
