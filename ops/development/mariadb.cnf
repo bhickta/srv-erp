@@ -1,0 +1,15 @@
+[mysqld]
+basedir=/home/bhickta/development/dev-frappe-bench/runtime/mariadb/usr
+datadir=/home/bhickta/development/dev-frappe-bench/runtime/db
+socket=/home/bhickta/development/dev-frappe-bench/run/mariadb.sock
+pid-file=/home/bhickta/development/dev-frappe-bench/run/mariadb.pid
+port=3310
+bind-address=127.0.0.1
+skip-name-resolve
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+innodb-buffer-pool-size=256M
+max-connections=40
+performance-schema=OFF
+skip-log-bin
+log-error=/home/bhickta/development/dev-frappe-bench/logs/mariadb.log
