@@ -20,13 +20,15 @@
       "label": "Company",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "Company"
+      "options": "Company",
+      "in_list_view": 1
     },
     {
       "fieldname": "default_warehouse",
       "label": "Default Warehouse",
       "fieldtype": "Link",
-      "options": "Warehouse"
+      "options": "Warehouse",
+      "in_list_view": 1
     },
     {
       "fieldname": "income_account",
@@ -56,13 +58,15 @@
       "fieldname": "selling_price_list",
       "label": "Selling Price List",
       "fieldtype": "Link",
-      "options": "Price List"
+      "options": "Price List",
+      "in_list_view": 1
     },
     {
       "fieldname": "default_sales_uom",
       "label": "Default Sales Uom",
       "fieldtype": "Link",
-      "options": "UOM"
+      "options": "UOM",
+      "in_list_view": 1
     }
   ],
   "permissions": [],

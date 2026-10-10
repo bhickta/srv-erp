@@ -13,12 +13,14 @@
       "fieldname": "kind",
       "label": "Kind",
       "fieldtype": "Select",
-      "options": "User\nRole\nProduct\nCompany"
+      "options": "User\nRole\nProduct\nCompany",
+      "in_list_view": 1
     },
     {
       "fieldname": "reference",
       "label": "Reference",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     }
   ],
   "permissions": [],

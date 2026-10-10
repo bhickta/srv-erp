@@ -28,14 +28,16 @@
       "label": "Kind",
       "fieldtype": "Select",
       "reqd": 1,
-      "options": "Release Specification\nAdd Transaction UOM"
+      "options": "Release Specification\nAdd Transaction UOM",
+      "in_list_view": 1
     },
     {
       "fieldname": "specification",
       "label": "Specification",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "OEM Specification"
+      "options": "OEM Specification",
+      "in_list_view": 1
     },
     {
       "fieldname": "submitted_payload_json",
@@ -68,14 +70,16 @@
       "label": "Status",
       "fieldtype": "Select",
       "default": "Pending",
-      "options": "Pending\nApproved\nRejected\nCancelled"
+      "options": "Pending\nApproved\nRejected\nCancelled",
+      "in_list_view": 1
     },
     {
       "fieldname": "requested_by",
       "label": "Requested By",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "requested_on",
@@ -115,6 +119,9 @@
       "options": "OEM Item Binding"
     }
   ],
+  "title_field": "specification",
+  "search_fields": "specification,status,kind",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

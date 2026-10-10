@@ -32,7 +32,8 @@
       "label": "Product",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "OEM Product"
+      "options": "OEM Product",
+      "in_list_view": 1
     },
     {
       "fieldname": "product_revision",
@@ -49,7 +50,8 @@
     {
       "fieldname": "summary",
       "label": "Summary",
-      "fieldtype": "Long Text"
+      "fieldtype": "Long Text",
+      "in_list_view": 1
     },
     {
       "fieldname": "identity_values",
@@ -62,9 +64,13 @@
       "label": "Release State",
       "fieldtype": "Select",
       "default": "Unreleased",
-      "options": "Unreleased\nReleased\nRetired"
+      "options": "Unreleased\nReleased\nRetired",
+      "in_list_view": 1
     }
   ],
+  "title_field": "summary",
+  "search_fields": "summary,product,identity_hash",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

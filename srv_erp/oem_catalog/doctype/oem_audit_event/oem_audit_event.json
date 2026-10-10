@@ -20,22 +20,26 @@
       "fieldname": "actor",
       "label": "Actor",
       "fieldtype": "Link",
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "occurred_on",
       "label": "Occurred On",
-      "fieldtype": "Datetime"
+      "fieldtype": "Datetime",
+      "in_list_view": 1
     },
     {
       "fieldname": "operation",
       "label": "Operation",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "entity_type",
       "label": "Entity Type",
-      "fieldtype": "Data"
+      "fieldtype": "Data",
+      "in_list_view": 1
     },
     {
       "fieldname": "entity_name",
@@ -63,6 +67,9 @@
       "fieldtype": "Long Text"
     }
   ],
+  "title_field": "operation",
+  "search_fields": "operation,actor,entity_name",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

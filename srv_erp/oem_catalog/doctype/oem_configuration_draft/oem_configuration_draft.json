@@ -20,7 +20,8 @@
       "label": "Draft Owner",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "User"
+      "options": "User",
+      "in_list_view": 1
     },
     {
       "fieldname": "context_json",
@@ -31,7 +32,8 @@
       "fieldname": "product_revision",
       "label": "Product Revision",
       "fieldtype": "Link",
-      "options": "OEM Product Revision"
+      "options": "OEM Product Revision",
+      "in_list_view": 1
     },
     {
       "fieldname": "values_json",
@@ -59,6 +61,9 @@
       "fieldtype": "Datetime"
     }
   ],
+  "title_field": "draft_owner",
+  "search_fields": "draft_owner,product_revision",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

@@ -22,26 +22,30 @@
       "label": "Customer",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "Customer"
+      "options": "Customer",
+      "in_list_view": 1
     },
     {
       "fieldname": "brand",
       "label": "Brand",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "Brand"
+      "options": "Brand",
+      "in_list_view": 1
     },
     {
       "fieldname": "relationship_label",
       "label": "Relationship Label",
       "fieldtype": "Select",
-      "options": "Owner\nDistributor\nAuthorized Buyer\nOther"
+      "options": "Owner\nDistributor\nAuthorized Buyer\nOther",
+      "in_list_view": 1
     },
     {
       "fieldname": "enabled",
       "label": "Enabled",
       "fieldtype": "Check",
-      "default": "0"
+      "default": "0",
+      "in_list_view": 1
     },
     {
       "fieldname": "valid_from",
@@ -78,6 +82,9 @@
       "fieldtype": "Datetime"
     }
   ],
+  "title_field": "customer",
+  "search_fields": "customer,brand,relationship_label",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",

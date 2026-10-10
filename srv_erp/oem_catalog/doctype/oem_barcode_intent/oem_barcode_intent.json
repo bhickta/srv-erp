@@ -28,7 +28,8 @@
       "fieldname": "specification",
       "label": "Specification",
       "fieldtype": "Link",
-      "options": "OEM Specification"
+      "options": "OEM Specification",
+      "in_list_view": 1
     },
     {
       "fieldname": "binding",
@@ -50,7 +51,8 @@
       "fieldname": "customer",
       "label": "Customer",
       "fieldtype": "Link",
-      "options": "Customer"
+      "options": "Customer",
+      "in_list_view": 1
     },
     {
       "fieldname": "company",
@@ -61,21 +63,27 @@
     {
       "fieldname": "requested_count",
       "label": "Requested Count",
-      "fieldtype": "Int"
+      "fieldtype": "Int",
+      "in_list_view": 1
     },
     {
       "fieldname": "barcode_batch",
       "label": "Barcode Batch",
       "fieldtype": "Link",
-      "options": "Package Barcode Batch"
+      "options": "Package Barcode Batch",
+      "in_list_view": 1
     },
     {
       "fieldname": "status",
       "label": "Status",
       "fieldtype": "Select",
-      "options": "Completed"
+      "options": "Completed",
+      "in_list_view": 1
     }
   ],
+  "title_field": "barcode_batch",
+  "search_fields": "specification,barcode_batch,customer",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog User",

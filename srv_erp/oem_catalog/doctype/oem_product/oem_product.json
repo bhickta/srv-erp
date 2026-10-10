@@ -21,20 +21,23 @@
       "label": "Catalogue Code",
       "fieldtype": "Data",
       "unique": 1,
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "display_name",
       "label": "Display Name",
       "fieldtype": "Data",
-      "reqd": 1
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
       "fieldname": "item_group",
       "label": "Item Group",
       "fieldtype": "Link",
       "reqd": 1,
-      "options": "Item Group"
+      "options": "Item Group",
+      "in_list_view": 1
     },
     {
       "fieldname": "image",
@@ -51,7 +54,8 @@
       "label": "Lifecycle",
       "fieldtype": "Select",
       "default": "Draft",
-      "options": "Draft\nActive\nRetired"
+      "options": "Draft\nActive\nRetired",
+      "in_list_view": 1
     },
     {
       "fieldname": "legacy_template",
@@ -71,6 +75,9 @@
       "fieldtype": "Long Text"
     }
   ],
+  "title_field": "display_name",
+  "search_fields": "catalogue_code,display_name,item_group",
+  "show_title_field_in_link": 1,
   "permissions": [
     {
       "role": "OEM Catalog Manager",
