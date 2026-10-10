@@ -39,6 +39,7 @@ def after_install():
 	create_dsr_custom_fields()
 	create_sales_order_attribute_custom_fields()
 	create_stock_entry_detail_custom_fields()
+	create_maximum_stock_custom_fields()
 	configure_tree_group_list_filters()
 	set_sales_order_item_discount_grid_columns()
 	set_sales_order_ui_defaults()
@@ -62,6 +63,7 @@ def after_migrate():
 	create_dsr_custom_fields()
 	create_sales_order_attribute_custom_fields()
 	create_stock_entry_detail_custom_fields()
+	create_maximum_stock_custom_fields()
 	configure_tree_group_list_filters()
 	set_sales_order_item_discount_grid_columns()
 	set_sales_order_ui_defaults()
@@ -185,6 +187,25 @@ def create_stock_entry_detail_custom_fields():
 					"label": "Remarks",
 					"in_list_view": 1,
 				}
+			],
+		},
+		update=True,
+	)
+
+
+def create_maximum_stock_custom_fields():
+	create_custom_fields(
+		{
+			"Item": [
+				{
+					"description": "Upper limit for the total quantity of this item. Items held above this level are highlighted in Stock Balance and listed in the Maximum Stock Exceeded report.",
+					"fieldname": "maximum_stock",
+					"fieldtype": "Float",
+					"insert_after": "safety_stock",
+					"label": "Maximum Stock",
+					"non_negative": 1,
+					"precision": "3",
+				},
 			],
 		},
 		update=True,
