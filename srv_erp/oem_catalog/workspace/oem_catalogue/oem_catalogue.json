@@ -1,7 +1,7 @@
 {
  "app": "srv_erp",
  "charts": [],
- "content": "[{\"id\":\"oem-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>OEM Catalog</b></span>\",\"col\":12}},{\"id\":\"oem-configure-order-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Configure & Order\",\"col\":4}},{\"id\":\"oem-catalogue-masters-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Catalogue Masters\",\"col\":4}},{\"id\":\"oem-branding-packaging-assets-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Branding & Packaging Assets\",\"col\":4}},{\"id\":\"oem-legacy-adoption-review-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Legacy Adoption & Review\",\"col\":4}},{\"id\":\"oem-barcode-operations-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Barcode & Operations\",\"col\":4}},{\"id\":\"oem-settings-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "content": "[{\"id\":\"oem-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>OEM Catalogue</b></span>\",\"col\":12}},{\"id\":\"oem-configure-order-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Configure & Order\",\"col\":4}},{\"id\":\"oem-catalogue-masters-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Catalogue Masters\",\"col\":4}},{\"id\":\"oem-branding-packaging-assets-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Branding & Packaging Assets\",\"col\":4}},{\"id\":\"oem-legacy-adoption-review-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Legacy Adoption & Review\",\"col\":4}},{\"id\":\"oem-barcode-operations-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Barcode & Operations\",\"col\":4}},{\"id\":\"oem-settings-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
  "creation": "2026-10-10 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -12,7 +12,7 @@
  "idx": 0,
  "indicator_color": "blue",
  "is_hidden": 0,
- "label": "OEM Catalog",
+ "label": "OEM Catalogue",
  "links": [
   {
    "hidden": 0,
@@ -266,7 +266,7 @@
  "modified": "2026-10-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "OEM Catalog",
- "name": "OEM Catalog",
+ "name": "OEM Catalogue",
  "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
@@ -288,6 +288,6 @@
  ],
  "sequence_id": 30.0,
  "shortcuts": [],
- "title": "OEM Catalog",
+ "title": "OEM Catalogue",
  "type": "Workspace"
 }
