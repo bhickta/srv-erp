@@ -1,0 +1,293 @@
+{
+ "app": "srv_erp",
+ "charts": [],
+ "content": "[{\"id\":\"oem-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>OEM Catalog</b></span>\",\"col\":12}},{\"id\":\"oem-configure-order-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Configure & Order\",\"col\":4}},{\"id\":\"oem-catalogue-masters-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Catalogue Masters\",\"col\":4}},{\"id\":\"oem-branding-packaging-assets-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Branding & Packaging Assets\",\"col\":4}},{\"id\":\"oem-legacy-adoption-review-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Legacy Adoption & Review\",\"col\":4}},{\"id\":\"oem-barcode-operations-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Barcode & Operations\",\"col\":4}},{\"id\":\"oem-settings-card\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2026-10-10 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "tag",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "OEM Catalog",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configure & Order",
+   "link_count": 5,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "OEM Catalog",
+   "link_count": 0,
+   "link_to": "oem-catalog",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration Drafts",
+   "link_count": 0,
+   "link_to": "OEM Configuration Draft",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration Requests",
+   "link_count": 0,
+   "link_to": "OEM Configuration Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Specifications",
+   "link_count": 0,
+   "link_to": "OEM Specification",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Bindings",
+   "link_count": 0,
+   "link_to": "OEM Item Binding",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Catalogue Masters",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Products",
+   "link_count": 0,
+   "link_to": "OEM Product",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Product Revisions",
+   "link_count": 0,
+   "link_to": "OEM Product Revision",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Option Sets",
+   "link_count": 0,
+   "link_to": "OEM Option Set",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Default Profiles",
+   "link_count": 0,
+   "link_to": "OEM Default Profile",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Branding & Packaging Assets",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Assets",
+   "link_count": 0,
+   "link_to": "OEM Asset",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Asset Revisions",
+   "link_count": 0,
+   "link_to": "OEM Asset Revision",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Brands",
+   "link_count": 0,
+   "link_to": "OEM Customer Brand",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Item Aliases",
+   "link_count": 0,
+   "link_to": "OEM Customer Item Alias",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Legacy Adoption & Review",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Import Reviews",
+   "link_count": 0,
+   "link_to": "OEM Import Review",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Request Sources",
+   "link_count": 0,
+   "link_to": "OEM Request Source",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Barcode & Operations",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Barcode Intents",
+   "link_count": 0,
+   "link_to": "OEM Barcode Intent",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Command Receipts",
+   "link_count": 0,
+   "link_to": "OEM Command Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Audit Events",
+   "link_count": 0,
+   "link_to": "OEM Audit Event",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Outbox Events",
+   "link_count": 0,
+   "link_to": "OEM Outbox Event",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "OEM Catalog Settings",
+   "link_count": 0,
+   "link_to": "OEM Catalog Settings",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "OEM Catalog",
+ "name": "OEM Catalog",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "OEM Catalog User"
+  },
+  {
+   "role": "OEM Catalog Approver"
+  },
+  {
+   "role": "OEM Catalog Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 30.0,
+ "shortcuts": [],
+ "title": "OEM Catalog",
+ "type": "Workspace"
+}
