@@ -93,6 +93,28 @@ class TestPackageBarcode(ERPNextTestSuite):
 		with self.assertRaises(PackageBarcodeError):
 			validate_stock_transaction(doc)
 
+	def test_duplicate_package_scan_rejected_in_purchase_receipt(self):
+		result = generate_package_barcodes(self.item.name, "Nos", 1)
+		barcode = frappe.db.get_value("Package Barcode", result.barcodes[0], "barcode")
+		scan = frappe._dict(
+			{
+				"package_barcode": result.barcodes[0],
+				"barcode": barcode,
+				"item_code": self.item.name,
+				"uom": "Nos",
+			}
+		)
+		doc = frappe._dict(
+			{
+				"doctype": "Purchase Receipt",
+				"items": [],
+				"package_barcodes": [scan, scan.copy()],
+			}
+		)
+
+		with self.assertRaises(PackageBarcodeError):
+			validate_stock_transaction(doc)
+
 	def test_forced_package_barcode_qty_rejects_manual_qty_mismatch(self):
 		frappe.db.set_single_value(
 			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_FORCE_BARCODE
@@ -121,6 +143,35 @@ class TestPackageBarcode(ERPNextTestSuite):
 
 		with self.assertRaises(PackageBarcodeError):
 			PackageBarcodeTransactionValidator(doc).validate()
+
+	def test_purchase_receipt_forced_package_barcode_qty_rejects_manual_qty_mismatch(self):
+		frappe.db.set_single_value(
+			"Barcode Settings", "package_barcode_default_qty_entry_rule", QTY_RULE_FORCE_BARCODE
+		)
+		result = generate_package_barcodes(self.item.name, "Nos", 1)
+		barcode = frappe.db.get_value("Package Barcode", result.barcodes[0], "barcode")
+		doc = frappe._dict(
+			{
+				"doctype": "Purchase Receipt",
+				"items": [
+					frappe._dict({"idx": 1, "item_code": self.item.name, "qty": 2}),
+				],
+				"package_barcodes": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"package_barcode": result.barcodes[0],
+							"barcode": barcode,
+							"item_code": self.item.name,
+							"uom": "Nos",
+						}
+					),
+				],
+			}
+		)
+
+		with self.assertRaises(PackageBarcodeError):
+			validate_stock_transaction(doc)
 
 	def test_item_can_allow_manual_qty_over_global_forced_rule(self):
 		frappe.db.set_single_value(
