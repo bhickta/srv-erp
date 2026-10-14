@@ -7,6 +7,19 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 	}
 
 	process_scan() {
+		if (this.frm.doctype !== "Delivery Note" || this.frm.doc.is_return) return this.process_single_scan();
+		// Keep target selection and increments ordered even when a scanner sends rapid input.
+		const input = this.scan_barcode_field.value;
+		this.scan_barcode_field.set_value("");
+		if (!input) return Promise.resolve();
+		this.pending_scan = (this.pending_scan || Promise.resolve()).catch(() => {}).then(() => {
+			this.scan_barcode_field.value = input;
+			return this.process_single_scan();
+		});
+		return this.pending_scan;
+	}
+
+	process_single_scan() {
 		return new Promise((resolve, reject) => {
 			const input = this.scan_barcode_field.value;
 			this.scan_barcode_field.set_value("");
@@ -77,8 +90,116 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 						this.play_fail_sound();
 						reject();
 					});
-			});
+			}).catch(reject);
 		});
+	}
+
+	scan_api_call(input, callback) {
+		return frappe.call({
+			method: this.scan_api,
+			args: { search_value: input, ctx: { set_warehouse: this.frm.doc.set_warehouse, company: this.frm.doc.company } },
+		}).then(callback);
+	}
+
+	update_table(data) {
+		if (this.frm.doctype !== "Delivery Note" || this.frm.doc.is_return) return super.update_table(data);
+		return this.update_delivery_note_table(data);
+	}
+
+	choose_delivery_target(options, label) {
+		if (options.length === 1) return Promise.resolve(options[0].value);
+		return new Promise((resolve, reject) => {
+			let chosen = false;
+			const dialog = new frappe.ui.Dialog({
+				title: label,
+				fields: [{ fieldname: "target", fieldtype: "Select", label, reqd: 1,
+					options: options.map((option) => option.label) }],
+				primary_action_label: __("Select"),
+				primary_action(values) {
+					chosen = true;
+					resolve(options.find((option) => option.label === values.target).value);
+					dialog.hide();
+				},
+			});
+			dialog.onhide = () => { if (!chosen) reject(new Error(__("Scan cancelled"))); };
+			dialog.show();
+		});
+	}
+
+	async update_delivery_note_table(data) {
+		if (!this.frm.doc.customer || !this.frm.doc.company) {
+			frappe.throw(__("Select a customer and company before scanning."));
+		}
+		const details = await srv_erp.package_barcode.get_item_uom_details(data.item_code);
+		const scan_uom = data.uom || details.stock_uom;
+		const scan_factor = flt(details.conversion_factors[scan_uom]);
+		if (scan_factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan_uom, data.item_code]));
+		const warehouse = this.frm.doc.last_scanned_warehouse || data.default_warehouse || this.frm.doc.set_warehouse;
+		const candidates = (this.frm.doc.items || []).filter((row) =>
+			row.item_code === data.item_code && (!warehouse || !row.warehouse || row.warehouse === warehouse) &&
+			(!row.batch_no || row.batch_no === data.batch_no) && !row.si_detail &&
+			flt(details.conversion_factors[row.uom]) > 0
+		);
+		const linked = candidates.filter((row) => row.against_sales_order && row.so_detail);
+		const pool = linked.length ? linked : candidates;
+		const lines = new Set(pool.map((row) => row.so_detail || ""));
+		let row;
+		if (lines.size > 1) {
+			row = await this.choose_delivery_target(pool.map((row) => ({ value: row,
+				label: `${row.idx}: ${row.against_sales_order || ""} / ${row.so_detail || ""} (${row.uom})` })), __("Select Sales Order Item / UOM to Keep"));
+		} else {
+			const exact = pool.filter((row) => row.uom === scan_uom);
+			const targets = exact.length ? exact : pool;
+			if (targets.length) row = await this.choose_delivery_target(targets.map((row) => ({ value: row,
+				label: `${row.idx}: ${row.item_code} (${row.uom})` })), __("Select Item Row / UOM to Keep"));
+		}
+		let reference = row?.so_detail ? { against_sales_order: row.against_sales_order, so_detail: row.so_detail } : null;
+		if (!reference) {
+			const response = await frappe.call({ method: "srv_erp.selling.delivery_note.get_delivery_scan_sales_order_items",
+				args: { customer: this.frm.doc.customer, company: this.frm.doc.company, item_code: data.item_code } });
+			const options = response.message || [];
+			if (options.length) reference = await this.choose_delivery_target(options.map((line) => ({ value: line,
+				label: `${line.against_sales_order} / ${line.so_detail} (${line.uom})` })), __("Select Sales Order Item"));
+		}
+		const is_new = !row;
+		const kept_uom = row?.uom || scan_uom;
+		const factor = flt(details.conversion_factors[kept_uom]);
+		const previous_qty = flt(row?.qty);
+		const added_qty = flt(data.qty || 1) * scan_factor / factor;
+		if (row && this.is_duplicate_serial_no(row, data.serial_no)) throw new Error(__("Serial number already scanned"));
+		if (!row) {
+			if (this.dont_allow_new_row) frappe.throw(__("Cannot add another item row."));
+			row = (this.frm.doc.items || []).find((row) => !row.item_code) ||
+				frappe.model.add_child(this.frm.doc, this.frm.fields_dict.items.grid.doctype, "items");
+		}
+		this.delivery_scan_target = row;
+		this.frm.package_barcode_delivery_scanning = true;
+		try {
+			this.set_selector_trigger_flag(data);
+			if (reference) await frappe.model.set_value(row.doctype, row.name, {
+				against_sales_order: reference.against_sales_order, so_detail: reference.so_detail,
+			});
+			if (is_new) {
+				await frappe.model.set_value(row.doctype, row.name, "item_code", data.item_code);
+				await frappe.model.set_value(row.doctype, row.name, "uom", kept_uom);
+			}
+			if (!row.warehouse && (warehouse || reference?.warehouse)) {
+				await frappe.model.set_value(row.doctype, row.name, "warehouse", warehouse || reference.warehouse);
+			}
+			await frappe.model.set_value(row.doctype, row.name, "conversion_factor", factor);
+			await frappe.model.set_value(row.doctype, row.name, "qty", previous_qty + added_qty);
+			await this.set_serial_no(row, data.serial_no);
+			await this.set_batch_no(row, data.batch_no);
+			await this.set_barcode(row, data.barcode);
+			this.show_scan_message(row.idx, !is_new, added_qty);
+			this.frm.dirty();
+			this.clean_up();
+			return row;
+		} finally {
+			this.delivery_scan_target = null;
+			this.frm.package_barcode_delivery_scanning = false;
+			this.revert_selector_flag();
+		}
 	}
 
 	is_duplicate_package_barcode(package_barcode) {
@@ -88,6 +209,15 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 	}
 
 	get_row_to_modify_on_scan(item_code, batch_no, uom, barcode, default_warehouse) {
+		if (this.frm.doctype === "Delivery Note" && !this.frm.doc.is_return) {
+			if (this.delivery_scan_target) return this.delivery_scan_target;
+			const warehouse = this.frm.doc.last_scanned_warehouse || default_warehouse || this.frm.doc.set_warehouse;
+			const rows = (this.frm.doc.items || []).filter((row) => row.item_code === item_code &&
+				(!warehouse || !row.warehouse || row.warehouse === warehouse) &&
+				(!row.batch_no || row.batch_no === batch_no) && !row.si_detail);
+			return rows.find((row) => row.uom === uom) || rows.find((row) => flt(row.conversion_factor) > 0) ||
+				(this.frm.doc.items || []).find((row) => !row.item_code);
+		}
 		if (this.frm.doctype !== "Stock Reconciliation" || !this.stock_reconciliation_package_uom) {
 			return super.get_row_to_modify_on_scan(item_code, batch_no, uom, barcode, default_warehouse);
 		}

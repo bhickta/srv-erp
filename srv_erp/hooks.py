@@ -94,6 +94,7 @@ doctype_js = {
 		"public/js/package_barcode/quantity_control.js",
 		"public/js/package_barcode/stock_scanner.js",
 		"public/js/package_barcode_stock.js",
+		"public/js/delivery_note.js",
 	],
 	"Stock Reconciliation": [
 		"public/js/package_barcode/namespace.js",
@@ -267,7 +268,13 @@ doc_events = {
 	"Delivery Note": {
 		"validate": [
 			"srv_erp.selling.delivery_note.validate_sales_order_reference",
+			"srv_erp.selling.delivery_note.validate_delivery_sales_order_quantities",
 			"srv_erp.package_barcode.service.validate_stock_transaction",
+		],
+		"before_validate": [
+			"srv_erp.selling.delivery_note.remove_zero_quantity_items_on_submit",
+			"srv_erp.selling.delivery_note.prepare_delivery_note_quantities",
+			"srv_erp.selling.delivery_note.reconcile_delivery_quantities",
 		],
 	},
 	"Stock Reconciliation": {
@@ -307,6 +314,8 @@ doc_events = {
 # Frappe v15 does not apply extend_doctype_class, so Item Price uses a small
 # subclass that only relaxes ERPNext's template-item restriction.
 override_doctype_class = {
+	"Sales Invoice": "srv_erp.selling.sales_invoice_controller.SRVSalesInvoice",
+	"Delivery Note": "srv_erp.selling.delivery_note_controller.SRVDeliveryNote",
 	"Item": "srv_erp.item.variant_attribute_edit.EditableVariantItem",
 	"Item Price": "srv_erp.item.variant_price_sync.TemplateItemPrice",
 	"Stock Entry": "srv_erp.stock.stock_entry.SRVStockEntry",
@@ -316,6 +325,7 @@ override_doctype_class = {
 # ------------------------------
 #
 override_whitelisted_methods = {
+	"erpnext.selling.doctype.sales_order.sales_order.make_delivery_note": "srv_erp.selling.delivery_note.make_delivery_note",
 	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "srv_erp.masters.dynamic_item.bulk_guard.enqueue_multiple_variant_creation",
 	"erpnext.controllers.item_variant.create_variant_doc_for_quick_entry": "srv_erp.masters.dynamic_item.bulk_guard.create_variant_doc_for_quick_entry",
 }

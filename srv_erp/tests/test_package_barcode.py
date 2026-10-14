@@ -5,10 +5,10 @@ from frappe.tests.utils import FrappeTestCase
 from srv_erp.package_barcode.api import generate_package_barcodes, scan_package_barcode
 from srv_erp.package_barcode.service import (
 	DEFAULT_BARCODE_NAMING_SERIES,
-	PackageBarcodeError,
-	PackageBarcodeTransactionValidator,
 	QTY_RULE_ALLOW_MANUAL,
 	QTY_RULE_FORCE_BARCODE,
+	PackageBarcodeError,
+	PackageBarcodeTransactionValidator,
 	get_item_uom_options,
 	validate_stock_transaction,
 )
@@ -327,3 +327,33 @@ class TestPackageBarcode(FrappeTestCase):
 		)
 
 		validate_stock_transaction(doc)
+
+
+class TestDeliveryNoteBarcodeQuantities(FrappeTestCase):
+	def test_mixed_scans_are_compared_in_stock_uom_across_rows(self):
+		from unittest.mock import patch
+
+		doc = frappe._dict(
+			doctype="Delivery Note",
+			items=[
+				frappe._dict(item_code="ITEM", qty=1, stock_qty=20),
+				frappe._dict(item_code="ITEM", qty=3, stock_qty=3),
+			],
+			package_barcodes=[
+				frappe._dict(item_code="ITEM", uom="Box"),
+				frappe._dict(item_code="ITEM", uom="Nos"),
+				frappe._dict(item_code="ITEM", uom="Nos"),
+				frappe._dict(item_code="ITEM", uom="Nos"),
+			],
+		)
+		with (
+			patch("srv_erp.package_barcode.service.get_barcode_only_items", return_value={"ITEM"}),
+			patch(
+				"srv_erp.package_barcode.service.get_item_uom_conversion_factor",
+				side_effect=lambda item, uom: 20 if uom == "Box" else 1,
+			),
+		):
+			PackageBarcodeTransactionValidator(doc).validate_barcode_only_quantities()
+			doc["items"][1].stock_qty = 4
+			with self.assertRaises(PackageBarcodeError):
+				PackageBarcodeTransactionValidator(doc).validate_barcode_only_quantities()

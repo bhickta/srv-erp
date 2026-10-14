@@ -40,6 +40,10 @@ srv_erp.package_barcode.refresh_barcode_only_items = function (frm) {
 };
 
 srv_erp.package_barcode.enforce_barcode_only_qty = function (frm, notify = false) {
+	if (frm.doctype === "Delivery Note" && !frm.doc.is_return) {
+		if (!notify || frm.package_barcode_enforcing_qty || frm.package_barcode_delivery_scanning) return;
+		return srv_erp.package_barcode.enforce_delivery_scan_qty(frm);
+	}
 	if (frm.doctype === "Stock Reconciliation") {
 		return;
 	}
@@ -90,4 +94,36 @@ srv_erp.package_barcode.handle_item_change = function (frm) {
 
 srv_erp.package_barcode.handle_qty_change = function (frm) {
 	srv_erp.package_barcode.enforce_barcode_only_qty(frm, true);
+};
+
+// Several SO lines can share an item; never copy the whole scan total into each line.
+srv_erp.package_barcode.enforce_delivery_scan_qty = async function (frm) {
+	const items = frm.package_barcode_only_items || new Set();
+	frm.package_barcode_enforcing_qty = true;
+	try {
+		for (const item_code of items) {
+			const details = await srv_erp.package_barcode.get_item_uom_details(item_code);
+			const scans = (frm.doc.package_barcodes || []).filter((row) => row.item_code === item_code);
+			let stock_qty = 0;
+			for (const scan of scans) {
+				const factor = flt(details.conversion_factors[scan.uom]);
+				if (factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan.uom, item_code]));
+				stock_qty += factor;
+			}
+			const rows = (frm.doc.items || []).filter((row) => row.item_code === item_code);
+			if (rows.length === 1) {
+				const row = rows[0];
+				const factor = flt(details.conversion_factors[row.uom]);
+				if (factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.uom, item_code]));
+				await frappe.model.set_value(row.doctype, row.name, "qty", stock_qty / factor);
+			} else {
+				const entered = rows.reduce((sum, row) => sum + flt(row.qty) * flt(details.conversion_factors[row.uom]), 0);
+				if (Math.abs(entered - stock_qty) > 0.000001) {
+					frappe.msgprint(__("Item {0}: quantities across all rows must equal {1} {2} from package scans.", [item_code, stock_qty, details.stock_uom]));
+				}
+			}
+		}
+	} finally {
+		frm.package_barcode_enforcing_qty = false;
+	}
 };

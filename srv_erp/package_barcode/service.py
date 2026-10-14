@@ -7,7 +7,6 @@ from frappe import _
 from frappe.model.naming import make_autoname
 from frappe.utils import cint, flt
 
-
 DEFAULT_BARCODE_NAMING_SERIES = "PBC-.YYYY.-.#####"
 QTY_RULE_DEFAULT = "Default"
 QTY_RULE_ALLOW_MANUAL = "Allow Manual Qty"
@@ -57,7 +56,7 @@ class PackageBarcodeGenerator:
 		).insert(ignore_permissions=True)
 
 		records = []
-		for _ in range(self.no_of_barcodes):
+		for _barcode_index in range(self.no_of_barcodes):
 			barcode = self.make_unique_barcode()
 			doc = frappe.get_doc(
 				{
@@ -97,11 +96,15 @@ class PackageBarcodeGenerator:
 			as_dict=True,
 		)
 		if not item:
-			frappe.throw(_("Item {0} does not exist.").format(frappe.bold(self.item_code)), PackageBarcodeError)
+			frappe.throw(
+				_("Item {0} does not exist.").format(frappe.bold(self.item_code)), PackageBarcodeError
+			)
 		if item.disabled:
 			frappe.throw(_("Item {0} is disabled.").format(frappe.bold(self.item_code)), PackageBarcodeError)
 		if not item.is_stock_item:
-			frappe.throw(_("Item {0} is not a stock item.").format(frappe.bold(self.item_code)), PackageBarcodeError)
+			frappe.throw(
+				_("Item {0} is not a stock item.").format(frappe.bold(self.item_code)), PackageBarcodeError
+			)
 
 		if self.uom not in get_item_uom_options(self.item_code):
 			frappe.throw(
@@ -113,7 +116,7 @@ class PackageBarcodeGenerator:
 
 	def make_unique_barcode(self) -> str:
 		series = get_barcode_naming_series()
-		for _ in range(10):
+		for _attempt in range(10):
 			barcode = make_autoname(series)
 			if not frappe.db.exists("Package Barcode", {"barcode": barcode}):
 				return barcode
@@ -136,7 +139,9 @@ class PackageBarcodeResolver:
 			as_dict=True,
 		)
 		if not doc:
-			frappe.throw(_("Package Barcode {0} was not found.").format(frappe.bold(self.barcode)), PackageBarcodeError)
+			frappe.throw(
+				_("Package Barcode {0} was not found.").format(frappe.bold(self.barcode)), PackageBarcodeError
+			)
 		if doc.status != "Active":
 			frappe.throw(
 				_("Package Barcode {0} is {1}.").format(frappe.bold(self.barcode), frappe.bold(doc.status)),
@@ -159,6 +164,8 @@ class PackageBarcodeTransactionValidator:
 	def validate(self) -> None:
 		self.validate_duplicate_scans()
 		self.validate_master_data()
+		if self.doc.doctype == "Delivery Note" and not self.doc.get("is_return"):
+			get_scanned_stock_qty_by_item(self.rows)
 		self.sync_stock_reconciliation_package_uom_quantities()
 		self.validate_barcode_only_quantities()
 
@@ -175,7 +182,9 @@ class PackageBarcodeTransactionValidator:
 
 		if duplicates:
 			frappe.throw(
-				_("Package Barcode(s) already scanned in this document: {0}").format(", ".join(sorted(duplicates))),
+				_("Package Barcode(s) already scanned in this document: {0}").format(
+					", ".join(sorted(duplicates))
+				),
 				PackageBarcodeError,
 			)
 
@@ -225,7 +234,9 @@ class PackageBarcodeTransactionValidator:
 		if not barcode_only_items:
 			return
 
-		if self.doc.doctype == "Stock Reconciliation":
+		if self.doc.doctype == "Stock Reconciliation" or (
+			self.doc.doctype == "Delivery Note" and not self.doc.get("is_return")
+		):
 			scanned_qty = get_scanned_stock_qty_by_item(self.rows)
 		else:
 			scanned_qty = get_scanned_qty_by_item(self.rows)
@@ -233,8 +244,12 @@ class PackageBarcodeTransactionValidator:
 		item_rows = list(self.doc.get("items") or [])
 		mismatches = []
 
-		if self.doc.doctype == "Stock Reconciliation":
-			row_qty_by_item = get_transaction_qty_by_item(item_rows, quantity_field)
+		if self.doc.doctype == "Stock Reconciliation" or (
+			self.doc.doctype == "Delivery Note" and not self.doc.get("is_return")
+		):
+			row_qty_by_item = get_transaction_qty_by_item(
+				item_rows, "stock_qty" if self.doc.doctype == "Delivery Note" else quantity_field
+			)
 			for item_code in barcode_only_items:
 				row_qty = row_qty_by_item.get(item_code, 0)
 				expected_qty = scanned_qty.get(item_code, 0)
@@ -252,9 +267,9 @@ class PackageBarcodeTransactionValidator:
 
 		if mismatches:
 			frappe.throw(
-				_(
-					"Quantity can only be entered through Package Barcode scans for these item(s): {0}"
-				).format(", ".join(mismatches)),
+				_("Quantity can only be entered through Package Barcode scans for these item(s): {0}").format(
+					", ".join(mismatches)
+				),
 				PackageBarcodeError,
 			)
 
@@ -341,6 +356,10 @@ def get_scanned_stock_qty_by_item(rows) -> dict[str, float]:
 	for row in rows:
 		if row.item_code and row.uom:
 			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.uom)
+			if conversion_factor <= 0:
+				frappe.throw(
+					_("UOM {0} has an invalid conversion factor for Item {1}.").format(row.uom, row.item_code)
+				)
 			scanned_qty[row.item_code] = scanned_qty.get(row.item_code, 0) + conversion_factor
 	return scanned_qty
 
