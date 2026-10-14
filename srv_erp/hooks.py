@@ -273,7 +273,7 @@ doc_events = {
 	},
 	"Delivery Note": {
 		"validate": [
-			"srv_erp.selling.delivery_note.validate_delivery_sales_order_quantities",
+			#"srv_erp.selling.delivery_note.validate_delivery_sales_order_quantities",
 			"srv_erp.package_barcode.service.validate_stock_transaction",
 		],
   		"before_validate": [
