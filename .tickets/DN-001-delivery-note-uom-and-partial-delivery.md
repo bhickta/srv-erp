@@ -2,8 +2,7 @@
 
 **App:** `srv_erp` (custom Frappe/ERPNext app, repo `github.com/bhickta/srv-erp`)
 **Baseline:** `origin/version-15` @ `1898613` (Merge PR #85 `feat/delivery-note-barcode-scanning`)
-**Status:** Specification only. No application code was changed, no migration was run, and no tests
-were executed while preparing this document.
+**Status:** Implemented together with the related Delivery Note ticket. Automated validation passes; PR review pending. Decisions and executed checks: [validation record](../docs/delivery-note-uom-validation.md).
 
 ---
 
@@ -137,16 +136,16 @@ same-item/different-UOM rows are acceptable before the DN must force a single UO
 
 ## 7. Ordered implementation checklist
 
-1. [ ] Read `selling/delivery_note.py`, `package_barcode/service.py`, `selling/sales_order_uom.py`, and the `hooks.py` Delivery Note entries at the baseline.
-2. [ ] Resolve §6 Q1/Q3 and record the decision in the PR.
-3. [ ] Add a pure helper (for example `resolve_delivery_uom_conversion(item_code, uom)`) returning `(stock_uom, conversion_factor)` or raising a clear error.
-4. [ ] Recompute `stock_qty` for every row on validate.
-5. [ ] Add per-`so_detail` aggregate validation (delivered stock qty ≤ pending).
-6. [ ] Add the out-of-conversion error and decimal support.
-7. [ ] Add the stock-UOM display and the ambiguous-UOM prompt per Q1/Q5.
-8. [ ] Write tests (§8) and run them on a disposable site.
-9. [ ] Lint/format and `bench build --app srv_erp`.
-10. [ ] Open the PR with commands run, results, and each open question answered.
+1. [x] Read `selling/delivery_note.py`, `package_barcode/service.py`, `selling/sales_order_uom.py`, and the `hooks.py` Delivery Note entries at the baseline.
+2. [x] Resolve §6 Q1/Q3 and record the decision in the PR.
+3. [x] Add a pure helper (for example `resolve_delivery_uom_conversion(item_code, uom)`) returning `(stock_uom, conversion_factor)` or raising a clear error.
+4. [x] Recompute `stock_qty` for every row on validate.
+5. [x] Add per-`so_detail` aggregate validation (delivered stock qty ≤ pending).
+6. [x] Add the out-of-conversion error and decimal support.
+7. [x] Add the stock-UOM display and the ambiguous-UOM prompt per Q1/Q5.
+8. [x] Write tests (§8) and run them on a disposable site.
+9. [x] Lint/format and `bench build --app srv_erp`.
+10. [x] Open the PR with commands run, results, and each open question answered.
 
 ---
 

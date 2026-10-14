@@ -22,7 +22,7 @@ srv_erp.package_barcode.record_blocked_scan = function (frm, barcode) {
 	srv_erp.package_barcode.render_scan_review(frm);		
 };
 
-srv_erp.package_barcode.render_scan_review = function (frm) {
+srv_erp.package_barcode.render_scan_review = async function (frm) {
 	if (!frm.fields_dict.scan_barcode || !frappe.meta.has_field(frm.doctype, "package_barcodes")) {
 		return;
 	}
@@ -32,7 +32,22 @@ srv_erp.package_barcode.render_scan_review = function (frm) {
 	const last_row = rows.length ? rows[rows.length - 1] : null;
 	const last_scanned = stats.last_scanned || last_row?.barcode || "-";
 	const total_scanned = rows.length;
-	const total_qty = rows.length;
+	let total_qty = rows.length;
+	if (frm.doctype === "Delivery Note") {
+		const totals = {};
+		try {
+			for (const row of rows) {
+				const details = await srv_erp.package_barcode.get_item_uom_details(row.item_code);
+				const factor = flt(details.conversion_factors[row.uom]);
+				if (factor <= 0) throw new Error(__("Invalid scan UOM"));
+				totals[details.stock_uom] = (totals[details.stock_uom] || 0) + factor;
+			}
+			total_qty = Object.entries(totals).map(([uom, qty]) => `${qty} ${uom}`).join(" + ") || "0";
+		} catch (error) {
+			total_qty = __("Check scan UOM");
+		}
+	}
+	const last_uom = last_row?.uom || "";
 
 	const html = `
 		<div class="srv-package-barcode-review">
@@ -42,7 +57,7 @@ srv_erp.package_barcode.render_scan_review = function (frm) {
 			</div>
 			<div class="srv-package-barcode-review__item">
 				<div class="text-muted small">${__("Qty Added")}</div>
-				<div class="h5 mb-0">${total_qty}</div>
+				<div class="h5 mb-0">${frappe.utils.escape_html(String(total_qty))}</div>
 			</div>
 			<div class="srv-package-barcode-review__item">
 				<div class="text-muted small">${__("Blocked")}</div>
@@ -50,7 +65,7 @@ srv_erp.package_barcode.render_scan_review = function (frm) {
 			</div>
 			<div class="srv-package-barcode-review__item srv-package-barcode-review__last">
 				<div class="text-muted small">${__("Last Scan")}</div>
-				<div class="text-truncate">${frappe.utils.escape_html(last_scanned)}</div>
+				<div class="text-truncate">${frappe.utils.escape_html(last_scanned)} ${frappe.utils.escape_html(last_uom)}</div>
 			</div>
 		</div>
 	`;
