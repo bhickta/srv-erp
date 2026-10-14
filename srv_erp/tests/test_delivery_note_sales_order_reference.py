@@ -5,6 +5,7 @@ import frappe
 
 from srv_erp.selling.delivery_note import (
 	get_open_sales_order_items,
+	make_delivery_note as make_delivery_note_from_sales_order,
 	validate_sales_order_reference,
 )
 
@@ -25,6 +26,46 @@ def raise_validation_error(message, *args, **kwargs):
 
 
 class TestDeliveryNoteSalesOrderReference(TestCase):
+	@patch("erpnext.selling.doctype.sales_order.sales_order.make_delivery_note")
+	def test_initial_sales_order_mapping_zeros_quantities(self, erpnext_make_delivery_note):
+		doc = frappe._dict(
+			items=[frappe._dict(qty=5, stock_qty=5)]
+		)
+		erpnext_make_delivery_note.return_value = doc
+
+		result = make_delivery_note_from_sales_order("SO-0001")
+
+		self.assertEqual(result["items"][0].qty, 0)
+		self.assertEqual(result["items"][0].stock_qty, 0)
+		erpnext_make_delivery_note.assert_called_once_with(
+			"SO-0001", kwargs=None, target_doc=None
+		)
+
+	@patch("erpnext.selling.doctype.sales_order.sales_order.make_delivery_note")
+	def test_get_items_mapping_zeros_new_rows_and_preserves_existing_quantities(
+		self, erpnext_make_delivery_note
+	):
+		target_doc = frappe._dict(
+			items=[frappe._dict(name="DN-ITEM-1", qty=2, stock_qty=2)]
+		)
+		doc = frappe._dict(
+			items=[
+				frappe._dict(name="DN-ITEM-1", qty=2, stock_qty=2),
+				frappe._dict(name="DN-ITEM-2", qty=5, stock_qty=5),
+			]
+		)
+		erpnext_make_delivery_note.return_value = doc
+
+		result = make_delivery_note_from_sales_order("SO-0001", target_doc=target_doc)
+
+		self.assertEqual(result["items"][0].qty, 2)
+		self.assertEqual(result["items"][0].stock_qty, 2)
+		self.assertEqual(result["items"][1].qty, 0)
+		self.assertEqual(result["items"][1].stock_qty, 0)
+		erpnext_make_delivery_note.assert_called_once_with(
+			"SO-0001", kwargs=None, target_doc=target_doc
+		)
+
 	def test_linked_row_is_allowed_without_query(self):
 		doc = make_delivery_note(
 			items=[{"item_code": "ITEM-1", "against_sales_order": "SO-0001"}]
