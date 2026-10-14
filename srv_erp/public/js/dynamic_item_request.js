@@ -85,11 +85,12 @@ srv_erp.dynamic_item.open_template_dialog = function (frm, grid_config) {
 	dialog.show();
 };
 
-srv_erp.dynamic_item.open_parameter_dialog = function (template_item, frm, grid_config) {
+srv_erp.dynamic_item.open_parameter_dialog = function (template_item, frm, grid_config, preferred_attributes) {
 	frappe.call({
 		method: "srv_erp.masters.dynamic_item.api.get_dynamic_variant_options",
 		args: {
 			template_item,
+			selected_brand: preferred_attributes?.Brand,
 			source_doctype: frm?.doctype,
 			source_field: grid_config?.fieldname,
 		},
@@ -102,7 +103,7 @@ srv_erp.dynamic_item.open_parameter_dialog = function (template_item, frm, grid_
 				srv_erp.dynamic_item.show_brand_selection_dialog(options, frm, grid_config);
 				return;
 			}
-			srv_erp.dynamic_item.show_parameter_dialog(options, frm, grid_config);
+			srv_erp.dynamic_item.show_parameter_dialog(options, frm, grid_config, preferred_attributes);
 		},
 	});
 };
@@ -148,7 +149,7 @@ srv_erp.dynamic_item.show_brand_selection_dialog = function (options, frm, grid_
 	dialog.show();
 };
 
-srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config) {
+srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config, preferred_attributes = {}) {
 	const attribute_fields = [];
 	const attribute_field_map = {};
 	(options.attributes || []).forEach((attribute, index) => {
@@ -160,7 +161,9 @@ srv_erp.dynamic_item.show_parameter_dialog = function (options, frm, grid_config
 			label: attribute.attribute,
 			options: attribute.numeric_values ? null : ["", ...(attribute.values || [])],
 			default:
-				attribute.default ??
+				(attribute.numeric_values || (attribute.values || []).includes(preferred_attributes[attribute.attribute])
+					? preferred_attributes[attribute.attribute]
+					: null) ?? attribute.default ??
 				(!attribute.numeric_values && (attribute.values || []).length === 1
 					? attribute.values[0]
 					: undefined),
@@ -280,7 +283,9 @@ srv_erp.dynamic_item.handle_result = function (result, frm, grid_config) {
 		}
 		const grid = frm.fields_dict[grid_config.fieldname].grid;
 		const selected = grid.get_selected_children ? grid.get_selected_children() : [];
-		let row = selected.length === 1 ? selected[0] : null;
+		let row = grid_config.row_name
+			? (frm.doc[grid_config.fieldname] || []).find((item) => item.name === grid_config.row_name)
+			: (selected.length === 1 ? selected[0] : null);
 		if (!row || row.item_code) {
 			row = frm.add_child(grid_config.fieldname);
 		}

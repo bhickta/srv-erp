@@ -71,7 +71,7 @@ doctype_js = {
 	"Item Attribute": "public/js/item_attribute_variant_sync.js",
 	"Brand": ["public/js/item_attribute_variant_sync.js", "public/js/brand_variant_rules.js"],
 	"Item Price": "public/js/item_price.js",
-	"Sales Order": "public/js/sales_order.js",
+	"Sales Order": ["public/js/sales_order.js", "public/js/sales_order_variant_picker.js"],
     "Purchase Receipt": [
         "public/js/package_barcode/namespace.js",
         "public/js/package_barcode_stock.js",
