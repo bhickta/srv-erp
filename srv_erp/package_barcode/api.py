@@ -19,6 +19,8 @@ def get_item_uoms(item_code: str) -> dict:
 
 @frappe.whitelist()
 def generate_package_barcodes(item_code: str, uom: str, no_of_barcodes: int) -> dict:
+	from srv_erp.oem_catalog.hooks.barcode import guard_legacy_generation
+	guard_legacy_generation(item_code)
 	return PackageBarcodeGenerator(item_code=item_code, uom=uom, no_of_barcodes=no_of_barcodes).generate()
 
 
@@ -58,6 +60,8 @@ def get_stock_table_display_settings() -> dict:
 
 @frappe.whitelist()
 def download_package_barcode_batch(batch: str) -> None:
+	from srv_erp.oem_catalog.hooks.barcode import authorize_batch
+	authorize_batch(batch)
 	rows = [["Item Code", "Barcode", "UOM", "Package Barcode", "Status"]]
 	for row in frappe.get_all(
 		"Package Barcode",
@@ -73,6 +77,8 @@ def download_package_barcode_batch(batch: str) -> None:
 @frappe.whitelist()
 def download_package_barcodes(names: list[str] | str) -> None:
 	names = frappe.parse_json(names) if isinstance(names, str) else names
+	from srv_erp.oem_catalog.hooks.barcode import authorize_selection
+	authorize_selection(names=names)
 	rows = [["Item Code", "Barcode", "UOM", "Package Barcode", "Status", "Generation Batch"]]
 	if names:
 		for row in frappe.get_all(
@@ -89,6 +95,8 @@ def download_package_barcodes(names: list[str] | str) -> None:
 @frappe.whitelist()
 def download_package_barcode_batches(batches: list[str] | str) -> None:
 	batches = frappe.parse_json(batches) if isinstance(batches, str) else batches
+	from srv_erp.oem_catalog.hooks.barcode import authorize_selection
+	authorize_selection(batches=batches)
 	rows = [["Batch", "Item Code", "Barcode", "UOM", "Package Barcode", "Status"]]
 	if batches:
 		for row in frappe.get_all(

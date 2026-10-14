@@ -49,6 +49,11 @@ srv_erp.grid_bulk_delete.remove_selected_rows = async function (grid) {
 	}
 };
 
-frappe.ui.form.Grid.prototype.delete_rows = function () {
-	return srv_erp.grid_bulk_delete.remove_selected_rows(this);
-};
+srv_erp.grid_v15.installers.push(function (grid) {
+    const prototype = grid.constructor.prototype;
+    if (prototype._srv_bulk_delete_installed) return;
+    prototype._srv_bulk_delete_installed = true;
+    prototype.delete_rows = function () {
+        return srv_erp.grid_bulk_delete.remove_selected_rows(this);
+    };
+});

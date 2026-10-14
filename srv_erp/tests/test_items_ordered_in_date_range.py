@@ -17,6 +17,7 @@ from srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_ra
 	get_columns,
 	get_conditions,
 	get_grouped_data,
+	get_item_variant_attributes,
 	merge_sales_orders,
 )
 
@@ -131,6 +132,7 @@ class TestItemsOrderedInDateRange(TestCase):
 			[
 				"item_code",
 				"brand",
+				"attributes",
 				"sales_orders",
 				"stock_uom",
 				"qty",
@@ -140,7 +142,7 @@ class TestItemsOrderedInDateRange(TestCase):
 			],
 		)
 		self.assertEqual(
-			[column["label"] for column in get_columns(subtotal_view=True)[4:]],
+			[column["label"] for column in get_columns(subtotal_view=True)[5:]],
 			["Ordered", "Delivered", "Stock", "Qty to Manufacture"],
 		)
 		self.assertIn("sales_orders", [column["fieldname"] for column in get_columns(True)])
@@ -263,6 +265,75 @@ class TestItemsOrderedInDateRange(TestCase):
 		self.assertEqual(result[0].stock_shortfall_qty, 4)
 		self.assertEqual(result[0].stock_uom, "Box")
 		self.assertEqual(result[0].sales_orders, "SAL-ORD-1, SAL-ORD-2")
+
+	def test_subtotal_view_merges_variant_attributes_for_brand_row(self):
+		rows = [
+			{
+				"actual_item_code": "ITEM-A",
+				"item_code": "MB 606",
+				"brand": "SRV",
+				"attributes": ["Black", "Large"],
+				"qty": 2,
+				"stock_available_qty": 0,
+				"stock_delivered_qty": 0,
+				"stock_pending_qty": 2,
+				"stock_uom": "Nos",
+			},
+			{
+				"actual_item_code": "ITEM-B",
+				"item_code": "MB 606",
+				"brand": "SRV",
+				"attributes": ["Black", "Small"],
+				"qty": 3,
+				"stock_available_qty": 0,
+				"stock_delivered_qty": 0,
+				"stock_pending_qty": 3,
+				"stock_uom": "Nos",
+			},
+		]
+
+		result = convert_and_group_subtotal_rows(rows)
+
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0].attributes, "Black, Large, Small")
+		self.assertEqual(result[0].qty, 5)
+
+	def test_item_variant_attributes_exclude_brand_and_return_distinct_values(self):
+		with patch(
+			"srv_erp.srv_erp.report.items_ordered_in_date_range.items_ordered_in_date_range.frappe.get_all",
+			return_value=[
+				frappe._dict(
+					parent="ITEM-A",
+					attribute="Brand",
+					attribute_value="SRV",
+				),
+				frappe._dict(
+					parent="ITEM-A",
+					attribute="Color",
+					attribute_value="Black",
+				),
+				frappe._dict(
+					parent="ITEM-A",
+					attribute="Size",
+					attribute_value="Large",
+				),
+				frappe._dict(
+					parent="ITEM-A",
+					attribute="Color",
+					attribute_value="Black",
+				),
+			],
+		) as get_all:
+			attributes = get_item_variant_attributes(["ITEM-A"])
+
+		self.assertEqual(attributes, {"ITEM-A": ["Black", "Large"]})
+		get_all.assert_called_once_with(
+			"Item Variant Attribute",
+			filters={"parent": ("in", ["ITEM-A"])},
+			fields=["parent", "attribute", "attribute_value"],
+			order_by="parent, idx",
+			limit_page_length=0,
+		)
 
 	def test_appends_subtotal_after_each_item_code(self):
 		rows = [
