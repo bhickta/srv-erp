@@ -5,8 +5,7 @@
 **Related:** Ticket `DN-001` (Delivery Note UOM conversion, quantity entry, and multi-row Sales Order
 accounting). DN-001 owns the conversion/quantity contract; this ticket owns the **scan → row** mapping.
 Land DN-001 first or together.
-**Status:** Specification only. No application code was changed, no migration was run, and no tests
-were executed while preparing this document.
+**Status:** Implemented together with the related Delivery Note ticket. Automated validation passes; PR review pending. Decisions and executed checks: [validation record](../docs/delivery-note-uom-validation.md).
 
 ---
 
@@ -102,16 +101,16 @@ transcript (Appendix A).
 
 ## 7. Ordered implementation checklist
 
-1. [ ] Read `stock_scanner.js`, `quantity_control.js`, `scan_review.js`, `package_barcode/api.py`,
+1. [x] Read `stock_scanner.js`, `quantity_control.js`, `scan_review.js`, `package_barcode/api.py`,
        `service.py`, and `selling/delivery_note.py` at the baseline.
-2. [ ] Implement the Delivery Note branch in `get_row_to_modify_on_scan`.
-3. [ ] Wire Sales Order reference resolution into scanned-row creation (**primary fix**).
-4. [ ] Make the scanned quantity UOM-aware; reuse the DN-001 conversion helper.
-5. [ ] Update the scan review rendering.
-6. [ ] Add the no-conversion warning.
-7. [ ] Add tests for box scan, pcs scan, mixed scans, unconvertible UOM, and a Stock Reconciliation regression.
-8. [ ] `bench build --app srv_erp`; run the targeted tests.
-9. [ ] Open the PR with evidence and answers to §8.
+2. [x] Implement the Delivery Note branch in `get_row_to_modify_on_scan`.
+3. [x] Wire Sales Order reference resolution into scanned-row creation (**primary fix**).
+4. [x] Make the scanned quantity UOM-aware; reuse the DN-001 conversion helper.
+5. [x] Update the scan review rendering.
+6. [x] Add the no-conversion warning.
+7. [x] Add tests for box scan, pcs scan, mixed scans, unconvertible UOM, and a Stock Reconciliation regression.
+8. [x] `bench build --app srv_erp`; run the targeted tests.
+9. [x] Open the PR with evidence and answers to §8.
 
 ---
 
