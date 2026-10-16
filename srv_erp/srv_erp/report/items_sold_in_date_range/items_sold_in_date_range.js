@@ -43,7 +43,6 @@ frappe.query_reports["Items Sold in Date Range"] = {
 			default: frappe.defaults.get_user_default("Company"),
 			reqd: 1,
 		},
-		{ fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer" },
 		{
 			fieldname: "customer_group",
 			label: __("Customer Group"),
@@ -84,4 +83,47 @@ frappe.query_reports["Items Sold in Date Range"] = {
 		},
 		{ fieldname: "project", label: __("Project"), fieldtype: "Link", options: "Project" },
 	],
+
+	formatter(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+
+		if (column.fieldname === "voucher" && data && data.voucher_names) {
+			const count = Number(data.voucher_count) || 0;
+			const label = count === 1 ? __("1 Voucher") : __("{0} Vouchers", [count]);
+			value = `<a href="javascript:void(0)" class="items-sold-voucher-link" data-vouchers="${encodeURIComponent(data.voucher_names)}">${label}</a>`;
+		}
+
+		return value;
+	},
+
+	onload(report) {
+		$(report.page.wrapper)
+			.off("click.items_sold_vouchers", ".items-sold-voucher-link")
+			.on("click.items_sold_vouchers", ".items-sold-voucher-link", (event) => {
+				event.preventDefault();
+				const vouchers = decodeURIComponent(
+					$(event.currentTarget).attr("data-vouchers") || ""
+				)
+					.split("||")
+					.filter(Boolean);
+				show_delivery_notes(vouchers);
+			});
+	},
 };
+
+function show_delivery_notes(vouchers) {
+	const links = vouchers
+		.map((voucher) => {
+			const label = frappe.utils.escape_html(voucher);
+			const href = frappe.utils.get_form_link("Delivery Note", voucher);
+			return `<li><a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a></li>`;
+		})
+		.join("");
+	const dialog = new frappe.ui.Dialog({
+		title: __("Contributing Delivery Notes"),
+		fields: [{ fieldname: "delivery_notes", fieldtype: "HTML" }],
+		size: "small",
+	});
+	dialog.fields_dict.delivery_notes.$wrapper.html(`<ul class="mb-0 pl-4">${links}</ul>`);
+	dialog.show();
+}

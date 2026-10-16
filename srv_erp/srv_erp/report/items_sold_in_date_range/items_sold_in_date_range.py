@@ -8,6 +8,12 @@ from frappe.utils import getdate
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
+DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
+RESOLVED_BRAND_SQL = (
+	"COALESCE(NULLIF(variant_brand.attribute_value, ''), "
+	"NULLIF(item.brand, ''), template.brand)"
+)
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -29,25 +35,6 @@ def validate_filters(filters):
 
 def get_columns():
 	return [
-		{
-			"label": _("Delivery Note"),
-			"fieldname": "delivery_note",
-			"fieldtype": "Link",
-			"options": "Delivery Note",
-			"width": 140,
-		},
-		{"label": _("Posting Date"), "fieldname": "posting_date", "fieldtype": "Date", "width": 100},
-		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 140},
-		{"label": _("Customer Name"), "fieldname": "customer_name", "fieldtype": "Data", "width": 180},
-		{
-			"label": _("Customer Group"),
-			"fieldname": "customer_group",
-			"fieldtype": "Link",
-			"options": "Customer Group",
-			"width": 130,
-		},
-		{"label": _("Territory"), "fieldname": "territory", "fieldtype": "Link", "options": "Territory", "width": 120},
-		{"label": _("Sales Person"), "fieldname": "sales_person", "fieldtype": "Data", "width": 150},
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 140},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 180},
 		{
@@ -59,63 +46,74 @@ def get_columns():
 		},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 120},
 		{
-			"label": _("Delivered Qty"),
-			"fieldname": "qty",
+			"label": _("Sold Qty"),
+			"fieldname": "stock_qty",
 			"fieldtype": "Float",
 			"width": 110,
 			"convertible": "qty",
 		},
-		{"label": _("UOM"), "fieldname": "uom_qty", "fieldtype": "Link", "options": "UOM", "width": 90},
-		{"label": _("Stock Qty"), "fieldname": "stock_qty", "fieldtype": "Float", "width": 110},
-		{"label": _("Stock UOM"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 100},
 		{
-			"label": _("Warehouse"),
-			"fieldname": "warehouse",
+			"label": _("Stock UOM"),
+			"fieldname": "uom_stock_qty",
 			"fieldtype": "Link",
-			"options": "Warehouse",
-			"width": 140,
+			"options": "UOM",
+			"width": 100,
 		},
-		{"label": _("Sales Order"), "fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "width": 140},
-		{"label": _("Project"), "fieldname": "project", "fieldtype": "Link", "options": "Project", "width": 120},
-		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 120},
+		{
+			"label": _("Voucher"),
+			"fieldname": "voucher",
+			"fieldtype": "Data",
+			"width": 240,
+		},
+		{
+			"label": _("Voucher Names"),
+			"fieldname": "voucher_names",
+			"fieldtype": "Data",
+			"hidden": 1,
+		},
+		{
+			"label": _("Voucher Count"),
+			"fieldname": "voucher_count",
+			"fieldtype": "Int",
+			"hidden": 1,
+		},
 	]
 
 
 def get_data(filters):
+	filters["brand_variant_attribute"] = (
+		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")
+		or DEFAULT_BRAND_VARIANT_ATTRIBUTE
+	)
 	return frappe.db.sql(
 		f"""
 			SELECT
-				dn.name AS delivery_note,
-				dn.posting_date,
-				dn.customer,
-				dn.customer_name,
-				dn.customer_group,
-				dn.territory,
-				(
-					SELECT GROUP_CONCAT(DISTINCT st.sales_person ORDER BY st.idx SEPARATOR ', ')
-					FROM `tabSales Team` st
-					WHERE st.parent = dn.name AND st.parenttype = 'Delivery Note'
-				) AS sales_person,
 				dni.item_code,
-				dni.item_name,
-				dni.item_group,
-				dni.brand,
-				dni.qty,
-				dni.uom AS uom_qty,
-				dni.stock_qty,
-				dni.stock_uom,
-				dni.warehouse,
-				dni.against_sales_order AS sales_order,
-				dn.project,
-				dn.company
+				MAX(dni.item_name) AS item_name,
+				MAX(dni.item_group) AS item_group,
+				MAX({RESOLVED_BRAND_SQL}) AS brand,
+				SUM(dni.stock_qty) AS stock_qty,
+				MAX(dni.stock_uom) AS uom_stock_qty,
+				GROUP_CONCAT(
+					DISTINCT dn.name
+					ORDER BY dn.name
+					SEPARATOR '||'
+				) AS voucher_names,
+				COUNT(DISTINCT dn.name) AS voucher_count
 			FROM `tabDelivery Note Item` dni
 			INNER JOIN `tabDelivery Note` dn ON dn.name = dni.parent
+			INNER JOIN `tabItem` item ON item.name = dni.item_code
+			LEFT JOIN `tabItem` template ON template.name = item.variant_of
+			LEFT JOIN `tabItem Variant Attribute` variant_brand
+				ON variant_brand.parent = item.name
+				AND variant_brand.attribute = %(brand_variant_attribute)s
 			WHERE
 				dn.docstatus = 1
 				AND COALESCE(dn.is_return, 0) = 0
 				AND dni.qty > 0
 				{get_conditions(filters)}
-			ORDER BY dn.posting_date DESC, dn.name DESC, dni.idx
+			GROUP BY dni.item_code
+			ORDER BY item_name, dni.item_code
 		""",
 		filters,
 		as_dict=True,
@@ -126,11 +124,9 @@ def get_conditions(filters):
 	conditions = []
 	field_map = {
 		"company": "dn.company",
-		"customer": "dn.customer",
 		"territory": "dn.territory",
 		"project": "dn.project",
 		"item_code": "dni.item_code",
-		"brand": "dni.brand",
 		"sales_order": "dni.against_sales_order",
 		"warehouse": "dni.warehouse",
 	}
@@ -150,6 +146,8 @@ def get_conditions(filters):
 		conditions.append(
 			get_descendant_condition("Item Group", "dni.item_group", "item_group")
 		)
+	if filters.get("brand"):
+		conditions.append(f"{RESOLVED_BRAND_SQL} = %(brand)s")
 	if filters.get("sales_person"):
 		conditions.append(
 			"EXISTS ("
