@@ -68,3 +68,9 @@ startup console errors and unavailable socket.io polling on the isolated server.
 They did not block the verified scanner, selection, save or submit flow. Grid
 extensions and realtime configuration are outside this change. The build emits
 the existing Node `url.parse` deprecation warning.
+
+Final production build: `DONE Total Build Time: 163.036ms`, `Done in 1.06s.`,
+`Compiling translations for srv_erp`. Targeted Ruff checks, changed-JS syntax
+checks, and `git diff --check` passed. The inventory test was rechecked after
+its starting-balance assertion was made independent of seeded stock:
+`Ran 1 test in 4.187s / OK`.
