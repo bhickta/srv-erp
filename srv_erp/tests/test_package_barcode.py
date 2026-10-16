@@ -330,14 +330,14 @@ class TestPackageBarcode(FrappeTestCase):
 
 
 class TestDeliveryNoteBarcodeQuantities(FrappeTestCase):
-	def test_mixed_scans_are_compared_in_stock_uom_across_rows(self):
+	def test_mixed_scans_are_compared_per_item_and_uom(self):
 		from unittest.mock import patch
 
 		doc = frappe._dict(
 			doctype="Delivery Note",
 			items=[
-				frappe._dict(item_code="ITEM", qty=1, stock_qty=20),
-				frappe._dict(item_code="ITEM", qty=3, stock_qty=3),
+				frappe._dict(item_code="ITEM", uom="Box", qty=1, stock_qty=20),
+				frappe._dict(item_code="ITEM", uom="Nos", qty=3, stock_qty=3),
 			],
 			package_barcodes=[
 				frappe._dict(item_code="ITEM", uom="Box"),
@@ -354,6 +354,18 @@ class TestDeliveryNoteBarcodeQuantities(FrappeTestCase):
 			),
 		):
 			PackageBarcodeTransactionValidator(doc).validate_barcode_only_quantities()
-			doc["items"][1].stock_qty = 4
+			doc["items"][1].qty = 4
+			with self.assertRaises(PackageBarcodeError):
+				PackageBarcodeTransactionValidator(doc).validate_barcode_only_quantities()
+
+	def test_force_scans_cannot_be_merged_into_equivalent_quantity_in_another_uom(self):
+		from unittest.mock import patch
+
+		doc = frappe._dict(
+			doctype="Delivery Note",
+			items=[frappe._dict(item_code="ITEM", uom="Box", qty=1, stock_qty=20)],
+			package_barcodes=[frappe._dict(item_code="ITEM", uom="Nos") for _count in range(20)],
+		)
+		with patch("srv_erp.package_barcode.service.get_barcode_only_items", return_value={"ITEM"}):
 			with self.assertRaises(PackageBarcodeError):
 				PackageBarcodeTransactionValidator(doc).validate_barcode_only_quantities()
