@@ -1,5 +1,7 @@
 # Delivery Note UOM and barcode delivery (DN-001 / DN-002)
 
+> Historical validation record. The 2026-10-16 requirements replace fractional package entry and mixed-UOM row merging. See [whole-UOM rows and variant fulfillment](delivery-note-uom-variant-substitution.md) for the current contract.
+
 The implementation uses the latest production base `790a314`, rather than the
 older ticket baseline `1898613`. DN-001 and DN-002 ship together because scanned
 row targeting depends on the conversion and Sales Order accounting contract.

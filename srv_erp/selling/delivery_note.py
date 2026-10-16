@@ -20,16 +20,38 @@ def reconcile_delivery_quantities(doc, method=None):
 	for row in doc.get("items", []):
 		if not row.item_code:
 			continue
+		if not flt(row.qty).is_integer():
+			frappe.throw(
+				_(
+					"Row {0}: Delivery quantity must be a whole number in {1}. Add a separate row for another UOM."
+				).format(row.idx, row.uom)
+			)
 		if flt(row.qty) < 0:
 			frappe.throw(_("Row {0}: Use a return Delivery Note for negative quantities.").format(row.idx))
 		row.stock_uom, row.conversion_factor = resolve_delivery_uom_conversion(row.item_code, row.uom)
 		row.stock_qty = flt(flt(row.qty) * row.conversion_factor, row.precision("stock_qty"))
 
 
-def validate_delivery_sales_order_quantities(doc, method=None):
+def are_delivery_items_compatible(ordered_item, dispatched_item):
+	if ordered_item == dispatched_item:
+		return True
+	ordered = frappe.get_cached_value("Item", ordered_item, ["variant_of", "stock_uom"], as_dict=True)
+	dispatched = frappe.get_cached_value("Item", dispatched_item, ["variant_of", "stock_uom"], as_dict=True)
+	return bool(
+		ordered
+		and dispatched
+		and ordered.variant_of
+		and ordered.variant_of == dispatched.variant_of
+		and ordered.stock_uom == dispatched.stock_uom
+	)
+
+
+def validate_delivery_sales_order_references(doc):
+	"""Validate fulfillment links independently of the optional over-delivery guard."""
 	if doc.get("is_return"):
-		return
+		return {}
 	scanned_items = {scan.item_code for scan in doc.get("package_barcodes", [])}
+	scanned_items.update(row.item_code for row in doc.get("items", []) if row.get("barcode"))
 	validate_sales_order_reference(
 		frappe._dict(
 			customer=doc.customer,
@@ -38,20 +60,30 @@ def validate_delivery_sales_order_quantities(doc, method=None):
 			],
 		)
 	)
-	orders = {}
-	for name in sorted(
-		{row.against_sales_order for row in doc.get("items", []) if row.get("against_sales_order")}
-	):
-		# Lock orders in a stable order to serialize simultaneous submissions.
-		orders[name] = frappe.get_doc("Sales Order", name, for_update=True)
-	totals = {}
+	for item_code in {
+		row.item_code
+		for row in doc.get("items", [])
+		if row.item_code in scanned_items and not row.get("against_sales_order")
+	}:
+		if get_delivery_scan_sales_order_items(doc.customer, doc.company, item_code):
+			frappe.throw(
+				_(
+					"Item {0}: Select the Sales Order line fulfilled by this scanned item or substitute variant."
+				).format(item_code)
+			)
+	orders = {
+		name: frappe.get_doc("Sales Order", name, for_update=True)
+		for name in sorted(
+			{row.against_sales_order for row in doc.get("items", []) if row.get("against_sales_order")}
+		)
+	}
+	lines = {}
 	for row in doc.get("items", []):
 		if not row.get("against_sales_order") and not row.get("so_detail"):
 			continue
 		if not row.get("against_sales_order") or not row.get("so_detail"):
 			frappe.throw(_("Row {0}: Select both the Sales Order and its item line.").format(row.idx))
-		name = row.against_sales_order
-		so = orders[name]
+		so = orders[row.against_sales_order]
 		line = next((line for line in so.items if line.name == row.so_detail), None)
 		if (
 			so.docstatus != 1
@@ -59,18 +91,31 @@ def validate_delivery_sales_order_quantities(doc, method=None):
 			or so.customer != doc.customer
 			or so.company != doc.company
 			or not line
-			or line.item_code != row.item_code
+			or not are_delivery_items_compatible(line.item_code, row.item_code)
+			or line.stock_uom != row.stock_uom
 		):
 			frappe.throw(
-				_("Row {0}: Invalid Sales Order item reference for {1}.").format(row.idx, row.item_code)
+				_(
+					"Row {0}: Invalid Sales Order item reference for {1}. Only variants of the same template and stock UOM may be substituted."
+				).format(row.idx, row.item_code)
 			)
-		key = (name, line.name)
-		totals[key] = totals.get(key, 0) + flt(row.stock_qty)
+		lines[row.so_detail] = line
+	return lines
+
+
+def validate_delivery_sales_order_quantities(doc, method=None):
+	lines = validate_delivery_sales_order_references(doc)
+	totals = {}
+	for row in doc.get("items", []):
+		if row.get("so_detail") not in lines:
+			continue
+		line = lines[row.so_detail]
+		totals[line.name] = totals.get(line.name, 0) + flt(row.stock_qty)
 		pending = (flt(line.qty) - flt(line.delivered_qty)) * flt(line.conversion_factor)
-		if flt(totals[key] - pending, row.precision("stock_qty")) > 0:
+		if flt(totals[line.name] - pending, row.precision("stock_qty")) > 0:
 			frappe.throw(
 				_("Item {0}: delivery exceeds the pending quantity on Sales Order {1} ({2} {3}).").format(
-					row.item_code, name, pending, row.stock_uom
+					row.item_code, row.against_sales_order, pending, row.stock_uom
 				)
 			)
 
@@ -90,10 +135,10 @@ def get_delivery_scan_sales_order_items(customer, company, item_code):
 		limit_page_length=0,
 	)
 	return [
-		line
+		{**line, "is_substitution": line["item_code"] != item_code}
 		for name in orders
 		for line in get_sales_order_items_for_delivery_note(name)
-		if line["item_code"] == item_code and line["pending_stock_qty"] > 0
+		if are_delivery_items_compatible(line["item_code"], item_code) and line["pending_stock_qty"] > 0
 	]
 
 
@@ -178,6 +223,7 @@ def get_sales_order_items_for_delivery_note(sales_order):
 	return [
 		{
 			"item_code": row.item_code,
+			"idx": row.idx,
 			"so_detail": row.name,
 			"against_sales_order": so.name,
 			"qty": row.qty,
