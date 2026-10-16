@@ -1,10 +1,10 @@
 import frappe
 from erpnext.controllers.item_variant import create_variant
 from erpnext.stock.doctype.item.test_item import make_item
-from frappe.tests.utils import FrappeTestCase
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestItemGroupSync(FrappeTestCase):
+class TestItemGroupSync(ERPNextTestSuite):
 	def setUp(self):
 		super().setUp()
 		frappe.db.set_single_value("Masters Settings", "enforce_variant_approval", 0)

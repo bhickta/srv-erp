@@ -11,15 +11,10 @@ srv_erp.grid_columns.get_template = function (parent_doctype, child_doctype) {
 	return templates[parent_doctype]?.[child_doctype] || null;
 };
 
-srv_erp.grid_v15.installers.push(function (grid) {
-    const Grid = grid.constructor;
-    const GridRow = grid.header_row?.constructor || grid.grid_rows?.[0]?.constructor;
-    if (!GridRow || Grid.prototype._srv_columns_installed) return;
-    Grid.prototype._srv_columns_installed = true;
 const standard_setup_user_defined_columns =
-	Grid.prototype.setup_user_defined_columns;
+	frappe.ui.form.Grid.prototype.setup_user_defined_columns;
 
-Grid.prototype.setup_user_defined_columns = function () {
+frappe.ui.form.Grid.prototype.setup_user_defined_columns = function () {
 	if (this.frm) {
 		const template = srv_erp.grid_columns.get_template(this.frm.doctype, this.doctype);
 		if (template?.length) {
@@ -33,9 +28,9 @@ Grid.prototype.setup_user_defined_columns = function () {
 };
 
 const standard_configure_columns =
-	GridRow.prototype.configure_dialog_for_columns_selector;
+	frappe.ui.form.GridRow.prototype.configure_dialog_for_columns_selector;
 
-GridRow.prototype.configure_dialog_for_columns_selector = function () {
+frappe.ui.form.GridRow.prototype.configure_dialog_for_columns_selector = function () {
 	standard_configure_columns.apply(this, arguments);
 
 	if (!this.frm || !srv_erp.grid_columns.get_boot_config().can_publish) {
@@ -79,5 +74,3 @@ GridRow.prototype.configure_dialog_for_columns_selector = function () {
 		);
 	});
 };
-
-});

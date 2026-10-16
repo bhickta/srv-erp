@@ -120,12 +120,6 @@ function setup_default_workflow_state_filter(listview) {
 			"in",
 			"Approved, Pending"
 		);
-		listview.filter_area.add(
-			listview.doctype,
-			"status",
-			"!=",
-			"closed"
-		);
 	}
 }
 

@@ -16,7 +16,6 @@ class TestOrderSlipPermission(FrappeTestCase):
 	def test_read_permission_allows_printing(self, frappe):
 		frappe.has_permission.side_effect = [False, True]
 		order = MagicMock(doctype="Sales Order")
-		order.get.return_value = 0
 
 		ensure_print_permission(order)
 
@@ -32,7 +31,6 @@ class TestOrderSlipPermission(FrappeTestCase):
 	def test_missing_read_and_print_permission_is_rejected(self, frappe):
 		frappe.has_permission.return_value = False
 		order = MagicMock(doctype="Sales Order")
-		order.get.return_value = 0
 
 		ensure_print_permission(order)
 

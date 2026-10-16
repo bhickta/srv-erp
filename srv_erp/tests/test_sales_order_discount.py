@@ -1,5 +1,5 @@
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 
 from srv_erp.selling.sales_order_discount import (
 	apply_sales_order_rate_discount,
@@ -12,7 +12,7 @@ class SalesOrderDiscountRow(frappe._dict):
 		return 2
 
 
-class TestSalesOrderDiscount(FrappeTestCase):
+class TestSalesOrderDiscount(IntegrationTestCase):
 	def test_sales_order_discount_percentage_must_be_between_zero_and_hundred(self):
 		doc = SalesOrderDiscountDoc(
 			{
