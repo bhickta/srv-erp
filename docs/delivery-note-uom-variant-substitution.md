@@ -68,3 +68,33 @@ startup console errors and unavailable socket.io polling on the isolated server.
 They did not block the verified scanner, selection, save or submit flow. Grid
 extensions and realtime configuration are outside this change. The build emits
 the existing Node `url.parse` deprecation warning.
+
+Final production build: `DONE Total Build Time: 163.036ms`, `Done in 1.06s.`,
+`Compiling translations for srv_erp`. Targeted Ruff checks, changed-JS syntax
+checks, and `git diff --check` passed. The inventory test was rechecked after
+its starting-balance assertion was made independent of seeded stock:
+`Ran 1 test in 4.187s / OK`.
+
+## Dev branch validation
+
+Dev starts from `ba768cd` and retains its OEM hooks, existing reference policy
+and enabled aggregate quantity hook. No hook configuration changed in this PR.
+The candidate was tested against `dn-uom-dev-test.localhost`, a separate
+synthetic database with OEM metadata intact, using the same commands above:
+
+```text
+Delivery Note UOM/substitution integration: Ran 32 tests in 83.693s / OK
+Barcode regression: Ran 14 tests in 1.797s / OK
+Sales Order reference regression: Ran 9 tests in 0.062s / OK
+Node scanner/display tests: tests 26 / pass 26 / fail 0
+Asset build: DONE Total Build Time: 196.187ms / Done in 1.19s.
+Compiling translations for srv_erp
+Targeted Ruff, JS syntax checks and git diff --check: passed
+```
+
+Dev has two fewer pre-existing Purchase Receipt regression tests than production;
+its Purchase Receipt behavior is preserved. Browser screenshots and browser
+acceptance above are from the production candidate. Both targets run the shared
+scanner/display tests and full UOM/substitution integration suite.
+
+Production companion: https://github.com/bhickta/srv-erp/pull/92
