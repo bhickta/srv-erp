@@ -23,7 +23,41 @@ class SRVSalesInvoice(DeliveryUOMMixin, SalesInvoice):
 	def validate_with_previous_doc(self):
 		if self.is_return:
 			return super().validate_with_previous_doc()
+		from srv_erp.selling.delivery_note import are_delivery_items_compatible
+
 		for row in self.items:
+			if row.so_detail:
+				line = frappe.db.get_value(
+					"Sales Order Item", row.so_detail, ["parent", "item_code", "stock_uom"], as_dict=True
+				)
+				if not line or line.parent != row.sales_order:
+					frappe.throw(_("Row {0}: Invalid Sales Order item reference.").format(row.idx))
+				if row.dn_detail:
+					delivery = frappe.db.get_value(
+						"Delivery Note Item",
+						row.dn_detail,
+						["parent", "so_detail", "item_code", "stock_uom"],
+						as_dict=True,
+					)
+					if (
+						not delivery
+						or delivery.parent != row.delivery_note
+						or delivery.so_detail != row.so_detail
+						or delivery.item_code != row.item_code
+						or delivery.stock_uom != line.stock_uom
+						or not are_delivery_items_compatible(line.item_code, row.item_code)
+					):
+						frappe.throw(
+							_(
+								"Row {0}: Invoice must retain the Delivery Note's Sales Order fulfillment link."
+							).format(row.idx)
+						)
+				elif line.item_code != row.item_code:
+					frappe.throw(
+						_("Row {0}: Variant substitutions must be invoiced from their Delivery Note.").format(
+							row.idx
+						)
+					)
 			if row.so_detail and not row.dn_detail:
 				line = frappe.db.get_value(
 					"Sales Order Item", row.so_detail, ["uom", "conversion_factor"], as_dict=True
@@ -50,7 +84,7 @@ class SRVSalesInvoice(DeliveryUOMMixin, SalesInvoice):
 				},
 				"Sales Order Item": {
 					"ref_dn_field": "so_detail",
-					"compare_fields": [["item_code", "="]],
+					"compare_fields": [],
 					"is_child_table": True,
 					"allow_duplicate_prev_row_id": True,
 				},

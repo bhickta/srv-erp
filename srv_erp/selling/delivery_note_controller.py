@@ -58,6 +58,9 @@ class SRVDeliveryNote(DeliveryUOMMixin, DeliveryNote):
 	def validate_with_previous_doc(self):
 		if self.is_return:
 			return super().validate_with_previous_doc()
+		from srv_erp.selling.delivery_note import validate_delivery_sales_order_references
+
+		validate_delivery_sales_order_references(self)
 		StockController.validate_with_previous_doc(
 			self,
 			{
@@ -72,7 +75,7 @@ class SRVDeliveryNote(DeliveryUOMMixin, DeliveryNote):
 				},
 				"Sales Order Item": {
 					"ref_dn_field": "so_detail",
-					"compare_fields": [["item_code", "="]],
+					"compare_fields": [],
 					"is_child_table": True,
 					"allow_duplicate_prev_row_id": True,
 				},

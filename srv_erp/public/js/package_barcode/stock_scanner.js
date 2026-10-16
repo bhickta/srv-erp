@@ -106,8 +106,8 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		return this.update_delivery_note_table(data);
 	}
 
-	choose_delivery_target(options, label) {
-		if (options.length === 1) return Promise.resolve(options[0].value);
+	choose_delivery_target(options, label, confirm = false) {
+		if (options.length === 1 && !confirm) return Promise.resolve(options[0].value);
 		return new Promise((resolve, reject) => {
 			let chosen = false;
 			const dialog = new frappe.ui.Dialog({
@@ -135,37 +135,40 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		const scan_factor = flt(details.conversion_factors[scan_uom]);
 		if (scan_factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan_uom, data.item_code]));
 		const warehouse = this.frm.doc.last_scanned_warehouse || data.default_warehouse || this.frm.doc.set_warehouse;
+		const added_qty = Number(data.qty ?? 1);
+		if (!Number.isInteger(added_qty) || added_qty <= 0) {
+			frappe.throw(__("Scanned quantity must be a positive whole number in {0}.", [scan_uom]));
+		}
 		const candidates = (this.frm.doc.items || []).filter((row) =>
 			row.item_code === data.item_code && (!warehouse || !row.warehouse || row.warehouse === warehouse) &&
-			(!row.batch_no || row.batch_no === data.batch_no) && !row.si_detail &&
-			flt(details.conversion_factors[row.uom]) > 0
+			(!row.batch_no || row.batch_no === data.batch_no) && !row.si_detail
 		);
+		const exact = candidates.filter((row) => row.uom === scan_uom);
 		const linked = candidates.filter((row) => row.against_sales_order && row.so_detail);
-		const pool = linked.length ? linked : candidates;
-		const lines = new Set(pool.map((row) => row.so_detail || ""));
-		let row;
-		if (lines.size > 1) {
-			row = await this.choose_delivery_target(pool.map((row) => ({ value: row,
-				label: `${row.idx}: ${row.against_sales_order || ""} / ${row.so_detail || ""} (${row.uom})` })), __("Select Sales Order Item / UOM to Keep"));
+		let reference;
+		if (linked.length) {
+			const preferred = exact.filter((row) => row.against_sales_order && row.so_detail);
+			const choices = [...new Map((preferred.length ? preferred : linked).map((row) => [row.so_detail, row])).values()];
+			reference = await this.choose_delivery_target(choices.map((row) => ({ value: row,
+				label: __("{0}, Delivery Row {1}: {2} ({3})", [row.against_sales_order, row.idx, row.item_code, row.uom]) })), __("Select Sales Order Item"));
 		} else {
-			const exact = pool.filter((row) => row.uom === scan_uom);
-			const targets = exact.length ? exact : pool;
-			if (targets.length) row = await this.choose_delivery_target(targets.map((row) => ({ value: row,
-				label: `${row.idx}: ${row.item_code} (${row.uom})` })), __("Select Item Row / UOM to Keep"));
-		}
-		let reference = row?.so_detail ? { against_sales_order: row.against_sales_order, so_detail: row.so_detail } : null;
-		if (!reference) {
 			const response = await frappe.call({ method: "srv_erp.selling.delivery_note.get_delivery_scan_sales_order_items",
 				args: { customer: this.frm.doc.customer, company: this.frm.doc.company, item_code: data.item_code } });
 			const options = response.message || [];
-			if (options.length) reference = await this.choose_delivery_target(options.map((line) => ({ value: line,
-				label: `${line.against_sales_order} / ${line.so_detail} (${line.uom})` })), __("Select Sales Order Item"));
+			const choices = [...options].sort((left, right) => Number(!!left.is_substitution) - Number(!!right.is_substitution));
+			if (choices.length) reference = await this.choose_delivery_target(choices.map((line) => ({ value: line,
+				label: __("{0}, Row {1}: {2} ({3} {4} pending)", [line.against_sales_order, line.idx, line.item_code || data.item_code, line.pending_stock_qty, line.stock_uom || scan_uom]) })),
+				choices.some((line) => line.is_substitution) ? __("Select Ordered Variant to Fulfill") : __("Select Sales Order Item"),
+				choices.some((line) => line.is_substitution));
 		}
+		const targets = exact.filter((row) => !row.so_detail || row.so_detail === reference?.so_detail);
+		let row;
+		if (targets.length) row = await this.choose_delivery_target(targets.map((row) => ({ value: row,
+			label: `${row.idx}: ${row.item_code} (${row.uom})` })), __("Select Item Row"));
 		const is_new = !row;
-		const kept_uom = row?.uom || scan_uom;
-		const factor = flt(details.conversion_factors[kept_uom]);
+		const kept_uom = scan_uom;
+		const factor = scan_factor;
 		const previous_qty = flt(row?.qty);
-		const added_qty = flt(data.qty || 1) * scan_factor / factor;
 		if (row && this.is_duplicate_serial_no(row, data.serial_no)) throw new Error(__("Serial number already scanned"));
 		if (!row) {
 			if (this.dont_allow_new_row) frappe.throw(__("Cannot add another item row."));
@@ -215,7 +218,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 			const rows = (this.frm.doc.items || []).filter((row) => row.item_code === item_code &&
 				(!warehouse || !row.warehouse || row.warehouse === warehouse) &&
 				(!row.batch_no || row.batch_no === batch_no) && !row.si_detail);
-			return rows.find((row) => row.uom === uom) || rows.find((row) => flt(row.conversion_factor) > 0) ||
+			return rows.find((row) => row.uom === uom) ||
 				(this.frm.doc.items || []).find((row) => !row.item_code);
 		}
 		if (this.frm.doctype !== "Stock Reconciliation" || !this.stock_reconciliation_package_uom) {
