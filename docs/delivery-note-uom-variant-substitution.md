@@ -60,9 +60,6 @@ A follow-up database check confirmed Blue stock fell from 100 to 78 while Red
 stock stayed at 0. Cancellation restored delivered quantity to 0 and Blue stock
 to 100. All documents were synthetic records in the disposable site.
 
-![Ordered-variant selection](images/delivery-variant-selection.png)
-![Submitted Delivery Note with separate whole-UOM rows](images/delivery-variant-uom-rows.png)
-
 The local browser run also encountered existing production grid-extension
 startup console errors and unavailable socket.io polling on the isolated server.
 They did not block the verified scanner, selection, save or submit flow. Grid
@@ -93,8 +90,7 @@ Targeted Ruff, JS syntax checks and git diff --check: passed
 ```
 
 Dev has two fewer pre-existing Purchase Receipt regression tests than production;
-its Purchase Receipt behavior is preserved. Browser screenshots and browser
-acceptance above are from the production candidate. Both targets run the shared
+its Purchase Receipt behavior is preserved. Browser acceptance above is from the production candidate. Both targets run the shared
 scanner/display tests and full UOM/substitution integration suite.
 
 Production companion: https://github.com/bhickta/srv-erp/pull/92
