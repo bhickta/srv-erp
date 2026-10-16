@@ -234,9 +234,30 @@ class PackageBarcodeTransactionValidator:
 		if not barcode_only_items:
 			return
 
-		if self.doc.doctype == "Stock Reconciliation" or (
-			self.doc.doctype == "Delivery Note" and not self.doc.get("is_return")
-		):
+		if self.doc.doctype == "Delivery Note" and not self.doc.get("is_return"):
+			keys = {(row.item_code, row.uom) for row in self.rows if row.item_code in barcode_only_items}
+			keys.update(
+				(row.item_code, row.uom)
+				for row in self.doc.get("items") or []
+				if row.item_code in barcode_only_items
+			)
+			for item_code, uom in keys:
+				expected = sum(1 for scan in self.rows if scan.item_code == item_code and scan.uom == uom)
+				actual = sum(
+					flt(row.qty)
+					for row in self.doc.get("items") or []
+					if row.item_code == item_code and row.uom == uom
+				)
+				if not quantities_match(actual, expected):
+					frappe.throw(
+						_("Item {0}: quantity in {1} must equal {2} from Package Barcode scans.").format(
+							item_code, uom, expected
+						),
+						PackageBarcodeError,
+					)
+			return
+
+		if self.doc.doctype == "Stock Reconciliation":
 			scanned_qty = get_scanned_stock_qty_by_item(self.rows)
 		else:
 			scanned_qty = get_scanned_qty_by_item(self.rows)

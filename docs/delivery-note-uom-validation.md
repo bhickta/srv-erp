@@ -1,5 +1,7 @@
 # Delivery Note UOM and barcode delivery (DN-001 / DN-002)
 
+> Historical validation record. The 2026-10-16 requirements replace fractional package entry and mixed-UOM row merging. See [whole-UOM rows and variant fulfillment](delivery-note-uom-variant-substitution.md) for the current contract.
+
 The implementation uses the latest production base `790a314`, rather than the
 older ticket baseline `1898613`. DN-001 and DN-002 ship together because scanned
 row targeting depends on the conversion and Sales Order accounting contract.
@@ -90,29 +92,3 @@ Ran 19 tests in 43.971s
 
 OK
 ```
-
-## Dev branch validation
-
-The dev candidate starts from `origin/dev` at `8b435cb`. It preserves the OEM
-controller/permission/downstream hooks, shared grid assets, and the existing
-blanket SO-reference hook. It also carries the production zero-quantity mapping
-and submit pruning so both environments have the ticket's draft behavior.
-
-The same commands were run on a second disposable clone,
-`dn-uom-dev-test.localhost`, with the OEM metadata intact and the candidate dev
-worktree on the import path. Results:
-
-```text
-Delivery Note UOM integration: Ran 19 tests in 48.540s / OK
-Package barcode regression: Ran 13 tests in 1.515s / OK
-Sales Order reference regression: Ran 9 tests in 0.061s / OK
-Node scanner tests: tests 18 / pass 18 / fail 0
-Asset build: DONE Total Build Time: 163.361ms / Done in 1.09s.
-Compiling translations for srv_erp
-Targeted Ruff and JS syntax checks: passed
-git diff --check: passed
-```
-
-The dev barcode suite has two fewer pre-existing Purchase Receipt tests than
-production; its existing Purchase Receipt hook differences are preserved.
-Production review: https://github.com/bhickta/srv-erp/pull/90
