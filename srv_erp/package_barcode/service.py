@@ -265,8 +265,12 @@ class PackageBarcodeTransactionValidator:
 		item_rows = list(self.doc.get("items") or [])
 		mismatches = []
 
-		if self.doc.doctype == "Stock Reconciliation":
-			row_qty_by_item = get_transaction_qty_by_item(item_rows, quantity_field)
+		if self.doc.doctype == "Stock Reconciliation" or (
+			self.doc.doctype == "Delivery Note" and not self.doc.get("is_return")
+		):
+			row_qty_by_item = get_transaction_qty_by_item(
+				item_rows, "stock_qty" if self.doc.doctype == "Delivery Note" else quantity_field
+			)
 			for item_code in barcode_only_items:
 				row_qty = row_qty_by_item.get(item_code, 0)
 				expected_qty = scanned_qty.get(item_code, 0)

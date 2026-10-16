@@ -1,0 +1,3 @@
+{
+ "doctype": "Page", "name": "oem-catalog", "page_name": "oem-catalog", "title": "OEM Catalog", "module": "OEM Catalog", "standard": "Yes", "roles": [{"role": "OEM Catalog User"}, {"role": "OEM Catalog Approver"}, {"role": "OEM Catalog Manager"}]
+}

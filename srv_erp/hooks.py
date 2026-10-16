@@ -34,6 +34,7 @@ app_include_css = "/assets/srv_erp/css/srv_erp.css"
 app_include_js = [
 	"/assets/srv_erp/js/sales_person_defaults.js",
 	"/assets/srv_erp/js/dynamic_item_request.js",
+	"/assets/srv_erp/js/grid_v15.js",
 	"/assets/srv_erp/js/grid_column_templates.js",
 	"/assets/srv_erp/js/grid_bulk_delete.js",
 ]
@@ -162,10 +163,10 @@ doctype_list_js = {
 # Installation
 # ------------
 
-# before_install = "srv_erp.install.before_install"
-after_install = "srv_erp.install.after_install"
+before_install = "srv_erp.install.before_install"
+after_install = ["srv_erp.install.after_install", "srv_erp.oem_catalog.infrastructure.setup.setup"]
 before_migrate = "srv_erp.install.before_migrate"
-after_migrate = ["srv_erp.install.after_migrate"]
+after_migrate = ["srv_erp.install.after_migrate", "srv_erp.oem_catalog.infrastructure.setup.setup"]
 
 # Uninstallation
 # ------------
@@ -276,7 +277,7 @@ doc_events = {
 			#"srv_erp.selling.delivery_note.validate_delivery_sales_order_quantities",
 			"srv_erp.package_barcode.service.validate_stock_transaction",
 		],
-  		"before_validate": [
+		"before_validate": [
 			"srv_erp.selling.delivery_note.remove_zero_quantity_items_on_submit",
 			"srv_erp.selling.delivery_note.prepare_delivery_note_quantities",
 			"srv_erp.selling.delivery_note.reconcile_delivery_quantities"
@@ -330,6 +331,7 @@ override_doctype_class = {
 # ------------------------------
 #
 override_whitelisted_methods = {
+	"erpnext.selling.doctype.sales_order.sales_order.make_delivery_note": "srv_erp.selling.delivery_note.make_delivery_note",
 	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "srv_erp.masters.dynamic_item.bulk_guard.enqueue_multiple_variant_creation",
 	"erpnext.controllers.item_variant.create_variant_doc_for_quick_entry": "srv_erp.masters.dynamic_item.bulk_guard.create_variant_doc_for_quick_entry",
 	"erpnext.selling.doctype.sales_order.sales_order.make_delivery_note": "srv_erp.selling.delivery_note.make_delivery_note",
@@ -402,3 +404,42 @@ override_whitelisted_methods = {
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# OEM privacy is enforced on generic REST reads as well as command endpoints.
+permission_query_conditions = {
+    "OEM Configuration Draft": "srv_erp.oem_catalog.permissions.private_query",
+    "OEM Configuration Request": "srv_erp.oem_catalog.permissions.private_query",
+    "OEM Request Source": "srv_erp.oem_catalog.permissions.private_query",
+}
+has_permission = {
+    "OEM Configuration Draft": "srv_erp.oem_catalog.permissions.private_permission",
+    "OEM Configuration Request": "srv_erp.oem_catalog.permissions.private_permission",
+    "OEM Request Source": "srv_erp.oem_catalog.permissions.private_permission",
+}
+doc_events["File"] = {"validate": "srv_erp.oem_catalog.application.assets.protect_file", "on_trash": "srv_erp.oem_catalog.application.assets.protect_file"}
+
+override_doctype_class["Sales Order"] = "srv_erp.oem_catalog.adapters.sales_order_controller.OEMSalesOrder"
+doc_events["Sales Order"]["validate"].append("srv_erp.oem_catalog.hooks.sales_order.validate")
+doc_events["Sales Order"]["on_update"] = "srv_erp.oem_catalog.adapters.pending_order_lines.persist_sources"
+
+doc_events["Item"]["validate"].append("srv_erp.oem_catalog.hooks.item.protect")
+doc_events["Item"]["on_trash"] = "srv_erp.oem_catalog.hooks.item.protect_delete"
+for _oem_doctype in ("Delivery Note", "Sales Invoice", "Stock Entry", "Stock Reconciliation", "Purchase Receipt", "BOM", "Work Order", "Pick List"):
+    _oem_events = doc_events.setdefault(_oem_doctype, {})
+    _oem_validate = _oem_events.get("validate", [])
+    if isinstance(_oem_validate, str): _oem_validate = [_oem_validate]
+    _oem_events["validate"] = [*_oem_validate, "srv_erp.oem_catalog.hooks.downstream.validate"]
+
+app_include_js.extend(["/assets/srv_erp/js/oem_catalog/api.js", "/assets/srv_erp/js/oem_catalog/configurator.js"])
+app_include_css = [app_include_css, "/assets/srv_erp/css/oem_catalog.css"]
+
+doctype_js["Sales Order"] = [doctype_js["Sales Order"], "public/js/oem_catalog/sales_order.js"]
+
+for _oem_private_doctype in ("OEM Configuration Request", "OEM Request Source", "OEM Specification", "OEM Item Binding", "OEM Command Receipt", "OEM Barcode Intent", "OEM Import Review", "OEM Audit Event", "OEM Outbox Event"):
+    has_permission[_oem_private_doctype] = "srv_erp.oem_catalog.permissions.deny_generic_operational_read"
+
+scheduler_events = {"hourly": ["srv_erp.oem_catalog.infrastructure.outbox.deliver_pending"]}
+
+app_include_js.append("/assets/srv_erp/js/oem_catalog/admin.js")
+
+doc_events["Sales Order"]["before_print"] = "srv_erp.oem_catalog.hooks.printing.before_print"

@@ -1,0 +1,19 @@
+name: OEM domain and boundaries
+on: [pull_request, push]
+jobs:
+  domain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python -m unittest srv_erp.tests.oem_catalog.test_domain srv_erp.tests.oem_catalog.test_rules_defaults srv_erp.tests.oem_catalog.test_boundaries -v
+      - run: python -m compileall -q srv_erp/oem_catalog
+      - run: |
+          for path in srv_erp/public/js/oem_catalog/*.js srv_erp/oem_catalog/page/oem_catalog/*.js; do
+            node --check "$path"
+          done

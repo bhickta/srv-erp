@@ -70,6 +70,7 @@ def get_subtotal_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 180},
 		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 180},
+		{"label": _("Attributes"), "fieldname": "attributes", "fieldtype": "Data", "width": 220},
 		{"label": _("Sales Orders"), "fieldname": "sales_orders", "fieldtype": "Data", "width": 120},
 		{"label": _("UOM Used"), "fieldname": "stock_uom", "fieldtype": "Link", "options": "UOM", "width": 100},
 		{"label": _("Ordered"), "fieldname": "qty", "fieldtype": "Float", "width": 130},
@@ -353,12 +354,54 @@ def get_subtotal_data(filters, conditions):
 		as_dict=True,
 	)
 
+	item_rows = ordered_rows + stock_rows
+	attributes_by_item = get_item_variant_attributes(
+		[row.actual_item_code for row in item_rows],
+		filters["brand_variant_attribute"],
+	)
+	for row in item_rows:
+		row.attributes = attributes_by_item.get(row.actual_item_code, [])
+
 	rows = convert_and_group_subtotal_rows(
-		ordered_rows + stock_rows,
+		item_rows,
 		filters.get("include_uom"),
 		display_mode=filters.get("quantity_uom") or SO_UOM,
 	)
 	return append_item_code_subtotals(rows)
+
+
+def get_item_variant_attributes(item_codes, excluded_attribute=DEFAULT_BRAND_VARIANT_ATTRIBUTE):
+	item_codes = list({item_code for item_code in item_codes if item_code})
+	if not item_codes:
+		return {}
+
+	excluded_attribute = (excluded_attribute or "").strip().casefold()
+	attributes_by_item = {}
+	for row in frappe.get_all(
+		"Item Variant Attribute",
+		filters={"parent": ("in", item_codes)},
+		fields=["parent", "attribute", "attribute_value"],
+		order_by="parent, idx",
+		limit_page_length=0,
+	):
+		attribute = row.get("attribute")
+		value = row.get("attribute_value")
+		if (
+			not attribute
+			or attribute.strip().casefold() == excluded_attribute
+			or value is None
+			or value == ""
+		):
+			continue
+
+		value = str(value).strip()
+		if not value:
+			continue
+		attributes = attributes_by_item.setdefault(row.parent, [])
+		if value not in attributes:
+			attributes.append(value)
+
+	return attributes_by_item
 
 
 def convert_and_group_subtotal_rows(
@@ -384,8 +427,10 @@ def convert_and_group_subtotal_rows(
 				item_code=row.item_code,
 				brand=row.brand,
 				stock_uom=row.stock_uom,
+				attributes=set(),
 			),
 		)
+		item.attributes.update(row.get("attributes") or [])
 		for fieldname in base_quantity_fields:
 			item[fieldname] = item.get(fieldname, 0) + flt(row.get(fieldname))
 		merge_sales_orders(item, row.get("sales_orders"))
@@ -416,11 +461,20 @@ def convert_and_group_subtotal_rows(
 		key = (row.item_code, row.brand, display_uom)
 		group = grouped.setdefault(
 			key,
-			frappe._dict(item_code=row.item_code, brand=row.brand, stock_uom=display_uom),
+			frappe._dict(
+				item_code=row.item_code,
+				brand=row.brand,
+				stock_uom=display_uom,
+				attributes=set(),
+			),
 		)
+		group.attributes.update(row.attributes)
 		merge_sales_orders(group, row.get("sales_orders"))
 		for fieldname in quantity_fields:
 			group[fieldname] = group.get(fieldname, 0) + flt(row.get(fieldname)) / factor
+
+	for row in grouped.values():
+		row.attributes = ", ".join(sorted(row.attributes))
 
 	return [grouped[key] for key in sorted(grouped, key=lambda key: tuple(value or "" for value in key))]
 

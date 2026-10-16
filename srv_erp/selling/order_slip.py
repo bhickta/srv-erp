@@ -13,6 +13,8 @@ MAX_ORDERS_PER_PRINT = 200
 
 
 def ensure_print_permission(order: "frappe.Document") -> None:
+	from srv_erp.oem_catalog.hooks.printing import guard_official_print
+	guard_official_print(order)
 	for ptype in ("read", "print"):
 		if frappe.has_permission(order.doctype, ptype, order):
 			return

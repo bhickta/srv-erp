@@ -23,6 +23,7 @@
 	.total-row td { border-top: 1px solid #9ca3af; border-bottom: 2px solid #6b7280; font-weight: 700; }
 	.spacer-row td { height: 8px; padding: 0; border: 0; }
 	.number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.item-attributes { font-size: 8.5pt; overflow-wrap: anywhere; }
 	.qty-uom { color: #6b7280; font-size: 8.5pt; font-weight: 500; }
 	.qty-ordered { color: #1a73e8; background: #e8f0fe; }
 	.qty-good { color: #137333; background: #e6f4ea; }
@@ -58,13 +59,14 @@
 
 <table class="report-table">
 	<colgroup>
-		<col style="width: 20%;"><col style="width: 20%;"><col style="width: 10%;">
-		<col style="width: 12.5%;"><col style="width: 12.5%;"><col style="width: 12.5%;"><col style="width: 12.5%;">
+		<col style="width: 15%;"><col style="width: 15%;"><col style="width: 20%;"><col style="width: 8%;">
+		<col style="width: 10.5%;"><col style="width: 10.5%;"><col style="width: 10.5%;"><col style="width: 10.5%;">
 	</colgroup>
 	<thead>
 		<tr>
 			<th style="text-align: left;">{%= __("Item Code") %}</th>
 			<th style="text-align: left;">{%= __("Brand") %}</th>
+			<th style="text-align: left;">{%= __("Attributes") %}</th>
 			<th style="text-align: left;">{%= __("UOM Used") %}</th>
 			<th class="number qty-ordered">{%= __("Ordered") %}</th>
 			<th class="number qty-good">{%= __("Delivered") %}</th>
@@ -76,15 +78,16 @@
 		{% for (let i = 0; i < data.length; i++) { %}
 			{% const row = data[i]; %}
 			{% if (!Object.keys(row).length) { %}
-				<tr class="spacer-row"><td colspan="7"></td></tr>
+				<tr class="spacer-row"><td colspan="8"></td></tr>
 			{% } else if (row.is_group) { %}
-				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="6"></td></tr>
+				<tr class="item-group"><td>{%= row.item_code || "" %}</td><td colspan="7"></td></tr>
 			{% } else { %}
 				{% const has_shortfall = flt(row.stock_shortfall_qty) > 0; %}
 				{% const stock_sufficient = flt(row.stock_available_qty) >= Math.max(flt(row.qty) - flt(row.stock_delivered_qty), 0); %}
 				<tr class="{% if (row.is_total) { %}total-row{% } %}">
 					<td></td>
 					<td class="item-brand">{%= row.brand || "" %}</td>
+					<td class="item-attributes">{%= row.attributes || "" %}</td>
 					<td>{%= row.stock_uom || "" %}</td>
 					<td class="number production-cell qty-ordered">{{ quantity(row.qty, row.stock_uom) }}</td>
 					<td class="number production-cell {% if (flt(row.stock_delivered_qty) > 0) { %}qty-good{% } else { %}qty-short{% } %}">{{ quantity(row.stock_delivered_qty, row.stock_uom) }}</td>
