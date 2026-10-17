@@ -1,14 +1,17 @@
-from unittest import TestCase
+from unittest import TestCase, skipUnless
 from unittest.mock import patch
 
 from frappe import _dict
-from frappe.model.db_query import validate_generated_query
+from frappe.model import db_query
 
 from srv_erp.selling.sales_order_list import (
 	LiveCustomerGroupSalesOrderQuery,
 	_extract_live_group_bounds,
 	_extract_live_group_names,
 )
+
+
+validate_generated_query = getattr(db_query, "validate_generated_query", None)
 
 
 class TestSalesOrderList(TestCase):
@@ -45,16 +48,54 @@ class TestSalesOrderList(TestCase):
 
 	@patch("frappe.model.db_query.DatabaseQuery.prepare_args")
 	def test_joins_live_customer_groups_without_subqueries(self, prepare_args):
+		for tracks_user_tables in (False, True):
+			for bounds, names in ([(10, 25)], []), ([], [["Tour"]]), ([(10, 25)], [["Tour"]]):
+				with self.subTest(tracks_user_tables=tracks_user_tables, bounds=bounds, names=names):
+					def prepare_parent(query):
+						if tracks_user_tables:
+							query._user_tables = "`tabSales Order`"
+						return _dict({"tables": "`tabSales Order`"})
+
+					query = LiveCustomerGroupSalesOrderQuery.__new__(LiveCustomerGroupSalesOrderQuery)
+					query.group_bounds = bounds
+					query.group_names = names
+					# Frappe initializes this optional attribute in prepare_args, not __init__.
+					prepare_args.side_effect = lambda: prepare_parent(query)
+					args = query.prepare_args()
+					self.assertIn("INNER JOIN `tabCustomer` live_customer", args.tables)
+					self.assertIn("INNER JOIN `tabCustomer Group` live_customer_group", args.tables)
+					self.assertNotIn("SELECT", args.tables.upper())
+					if tracks_user_tables:
+						self.assertEqual(query._user_tables, args.tables)
+					else:
+						self.assertFalse(hasattr(query, "_user_tables"))
+
+	@patch("frappe.model.db_query.DatabaseQuery.prepare_args")
+	def test_unfiltered_query_does_not_join_customers(self, prepare_args):
+		for tracks_user_tables in (False, True):
+			with self.subTest(tracks_user_tables=tracks_user_tables):
+				prepare_args.return_value = _dict({"tables": "`tabSales Order`"})
+				query = LiveCustomerGroupSalesOrderQuery.__new__(LiveCustomerGroupSalesOrderQuery)
+				query.group_bounds = []
+				query.group_names = []
+				if tracks_user_tables:
+					query._user_tables = "`tabSales Order`"
+				args = query.prepare_args()
+				self.assertEqual(args.tables, "`tabSales Order`")
+				if tracks_user_tables:
+					self.assertEqual(query._user_tables, args.tables)
+				else:
+					self.assertFalse(hasattr(query, "_user_tables"))
+
+	@skipUnless(validate_generated_query, "This Frappe version has no generated-query validator")
+	@patch("frappe.model.db_query.DatabaseQuery.prepare_args")
+	def test_live_customer_joins_pass_generated_query_validation(self, prepare_args):
 		prepare_args.return_value = _dict({"tables": "`tabSales Order`"})
 		query = LiveCustomerGroupSalesOrderQuery.__new__(LiveCustomerGroupSalesOrderQuery)
 		query.group_bounds = [(10, 25)]
 		query.group_names = [["Tour"]]
 		query._user_tables = "`tabSales Order`"
-
-		args = query.prepare_args()
-		self.assertIn("INNER JOIN `tabCustomer` live_customer", args.tables)
-		self.assertIn("INNER JOIN `tabCustomer Group` live_customer_group", args.tables)
-		self.assertEqual(query._user_tables, args.tables)
+		query.prepare_args()
 
 		validate_generated_query(
 			"select `tabSales Order`.name "
