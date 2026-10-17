@@ -35,4 +35,3 @@ def get_approvals(cursor=0):
         records.append({'request': doc.name, 'modified': str(doc.modified), 'requested_by': doc.requested_by,
                         'requested_on': doc.requested_on, 'snapshot': json.loads(doc.configuration_snapshot_json)})
     return {'requests': records}
-

@@ -34,4 +34,3 @@ def endpoint(write=False):
                     raise
         return frappe.whitelist(methods=['POST'] if write else ['GET', 'POST'])(call)
     return decorate
-

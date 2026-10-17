@@ -71,4 +71,3 @@ def get_saved_orders(cursor=0):
     require_role()
     return {'orders': frappe.get_list('Sales Order', filters={'docstatus': 0, 'oem_order_entry_enabled': 1},
                     fields=['name', 'customer', 'oem_configuration_status', 'oem_unresolved_line_count', 'modified'], start=max(0, int(cursor)), page_length=30, order_by='modified desc')}
-
