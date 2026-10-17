@@ -4,8 +4,15 @@ function oem_order_context(frm) {
 }
 // Scope the Brand / Marka picker to the customer's authorized brands (mirrors the
 // server rule). No customer or governance off -> no restriction.
-async function oem_scope_brand(frm) {
+function oem_scope_brand(frm) {
+    frm.__oem_brand_request ||= srv_erp.oem.latest_request();
+    const is_current = frm.__oem_brand_request();
+    frm.__oem_brand_scope = oem_load_brands(frm, is_current);
+    return frm.__oem_brand_scope;
+}
+async function oem_load_brands(frm, is_current) {
     const brands = await srv_erp.oem.customer_brands(frm.doc.customer, frm.doc.company);
+    if (!is_current()) return;
     frm.__oem_authorized_brands = brands;
     frm.set_query('brand_filter', () => srv_erp.oem.brand_query(frm.__oem_authorized_brands));
     if (brands !== null && frm.doc.brand_filter && !brands.some(brand => brand.value === frm.doc.brand_filter)) {
@@ -15,6 +22,13 @@ async function oem_scope_brand(frm) {
         frm.__oem_brand_notice = true;
         frappe.show_alert({message: __('No authorized brand for this customer. A manager must add an OEM Customer Brand association.'), indicator: 'orange'});
     }
+}
+async function oem_wait_brand_scope(frm) {
+    let current;
+    do {
+        current = frm.__oem_brand_scope || oem_scope_brand(frm);
+        await current;
+    } while (current !== frm.__oem_brand_scope);
 }
 async function oem_apply(frm, pending) {
     if (pending._oem_applying) return;
@@ -89,7 +103,8 @@ frappe.ui.form.on('Sales Order', {
         frm.set_df_property('oem_line_cards', 'hidden', false);
         oem_render_lines(frm);
         if (frm.doc.docstatus) return;
-        if (settings.sales_order) frm.add_custom_button(__('Configure OEM Item'), () => {
+        if (settings.sales_order) frm.add_custom_button(__('Configure OEM Item'), async () => {
+            await oem_wait_brand_scope(frm);
             if (!frm.doc.customer || !frm.doc.company || !frm.doc.brand_filter) { frappe.msgprint(__('Choose Customer, Company and Brand first.')); return; }
             const intent = srv_erp.oem.uuid();
             new srv_erp.oem.Configurator(oem_order_context(frm), {adapter: 'sales_order', doctype: 'Sales Order', field: 'items', document: frm.is_new() ? null : frm.doc.name, modified: frm.doc.modified, row_intent_id: intent}, async (result, payload, preview) => {
