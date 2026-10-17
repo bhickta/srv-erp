@@ -2,9 +2,12 @@ frappe.pages['oem-catalog'].on_page_load = function (wrapper) {
     const page = frappe.ui.make_app_page({parent: wrapper, title: __('OEM Catalog'), single_column: true});
     const root = $('<div class="oem-stack">').appendTo(page.body);
     const context = {}, controls = {};
+    const brand_request = srv_erp.oem.latest_request();
     const current_context = () => { Object.entries(controls).forEach(([key, control]) => { context[key] = control.get_value() || null; }); return {...context}; };
     const scope_brand = async () => {
+        const is_current = brand_request();
         const brands = await srv_erp.oem.customer_brands(controls.customer.get_value(), controls.company.get_value());
+        if (!is_current()) return;
         controls.brand.df.get_query = () => srv_erp.oem.brand_query(brands);
         const current = controls.brand.get_value();
         if (brands !== null && !brands.some(brand => brand.value === current)) {

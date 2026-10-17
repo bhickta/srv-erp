@@ -4,7 +4,7 @@ from decimal import Decimal
 import frappe
 from frappe import _
 
-from srv_erp.oem_catalog.application.configure import active_binding
+from srv_erp.oem_catalog.application.bindings import active_binding
 from srv_erp.oem_catalog.permissions import available
 
 

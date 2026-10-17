@@ -3,9 +3,10 @@ from decimal import Decimal
 import frappe
 from frappe import _
 
+from srv_erp.oem_catalog.domain.uoms import factors_match, transaction_factor
 from srv_erp.oem_catalog.infrastructure.commands import Receipt, audit, digest, encoded, insert, lock
 from srv_erp.oem_catalog.permissions import authorize_context, readable
-from .configure import active_binding
+from .bindings import active_binding
 
 
 def generate(specification, context, package_code, count, idempotency_key):
@@ -30,8 +31,8 @@ def generate(specification, context, package_code, count, idempotency_key):
     revision = readable('OEM Product Revision', spec.product_revision)
     package = next((row for row in revision.packaging_choices if row.code == package_code and row.enabled), None)
     if not package: frappe.throw(_('Choose an approved package.'))
-    factor = next((row.conversion_factor for row in item.uoms if row.uom == package.transaction_uom), 1 if item.stock_uom == package.transaction_uom else None)
-    if factor is None or Decimal(str(factor)) != Decimal(package.conversion_factor):
+    factor = transaction_factor(item.stock_uom, ((row.uom, row.conversion_factor) for row in item.uoms), package.transaction_uom)
+    if not factors_match(factor, package.conversion_factor):
         frappe.throw(_('UNSUPPORTED_SCAN_UOM: package factor does not match stock.'))
     from srv_erp.oem_catalog.application.assets import verified_bytes
     if package.asset_revision: verified_bytes(readable('OEM Asset Revision', package.asset_revision), context)

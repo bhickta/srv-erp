@@ -5,6 +5,15 @@ srv_erp.oem.call = async function (method, args = {}) {
 };
 srv_erp.oem.uuid = () => crypto.randomUUID();
 srv_erp.oem.escape = (value) => frappe.utils.escape_html(String(value ?? ''));
+// Each caller owns a guard. Starting another request makes every earlier
+// completion stale, even when the context changes away and then back again.
+srv_erp.oem.latest_request = function () {
+    let sequence = 0;
+    return () => {
+        const current = ++sequence;
+        return () => current === sequence;
+    };
+};
 srv_erp.oem._ui_settings = null;
 srv_erp.oem.get_ui_settings = async function () {
     if (!srv_erp.oem._ui_settings) srv_erp.oem._ui_settings = await srv_erp.oem.call('get_ui_settings');

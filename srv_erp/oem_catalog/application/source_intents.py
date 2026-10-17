@@ -6,7 +6,7 @@ from frappe import _
 from srv_erp.oem_catalog.infrastructure.commands import Receipt
 from srv_erp.oem_catalog.infrastructure.dto import object_input
 from srv_erp.oem_catalog.permissions import authorize_context
-from .configure import active_binding
+from .bindings import active_binding
 
 ORDER_FIELDS = {'name', 'customer', 'company', 'transaction_date', 'delivery_date', 'brand_filter', 'currency', 'selling_price_list',
                 'oem_order_entry_enabled', 'oem_pending_lines', 'items', 'taxes_and_charges', 'set_warehouse', 'po_no', 'po_date'}

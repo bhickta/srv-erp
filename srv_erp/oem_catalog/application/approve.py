@@ -10,7 +10,8 @@ from srv_erp.oem_catalog.domain.transitions import decide
 from srv_erp.oem_catalog.infrastructure.commands import Receipt, audit, encoded, insert, lock, notify, save
 from srv_erp.oem_catalog.infrastructure.item_materializer import materialize
 from srv_erp.oem_catalog.permissions import authorize_context, request_access
-from .configure import active_binding, validated
+from .bindings import active_binding
+from .configuration import validate_configuration
 
 
 def approve(request_name, expected_modified, reason, idempotency_key):
@@ -29,7 +30,9 @@ def approve(request_name, expected_modified, reason, idempotency_key):
     if str(request.modified) != expected_modified:
         frappe.throw(_('REQUEST_STATE_CONFLICT: refresh this request.'))
     decide(request.status, 'Approved', request.requested_by, frappe.session.user, reason, bool(cfg.allow_self_approval))
-    payload_now, product, revision, identity, provenance, package = validated(payload)
+    configuration = validate_configuration(payload)
+    product, revision, identity = configuration.product, configuration.revision, configuration.identity
+    provenance, package = configuration.provenance, configuration.package
     if identity.canonical_json != spec.canonical_json:
         frappe.throw(_('STALE_CONFIGURATION: physical configuration changed.'))
     binding, item = active_binding(spec.name, payload['context'], current=True)

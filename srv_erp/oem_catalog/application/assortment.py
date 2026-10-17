@@ -7,7 +7,7 @@ from frappe.utils import now_datetime
 from srv_erp.oem_catalog.infrastructure.commands import Receipt, digest, get_or_insert, save
 from srv_erp.oem_catalog.infrastructure.dto import object_input
 from srv_erp.oem_catalog.permissions import authorize_context
-from .configure import active_binding
+from .bindings import active_binding
 
 
 def alias(payload, idempotency_key):

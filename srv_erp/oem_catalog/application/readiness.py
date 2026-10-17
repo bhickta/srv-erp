@@ -1,12 +1,13 @@
 import frappe
 from frappe.utils import today
 
+from srv_erp.oem_catalog.domain.uoms import factors_match, transaction_factor
+
 
 def readiness(item, revision, context, package):
     defaults = next((row for row in revision.company_defaults if row.company == context.get('company')), None)
-    factor = next((row.conversion_factor for row in item.uoms if row.uom == package.uom), 1 if item.stock_uom == package.uom else None)
-    from decimal import Decimal
-    barcode = factor is not None and Decimal(str(factor)) == package.factor
+    factor = transaction_factor(item.stock_uom, ((row.uom, row.conversion_factor) for row in item.uoms), package.uom)
+    barcode = factors_match(factor, package.factor)
     price = None
     if defaults and defaults.selling_price_list:
         from erpnext.stock.get_item_details import get_price_list_rate_for
