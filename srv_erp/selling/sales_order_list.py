@@ -21,7 +21,9 @@ class LiveCustomerGroupSalesOrderQuery(DatabaseQuery):
 				INNER JOIN `tabCustomer Group` live_customer_group
 				ON live_customer_group.name = live_customer.customer_group"""
 			args.tables += customer_joins
-			self._user_tables += customer_joins
+			# Only newer Frappe versions track user query tables separately.
+			if hasattr(self, "_user_tables"):
+				self._user_tables += customer_joins
 		return args
 
 	def build_conditions(self):
