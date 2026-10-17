@@ -3,7 +3,7 @@ import json
 import frappe
 from frappe import _
 
-from srv_erp.oem_catalog.application.configure import active_binding
+from srv_erp.oem_catalog.application.bindings import active_binding
 from srv_erp.oem_catalog.domain.packaging import exact_positive
 from srv_erp.oem_catalog.infrastructure.commands import digest
 from srv_erp.oem_catalog.permissions import authorize_context, available, settings

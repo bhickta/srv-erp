@@ -8,7 +8,7 @@ from srv_erp.oem_catalog.domain.fingerprints import fingerprint
 from srv_erp.oem_catalog.infrastructure.commands import Receipt, audit, digest, encoded, get_or_insert, insert, lock, save
 from srv_erp.oem_catalog.infrastructure.dto import object_input
 from srv_erp.oem_catalog.permissions import authorize_context, readable, require_role
-from .configure import validated
+from .configuration import validate_configuration
 
 
 def source_signature(item):
@@ -34,7 +34,9 @@ def verify_legacy(item, identity, revision, package, evidence):
 def preview_import(scope, kind, idempotency_key):
     require_role('manager')
     scope = object_input(scope, {'payload', 'stock_items', 'evidence'})
-    payload, product, revision, identity, provenance, package = validated(scope['payload'])
+    configuration = validate_configuration(scope['payload'])
+    payload, product, revision = configuration.payload, configuration.product, configuration.revision
+    identity, provenance, package = configuration.identity, configuration.provenance, configuration.package
     authorize_context(payload['context'], product.name, write=True, capability='manager')
     sources = scope.get('stock_items', [])
     if not isinstance(sources, list) or not 1 <= len(sources) <= 100 or len(sources) != len(set(sources)):
@@ -97,7 +99,9 @@ def apply_import(review_name, plan_hash, idempotency_key):
     for row in review.rows:
         if row.status != 'Approved': continue
         proposed = json.loads(row.proposed_json)
-        payload, product, revision, identity, provenance, package = validated(proposed['payload'])
+        configuration = validate_configuration(proposed['payload'])
+        payload, product, revision = configuration.payload, configuration.product, configuration.revision
+        identity, provenance, package = configuration.identity, configuration.provenance, configuration.package
         authorize_context(payload['context'], product.name, write=True, capability='manager')
         item = readable('Item', row.source_record)
         if source_signature(item) != row.source_fingerprint:

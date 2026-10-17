@@ -5,11 +5,13 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+from srv_erp.oem_catalog.domain.uoms import factors_match, transaction_factor
 from srv_erp.oem_catalog.domain.transitions import decide
 from srv_erp.oem_catalog.infrastructure.commands import Receipt, audit, digest, encoded, get_or_insert, insert, lock, notify, save
 from srv_erp.oem_catalog.infrastructure.dto import configuration_input
 from srv_erp.oem_catalog.permissions import authorize_context, request_access, settings
-from .configure import active_binding, validated
+from .bindings import active_binding
+from .configuration import validate_configuration
 
 
 def submit(payload, idempotency_key):
@@ -20,7 +22,9 @@ def submit(payload, idempotency_key):
         if receipt.replay.get('item_code'):
             frappe.get_doc('Item', receipt.replay['item_code']).check_permission('read')
         return receipt.replay
-    payload, product, revision, identity, provenance, package = validated(payload)
+    configuration = validate_configuration(payload)
+    payload, product, revision = configuration.payload, configuration.product, configuration.revision
+    identity, provenance, package = configuration.identity, configuration.provenance, configuration.package
     spec, _ = get_or_insert('OEM Specification', {'identity_hash': identity.digest},
                            {'identity_hash': identity.digest, 'canonical_json': identity.canonical_json,
                             'product': product.name, 'product_revision': revision.name, 'identity_namespace': revision.identity_namespace,
@@ -32,12 +36,11 @@ def submit(payload, idempotency_key):
     binding, item = active_binding(spec.name, payload['context'], current=True)
     kind, active_key, proposals = 'Release Specification', 'release:' + identity.digest, []
     if binding:
-        from decimal import Decimal
-        factor = next((row.conversion_factor for row in item.uoms if row.uom == package.uom), 1 if package.uom == item.stock_uom else None)
+        factor = transaction_factor(item.stock_uom, ((row.uom, row.conversion_factor) for row in item.uoms), package.uom)
         if factor is None:
             kind, proposals = 'Add Transaction UOM', [{'uom': package.uom, 'factor': str(package.factor)}]
             active_key = 'uom:' + binding.name + ':' + digest(proposals)
-        elif Decimal(str(factor)) != package.factor:
+        elif not factors_match(factor, package.factor):
             frappe.throw(_('CONFIGURATION_CONFLICT: released UOM factor cannot change.'))
         else:
             return receipt.finish({'api_version': 1, 'outcome': 'EXISTING', 'specification': spec.name, 'item_code': item.name, 'binding': binding.name})
