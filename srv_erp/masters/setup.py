@@ -206,6 +206,20 @@ def bootstrap_dynamic_variant_profiles():
 		if get_dynamic_variant_profile_name(template):
 			continue
 
+		# Item renames update the link but retain the profile's original name.
+		# A new template can reuse that name; preserve the existing configuration
+		# and give only the new profile an available, length-safe alternate name.
+		insert_options = {"ignore_permissions": True}
+		base_name = template.strip()
+		profile_name = base_name
+		counter = 0
+		while frappe.db.exists("Dynamic Variant Profile", profile_name):
+			counter += 1
+			suffix = f"-{counter}"
+			profile_name = base_name[: 140 - len(suffix)] + suffix
+		if counter:
+			insert_options["set_name"] = profile_name
+
 		profile = frappe.get_doc(
 			{
 				"doctype": "Dynamic Variant Profile",
@@ -227,7 +241,7 @@ def bootstrap_dynamic_variant_profiles():
 					"allow_new_values": 0,
 				},
 			)
-		profile.insert(ignore_permissions=True)
+		profile.insert(**insert_options)
 		created += 1
 	return created
 
