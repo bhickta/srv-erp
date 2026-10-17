@@ -109,3 +109,16 @@ Commit the plan and focused workstreams, push, and open a reviewable PR to `dev`
 The existing release checklist still applies: passing this refactor's tests does
 not certify mobile UAT, historical migration, downstream integration, or live
 activation readiness.
+
+## Audit decisions and deferred work
+
+The read-service extraction may correct HTTP boolean parsing for the existing
+`favourites` filter: strings `false` and `0` must mean false. Cover accepted true
+and false values and reject unsupported values. This is an intentional API input
+correction, not a response/schema change.
+
+Keep publication locking and draft optimistic-concurrency redesign separate:
+they require a dedicated concurrency design and database race tests. Also defer
+request-list deduplication/source ordering, default-profile candidate filtering,
+and admin-editor retry-key behavior. These findings do not justify mixing
+publication lifecycle or user-visible list semantics into service extraction.
