@@ -46,6 +46,23 @@ WORKFLOW_ACTIONS = (
 	ACTION_CANCEL,
 )
 
+# Child rows are replaced when this app updates its workflow. Include the
+# implicit defaults in comparisons so legacy conditions and optional states
+# still get removed, while database NULL/blank values do not cause extra saves.
+WORKFLOW_STATE_DEFAULTS = {
+	"update_field": "",
+	"update_value": "",
+	"is_optional_state": 0,
+	"avoid_status_override": 0,
+	"next_action_email_template": "",
+	"send_email": 1,
+	"message": "",
+}
+WORKFLOW_TRANSITION_DEFAULTS = {
+	"condition": "",
+	"send_email_to_creator": 0,
+}
+
 
 def build_sales_order_item_approval_workflow(
 	approver_role: str, allow_self_approval: bool = False
@@ -216,11 +233,55 @@ def ensure_workflow_action_masters():
 			).insert(ignore_permissions=True)
 
 
+def _workflow_matches_payload(workflow, payload: dict) -> bool:
+	def matches(document, values):
+		for key, expected in values.items():
+			actual = document.get(key)
+			# Frappe Check fields persist as integers; blank text may be NULL.
+			if isinstance(expected, int):
+				if isinstance(actual, bool):
+					actual = int(actual)
+				if str(actual or 0) != str(expected):
+					return False
+			elif str(actual if actual is not None else "") != str(expected):
+				return False
+		return True
+
+	if not matches(
+		workflow,
+		{key: value for key, value in payload.items() if key not in ("doctype", "states", "transitions")},
+	):
+		return False
+
+	for fieldname, defaults in (
+		("states", WORKFLOW_STATE_DEFAULTS),
+		("transitions", WORKFLOW_TRANSITION_DEFAULTS),
+	):
+		actual_rows = workflow.get(fieldname) or []
+		expected_rows = payload[fieldname]
+		if len(actual_rows) != len(expected_rows):
+			return False
+		for actual, expected in zip(actual_rows, expected_rows):
+			if not matches(actual, {**defaults, **expected}):
+				return False
+	return True
+
+
 def upsert_sales_order_item_approval_workflow(approver_role: str, allow_self_approval: bool = False):
 	payload = build_sales_order_item_approval_workflow(approver_role, allow_self_approval)
 
 	if frappe.db.exists("Workflow", WORKFLOW_NAME):
 		workflow = frappe.get_doc("Workflow", WORKFLOW_NAME)
+		# Workflow.on_update backfills Sales Orders even when no settings changed.
+		# Avoid that broad UPDATE (and concurrent-write conflicts) on routine migrate.
+		if (
+			_workflow_matches_payload(workflow, payload)
+			and frappe.get_meta(SALES_ORDER).get_field(WORKFLOW_STATE_FIELD)
+			and not frappe.db.exists(
+				"Workflow", {"document_type": SALES_ORDER, "is_active": 1, "name": ["!=", WORKFLOW_NAME]}
+			)
+		):
+			return
 		workflow.states = []
 		workflow.transitions = []
 		for key, value in payload.items():
@@ -261,24 +322,31 @@ def backfill_sales_order_workflow_states():
 	# Orders saved before the workflow existed (or imported) have no state yet;
 	# seed it from docstatus. Historical non-canonical states are handled once by
 	# the `sales_order_workflow_states` patch and by normalization on save.
-	frappe.db.sql(
-		"""
-		UPDATE `tabSales Order`
-		SET workflow_state = CASE docstatus
-			WHEN 1 THEN %(approved)s
-			WHEN 2 THEN %(cancelled)s
-			ELSE %(pending)s
-		END
-		WHERE IFNULL(workflow_state, '') = ''
-		""",
-		{
-			"approved": STATE_APPROVED,
-			"cancelled": STATE_CANCELLED,
-			"pending": STATE_PENDING,
-		},
-	)
+	if frappe.db.sql(
+		"""SELECT name FROM `tabSales Order`
+		WHERE IFNULL(workflow_state, '') = '' LIMIT 1"""
+	):
+		frappe.db.sql(
+			"""
+			UPDATE `tabSales Order`
+			SET workflow_state = CASE docstatus
+				WHEN 1 THEN %(approved)s
+				WHEN 2 THEN %(cancelled)s
+				ELSE %(pending)s
+			END
+			WHERE IFNULL(workflow_state, '') = ''
+			""",
+			{
+				"approved": STATE_APPROVED,
+				"cancelled": STATE_CANCELLED,
+				"pending": STATE_PENDING,
+			},
+		)
 
-	if frappe.db.has_column(SALES_ORDER, APPROVED_FIELD):
+	if frappe.db.has_column(SALES_ORDER, APPROVED_FIELD) and frappe.db.sql(
+		f"""SELECT name FROM `tabSales Order`
+		WHERE docstatus = 1 AND IFNULL({APPROVED_FIELD}, 0) = 0 LIMIT 1"""
+	):
 		frappe.db.sql(
 			f"""
 			UPDATE `tabSales Order`
