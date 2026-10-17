@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import frappe
 
@@ -36,6 +36,7 @@ from srv_erp.selling.sales_order_item_approval_setup import (
 	STATE_CANCELLED,
 	STATE_PENDING,
 	STATE_REJECTED,
+	backfill_sales_order_workflow_states,
 	build_sales_order_item_approval_workflow,
 	sync_sales_order_item_approval_workflow,
 	upsert_sales_order_item_approval_workflow,
@@ -431,7 +432,9 @@ class TestSalesOrderItemApprovalProvisioning(TestCase):
 	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
 	def test_upsert_updates_existing_workflow_in_place(self, frappe_mock):
 		frappe_mock.db.exists.return_value = True
-		workflow_mock = frappe_mock.get_doc.return_value
+		workflow_mock = self.persisted_workflow()
+		workflow_mock.states[0].allow_edit = "Old Requester"
+		frappe_mock.get_doc.return_value = workflow_mock
 
 		upsert_sales_order_item_approval_workflow("Sales Manager")
 
@@ -439,6 +442,141 @@ class TestSalesOrderItemApprovalProvisioning(TestCase):
 		self.assertEqual(workflow_mock.transitions, [])
 		self.assertTrue(workflow_mock.append.called)
 		workflow_mock.save.assert_called_once_with(ignore_permissions=True)
+
+	@staticmethod
+	def persisted_workflow():
+		workflow = FakeDoc(build_sales_order_item_approval_workflow("Sales Manager"))
+		workflow.states = [
+			FakeDoc(
+				{
+					"name": f"state-{index}",
+					"idx": index,
+					"is_optional_state": 0,
+					"avoid_status_override": 0,
+					"send_email": 1,
+					"update_field": None,
+					"update_value": None,
+					"message": None,
+					"next_action_email_template": None,
+					**row,
+				}
+			)
+			for index, row in enumerate(workflow.states, 1)
+		]
+		workflow.transitions = [
+			FakeDoc(
+				{
+					"name": f"transition-{index}",
+					"idx": index,
+					"condition": None,
+					"send_email_to_creator": 0,
+					**row,
+				}
+			)
+			for index, row in enumerate(workflow.transitions, 1)
+		]
+		workflow.save = MagicMock()
+		workflow.append = MagicMock()
+		return workflow
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_repeated_provisioning_does_not_save_matching_workflow(self, frappe_mock):
+		workflow = self.persisted_workflow()
+		frappe_mock.db.exists.side_effect = lambda doctype, name: isinstance(name, str)
+		frappe_mock.get_doc.return_value = workflow
+		original_states = workflow.states
+		original_transitions = workflow.transitions
+		workflow.save.side_effect = AssertionError("Workflow save would run Sales Order backfill")
+
+		upsert_sales_order_item_approval_workflow("Sales Manager")
+		upsert_sales_order_item_approval_workflow("Sales Manager")
+
+		workflow.save.assert_not_called()
+		workflow.append.assert_not_called()
+		self.assertIs(workflow.states, original_states)
+		self.assertIs(workflow.transitions, original_transitions)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_checks_normalize_database_strings(self, frappe_mock):
+		workflow = self.persisted_workflow()
+		workflow.is_active = True
+		for row in [workflow, *workflow.states, *workflow.transitions]:
+			for fieldname, value in row.items():
+				if isinstance(value, int) and not isinstance(value, bool):
+					row[fieldname] = str(value)
+		frappe_mock.db.exists.side_effect = lambda doctype, name: isinstance(name, str)
+		frappe_mock.get_doc.return_value = workflow
+
+		upsert_sales_order_item_approval_workflow("Sales Manager")
+
+		workflow.save.assert_not_called()
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_matching_workflow_still_saves_to_deactivate_competing_workflows(self, frappe_mock):
+		workflow = self.persisted_workflow()
+		frappe_mock.db.exists.return_value = True
+		frappe_mock.get_doc.return_value = workflow
+
+		upsert_sales_order_item_approval_workflow("Sales Manager")
+
+		workflow.save.assert_called_once_with(ignore_permissions=True)
+		filters = frappe_mock.db.exists.call_args.args[1]
+		self.assertEqual(filters["document_type"], "Sales Order")
+		self.assertEqual(filters["is_active"], 1)
+		self.assertEqual(filters["name"], ["!=", workflow.workflow_name])
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_matching_workflow_still_saves_to_recreate_missing_state_field(self, frappe_mock):
+		workflow = self.persisted_workflow()
+		frappe_mock.db.exists.side_effect = lambda doctype, name: isinstance(name, str)
+		frappe_mock.get_doc.return_value = workflow
+		frappe_mock.get_meta.return_value.get_field.return_value = None
+
+		upsert_sales_order_item_approval_workflow("Sales Manager")
+
+		workflow.save.assert_called_once_with(ignore_permissions=True)
+		frappe_mock.get_meta.assert_called_once_with("Sales Order")
+		frappe_mock.get_meta.return_value.get_field.assert_called_once_with(WORKFLOW_STATE_FIELD)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_provisioning_still_reconciles_changed_workflow(self, frappe_mock):
+		changes = {
+			"inactive": lambda doc: doc.set("is_active", 0),
+			"indicator": lambda doc: doc.set("override_status", 1),
+			"state field": lambda doc: doc.set("workflow_state_field", "old_state"),
+			"optional state": lambda doc: doc.states[0].set("is_optional_state", 1),
+			"state email": lambda doc: doc.states[0].set("send_email", 0),
+			"state update": lambda doc: doc.states[0].set("update_value", "1"),
+			"legacy condition": lambda doc: doc.transitions[0].set("condition", "doc.total > 100"),
+			"approval permission": lambda doc: doc.transitions[0].set("allow_self_approval", 1),
+			"transition role": lambda doc: doc.transitions[0].set("allowed", "Old Approver"),
+			"state ordering": lambda doc: doc.states.reverse(),
+			"transition ordering": lambda doc: doc.transitions.reverse(),
+			"extra state": lambda doc: doc.states.append(FakeDoc(state="Legacy")),
+			"missing transition": lambda doc: doc.transitions.pop(),
+		}
+		frappe_mock.db.exists.return_value = True
+		for description, change in changes.items():
+			with self.subTest(description=description):
+				workflow = self.persisted_workflow()
+				change(workflow)
+				frappe_mock.get_doc.return_value = workflow
+
+				upsert_sales_order_item_approval_workflow("Sales Manager")
+
+				workflow.save.assert_called_once_with(ignore_permissions=True)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_setting_changes_still_save_workflow(self, frappe_mock):
+		frappe_mock.db.exists.return_value = True
+		for role, self_approval in (("New Approver", False), ("Sales Manager", True)):
+			with self.subTest(role=role, self_approval=self_approval):
+				workflow = self.persisted_workflow()
+				frappe_mock.get_doc.return_value = workflow
+
+				upsert_sales_order_item_approval_workflow(role, self_approval)
+
+				workflow.save.assert_called_once_with(ignore_permissions=True)
 
 	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
 	def test_upsert_inserts_when_missing(self, frappe_mock):
@@ -449,6 +587,53 @@ class TestSalesOrderItemApprovalProvisioning(TestCase):
 		payload = frappe_mock.get_doc.call_args.args[0]
 		self.assertEqual(payload["doctype"], "Workflow")
 		frappe_mock.get_doc.return_value.insert.assert_called_once_with(ignore_permissions=True)
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.is_enabled", return_value=True)
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_backfill_skips_updates_when_no_orders_need_repair(self, frappe_mock, enabled):
+		frappe_mock.db.has_column.return_value = True
+		frappe_mock.db.sql.return_value = []
+
+		backfill_sales_order_workflow_states()
+
+		self.assertEqual(frappe_mock.db.sql.call_count, 2)
+		for query in frappe_mock.db.sql.call_args_list:
+			self.assertTrue(query.args[0].lstrip().startswith("SELECT"))
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.is_enabled", return_value=True)
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_backfill_preserves_repairs_for_existing_orders(self, frappe_mock, enabled):
+		frappe_mock.db.has_column.return_value = True
+		frappe_mock.db.sql.side_effect = [[("SO-1",)], [], [("SO-2",)], []]
+
+		backfill_sales_order_workflow_states()
+
+		queries = frappe_mock.db.sql.call_args_list
+		self.assertEqual(len(queries), 4)
+		self.assertIn("WHERE IFNULL(workflow_state, '') = ''", queries[1].args[0])
+		self.assertEqual(queries[1].args[1]["approved"], STATE_APPROVED)
+		self.assertIn(f"WHERE docstatus = 1 AND IFNULL({APPROVED_FIELD}, 0) = 0", queries[3].args[0])
+
+	@patch("srv_erp.selling.sales_order_item_approval_setup.is_enabled", return_value=True)
+	@patch("srv_erp.selling.sales_order_item_approval_setup.frappe")
+	def test_backfill_checks_each_repair_independently(self, frappe_mock, enabled):
+		frappe_mock.db.has_column.return_value = True
+		for responses, expected_update in (
+			([[("SO-1",)], [], []], "SET workflow_state"),
+			([[], [("SO-2",)], []], f"SET {APPROVED_FIELD}"),
+		):
+			with self.subTest(expected_update=expected_update):
+				frappe_mock.db.sql.reset_mock()
+				frappe_mock.db.sql.side_effect = responses
+
+				backfill_sales_order_workflow_states()
+
+				updates = [
+					call.args[0] for call in frappe_mock.db.sql.call_args_list
+					if call.args[0].lstrip().startswith("UPDATE")
+				]
+				self.assertEqual(len(updates), 1)
+				self.assertIn(expected_update, updates[0])
 
 class TestSalesOrderWorkflowStateNormalization(TestCase):
 	NEW_STATE_ROWS = (
