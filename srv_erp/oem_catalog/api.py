@@ -1,41 +1,11 @@
-import json
-from functools import wraps
+"""Stable API v1 adapters; policy and read models live in application services."""
 
 import frappe
 from frappe import _
 
-from .domain.models import CatalogError
+from .infrastructure.api_boundary import endpoint
 from .infrastructure.dto import object_input
-from .permissions import authorize_context, readable, request_access, require_role
-
-
-def endpoint(write=False):
-    def decorate(fn):
-        @wraps(fn)
-        def call(*args, **kwargs):
-            if frappe.session.user == 'Guest':
-                frappe.throw(_('Sign in to use OEM Catalog.'), frappe.PermissionError)
-            import time
-            for attempt in range(3):
-                if write: frappe.db.savepoint('oem_command_boundary')
-                try:
-                    result = fn(*args, **kwargs)
-                    if isinstance(result, dict): result.setdefault('api_version', 1)
-                    return result
-                except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
-                    # InnoDB deadlocks invalidate every savepoint. Retry the
-                    # entire actor-scoped command in a fresh transaction.
-                    frappe.db.rollback()
-                    if not write or attempt == 2: raise
-                    time.sleep(.05 * (attempt + 1))
-                except CatalogError as error:
-                    if write: frappe.db.rollback(save_point='oem_command_boundary')
-                    frappe.throw(_(error.code + ': ' + str(error)))
-                except Exception:
-                    if write: frappe.db.rollback(save_point='oem_command_boundary')
-                    raise
-        return frappe.whitelist(methods=['POST'] if write else ['GET', 'POST'])(call)
-    return decorate
+from .permissions import readable, require_role
 
 
 @endpoint()
@@ -52,34 +22,14 @@ def preview_configuration(payload):
 
 @endpoint()
 def search_products(context, query='', cursor=0, limit=30):
-    context = object_input(context, {'customer', 'company', 'brand', 'effective_date'})
-    cfg = authorize_context(context)
-    cursor, limit = int(cursor), min(int(limit), 50)
-    if cursor < 0 or limit < 1 or len(query) > 100:
-        frappe.throw(_('INVALID_INPUT: search bounds exceeded.'))
-    filters = {'lifecycle': 'Active'}
-    if cfg.mode == 'Pilot':
-        filters['name'] = ['in', [r.reference for r in cfg.pilot_scope if r.kind == 'Product']]
-    query_filters = [['display_name', 'like', '%' + query + '%'], ['catalogue_code', 'like', '%' + query + '%'], ['search_terms', 'like', '%' + query + '%']] if query else None
-    rows = frappe.get_list('OEM Product', filters=filters, or_filters=query_filters, fields=['name', 'catalogue_code', 'display_name', 'item_group', 'image', 'description'], start=cursor, page_length=limit, order_by='catalogue_code asc')
-    return {'products': rows, 'next_cursor': cursor + len(rows) if len(rows) == limit else None}
+    from .application.catalogue_queries import search_products as read_model
+    return read_model(context, query, cursor, limit)
 
 
 @endpoint()
 def get_context(source_context):
-    context = object_input(source_context, {'customer', 'company', 'brand', 'effective_date'})
-    require_role()
-    for key, doctype in (('customer', 'Customer'), ('company', 'Company')):
-        if context.get(key): readable(doctype, context[key])
-    brands = []
-    if context.get('customer'):
-        from frappe.utils import getdate, today
-        date = getdate(context.get('effective_date') or today())
-        for row in frappe.get_list('OEM Customer Brand', filters={'customer': context['customer'], 'enabled': 1}, fields=['brand', 'valid_from', 'valid_until', 'default_for_customer', 'approved_by'], limit_page_length=500):
-            if row.approved_by and (not row.valid_from or date >= getdate(row.valid_from)) and (not row.valid_until or date <= getdate(row.valid_until)):
-                brand = frappe.get_doc('Brand', row.brand)
-                if brand.has_permission('read'): brands.append({'value': brand.name, 'label': brand.name, 'default': row.default_for_customer})
-    return {'brands': brands}
+    from .application.catalogue_queries import get_context as read_model
+    return read_model(source_context)
 
 
 @endpoint(write=True)
@@ -114,36 +64,20 @@ def save_draft(payload, idempotency_key, draft=None, expected_modified=None):
 
 @endpoint()
 def get_request_status(request):
-    doc = frappe.get_doc('OEM Configuration Request', request)
-    request_access(doc)
-    sources = frappe.get_all('OEM Request Source', filters={'request': doc.name, 'actor': frappe.session.user}, fields=['name', 'row_intent_id', 'result_state', 'source_document'])
-    result = {'request': doc.name, 'status': doc.status, 'modified': str(doc.modified), 'reason': doc.reason, 'sources': sources}
-    if doc.status == 'Approved':
-        from .application.configure import active_binding
-        context = json.loads(frappe.get_doc('OEM Request Source', sources[0].name).context_json) if sources else json.loads(doc.submitted_payload_json)['context']
-        binding, item = active_binding(doc.specification, context)
-        result['item_code'] = item.name
-    return result
+    from .application.request_queries import get_request_status as read_model
+    return read_model(request)
 
 
 @endpoint()
 def get_my_requests(cursor=0):
-    require_role()
-    rows = frappe.get_all('OEM Request Source', filters={'actor': frappe.session.user}, fields=['name', 'request', 'result_state'], start=max(0, int(cursor)), page_length=30, order_by='creation desc')
-    return {'requests': [get_request_status(row.request) for row in rows]}
+    from .application.request_queries import get_my_requests as read_model
+    return read_model(cursor)
 
 
 @endpoint()
 def get_approvals(cursor=0):
-    require_role('approver')
-    records = []
-    for row in frappe.get_all('OEM Configuration Request', filters={'status': 'Pending'}, pluck='name', start=max(0, int(cursor)), page_length=30, order_by='requested_on asc'):
-        doc = frappe.get_doc('OEM Configuration Request', row)
-        try: payload = request_access(doc, approver=True)
-        except frappe.PermissionError: continue
-        records.append({'request': doc.name, 'modified': str(doc.modified), 'requested_by': doc.requested_by,
-                        'requested_on': doc.requested_on, 'snapshot': json.loads(doc.configuration_snapshot_json)})
-    return {'requests': records}
+    from .application.request_queries import get_approvals as read_model
+    return read_model(cursor)
 
 
 @endpoint(write=True)
@@ -216,13 +150,8 @@ def generate_barcodes(specification, context, package_choice, count, idempotency
 
 @endpoint()
 def get_ui_settings():
-    from .permissions import settings
-    cfg = settings()
-    roles = set(frappe.get_roles())
-    permitted = frappe.session.user == 'Administrator' or bool(roles & {'OEM Catalog User', 'OEM Catalog Approver', 'OEM Catalog Manager'})
-    return {'sales_order': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_sales_order_picker),
-            'barcode': bool(permitted and cfg.mode in {'Pilot', 'Active'} and cfg.enable_barcode_picker),
-            'require_customer_brand': bool(cfg.require_customer_brand)}
+    from .application.catalogue_queries import get_ui_settings as read_model
+    return read_model()
 
 
 @endpoint(write=True)
@@ -233,15 +162,14 @@ def quarantine_binding(binding, reason, idempotency_key):
 
 @endpoint()
 def get_admin_schema(doctype):
-    from .application.admin import schema
-    return schema(doctype)
+    from .application.catalogue_queries import get_admin_schema as read_model
+    return read_model(doctype)
 
 
 @endpoint()
 def get_admin_record(doctype, name):
-    from .application.admin import schema
-    schema(doctype)
-    return readable(doctype, name, 'write').as_dict()
+    from .application.catalogue_queries import get_admin_record as read_model
+    return read_model(doctype, name)
 
 
 @endpoint(write=True)
@@ -252,19 +180,14 @@ def save_catalogue_record(doctype, payload, idempotency_key, name=None, expected
 
 @endpoint()
 def get_saved_drafts(cursor=0):
-    require_role()
-    rows = frappe.get_all('OEM Configuration Draft', filters={'draft_owner': frappe.session.user},
-                    fields=['name', 'product_revision', 'context_json', 'values_json', 'modified'], start=max(0, int(cursor)), page_length=30, order_by='modified desc')
-    for row in rows: row['product'] = frappe.db.get_value('OEM Product Revision', row.product_revision, 'product')
-    return {'drafts': rows}
-
+    from .application.catalogue_queries import get_saved_drafts as read_model
+    return read_model(cursor)
 
 
 @endpoint()
 def get_saved_orders(cursor=0):
-    require_role()
-    return {'orders': frappe.get_list('Sales Order', filters={'docstatus': 0, 'oem_order_entry_enabled': 1},
-                    fields=['name', 'customer', 'oem_configuration_status', 'oem_unresolved_line_count', 'modified'], start=max(0, int(cursor)), page_length=30, order_by='modified desc')}
+    from .application.catalogue_queries import get_saved_orders as read_model
+    return read_model(cursor)
 
 
 @endpoint(write=True)
