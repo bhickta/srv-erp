@@ -54,3 +54,15 @@ Current package P18/P19: operator/user guides, release checklist, evidence, CI d
 Final Off-mode review added a tested distinction: existing ordinary ERPNext transaction authorization uses company/customer/Brand permissions and binding integrity without requiring a catalogue role or Product permission. New catalogue commands still require module roles. Latest real suite: 8/8 passing (7.965 s). Pending-line removal requires an explicit prior withdrawal reason; managed applied source links are validated against the actual order/specification. Standard draft print is marked Pending Item Approval / Estimated / Incomplete; official order slips and unsupported custom prints are blocked for unresolved intent.
 
 Final scoped suite 9/9 passing (9.989 s), now including complete all-pending draft -> different approver -> explicit Apply -> saved real row -> official totals and source Applied, plus last-line withdrawal in Off mode without a dummy Item. Parent mandatory exception preserves every other required field and remains draft-only. Order-slip regression 5/5 passing. Pure domain/boundaries 13/13 passing. Full SRV discovery failure and unrun release gates remain explicitly documented.
+
+2026-10-17 OEM service refactor: audited current dev and confirmed original OEM
+branch already merged. Committed plan before delegating backend, API, and client
+workstreams. Extracted named configuration/binding/UOM services and API boundary/
+read models; preserved legacy helpers and all 31 public API contracts. Client
+brand lookups reject stale responses and edited configuration clears stale
+confirmation without breaking uncertain-retry UUID reuse. Cross-review resolved
+search adapter parameter shadowing and added a regression. Combined Python 3.14
+checks 32/32, Node state regressions 11/11, final guarded synthetic database suite
+9/9 (10.324 s), compile/syntax/whitespace checks passed. Initial synthetic module
+cache failure resolved without schema repair. CI includes the new framework-free
+regressions. Detailed evidence and remaining limits: refactor-validation.md.

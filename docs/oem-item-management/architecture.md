@@ -29,3 +29,28 @@ Existing Item, Item Price, and Stock Entry overrides remain registered. Commerci
 Physical release, sales price/company defaults, barcode packaging, and manufacturing BOM readiness are separate checks. Missing price is an explicit unavailable state, not zero-price fallback. Install/migration creates metadata and disabled settings only, without global role assignments or catalogue import.
 
 Release requires real database atomicity/permission/concurrency tests, migration non-interference, scan-chain compatibility, browser checks, and physical Android/iOS UAT. Operator activation, deployment, adoption of live data, and production decisions are outside this PR.
+
+## Service boundaries after refactoring
+
+`api.py` preserves the public v1 methods and argument signatures. The
+`infrastructure/api_boundary.py` decorator owns authentication, whitelist verbs,
+API version decoration, and transaction rollback/retry policy. Application
+`catalogue_queries.py` and `request_queries.py` own read models; composed reads
+call these services directly rather than re-entering transport decorators.
+Nested request records retain their existing `api_version` field.
+
+`application/configuration.py` loads the published configuration and validates
+choices into named `LoadedConfiguration` and `ValidatedConfiguration` results.
+Their fields cannot be reassigned; contained documents and collections retain
+their existing types. `configure.py` presents configuration/preview DTOs and
+retains the historical tuple helpers for Python callers. `bindings.py` owns
+released Item lookup, locking, read permission, and stock-integrity checks.
+
+`domain/uoms.py` shares transaction-factor selection and exact Decimal comparison
+across requests, readiness, and barcode generation. It returns the stored factor
+without normalizing its representation, preserving barcode snapshot semantics.
+
+The client gives each brand lookup consumer its own latest-request guard. Older
+successes and errors cannot replace newer customer scope. Configuration edits
+clear stale review/confirmation and command IDs; retries for unchanged choices
+reuse their command ID. Sales Order Configure waits for current brand loading.

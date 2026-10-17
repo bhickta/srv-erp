@@ -112,10 +112,10 @@ activation readiness.
 
 ## Audit decisions and deferred work
 
-The read-service extraction may correct HTTP boolean parsing for the existing
-`favourites` filter: strings `false` and `0` must mean false. Cover accepted true
-and false values and reject unsupported values. This is an intentional API input
-correction, not a response/schema change.
+HTTP boolean parsing for the existing `favourites` filter needs a separate
+compatibility change: strings `false` and `0` currently evaluate as true. This
+refactor preserves that behavior; a follow-up must define accepted values and
+cover them explicitly.
 
 Keep publication locking and draft optimistic-concurrency redesign separate:
 they require a dedicated concurrency design and database race tests. Also defer
