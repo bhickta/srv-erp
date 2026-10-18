@@ -1,5 +1,7 @@
 # Production scheduling validation
 
+## Original version-15 checks
+
 Validated on October 18, 2026 against a separate local Frappe/ERPNext v15 database (`production-test.localhost`, MariaDB on `127.0.0.1:3311`). The candidate app was loaded from its dedicated worktree. No production or shared development site was migrated or changed.
 
 | Check | Result |
@@ -22,8 +24,20 @@ Chromium/Playwright smoke checks verified:
 
 An independent two-connection race submitted two 6-unit drafts against the same 10-unit target. One submission succeeded; the conflicting request was rejected and still exceeded the target when retried. Final progress was 6 completed, 4 remaining. The local MariaDB has snapshot isolation enabled, so a conflict may first produce Frappe's standard concurrent-request/retry message.
 
-## Environment limitations
+## Original validation limitations
 
 The existing `test_item_group_sync` module cannot import `ERPNextTestSuite` from the installed v15 ERPNext test utilities. It did not run; the feature does not change that module. The other Item regression suites above passed.
 
 Browser runs reported package barcode `installers` console errors in the reused bench assets. The production scheduling form, calendar, workspace, preview, entry submission and authorization checks described above completed successfully despite those asset errors. A full deployment/build was not performed.
+
+## Dev branch port
+
+The implementation was ported onto `dev` at `ba768cd` and validated separately on `production-dev-test.localhost`, cloned into a new local database from the isolated dev test fixture. Application schema synchronization and production-role/field setup passed.
+
+- All 16 production scheduling tests passed with the dev branch's OEM hooks active.
+- All 17 Stock Entry price, variant attribute and variant price regression tests passed.
+- All 13 OEM domain/rules/boundary checks passed.
+- Compared the merged hook configuration with the unmodified dev baseline: every pre-existing permission hook, document event, class/method override and migration hook remains present. Production permission maps extend the existing maps.
+- Ruff lint and Git whitespace checks passed.
+
+The dev Item Group suite ran seven tests with two errors in template-to-variant field/group synchronization. Both errors were reproduced against unmodified `dev` (`ba768cd`) on the same isolated database, confirming an existing baseline issue. The five other tests passed. Browser and concurrency results above describe the original implementation; they were not repeated for this hook-preserving port.
