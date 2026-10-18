@@ -333,3 +333,253 @@ class TestProductionScheduling(FrappeTestCase):
 		schedule.qty_per_occurrence = 1
 		with self.assertRaises(frappe.ValidationError):
 			schedule.cancel()
+
+	def second_variant(self):
+		code = self.template + "-SECOND"
+		if not frappe.db.exists("Item", code):
+			attribute = frappe.get_doc("Item Attribute", "_Test Production Size")
+			if not any(row.attribute_value == "Two" for row in attribute.item_attribute_values):
+				attribute.append("item_attribute_values", {"attribute_value": "Two", "abbr": "TWO"})
+				attribute.save()
+			with patch("srv_erp.masters.dynamic_item.guard.validate_dynamic_item_insert"):
+				frappe.get_doc(
+					{
+						"doctype": "Item",
+						"item_code": code,
+						"item_name": code,
+						"item_group": frappe.db.get_value("Item", self.template, "item_group"),
+						"stock_uom": "Nos",
+						"variant_of": self.template,
+						"attributes": [{"attribute": "_Test Production Size", "attribute_value": "Two"}],
+					}
+				).insert()
+		return code
+
+	def multi_schedule(self, rows=None, **kwargs):
+		rows = rows or [
+			{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+			{"template": self.template, "item_code": self.second_variant(), "qty_per_occurrence": 20},
+		]
+		return (
+			frappe.get_doc(
+				{
+					"doctype": SCHEDULE,
+					"title": "Multi-item production",
+					"company": self.company,
+					"start_date": "2026-10-01",
+					"end_date": "2026-10-01",
+					"frequency": "Once",
+					"items": rows,
+					**kwargs,
+				}
+			)
+			.insert()
+			.submit()
+		)
+
+	def test_multi_item_variant_plan_mapping_and_progress(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		self.assertEqual(schedule.status, "To Produce")
+		self.assertEqual(schedule.remaining_items, 2)
+		entry = make_production_entry(schedule.name, supervisor=self.supervisors[0])
+		self.assertEqual(len(entry.items), 2)
+		self.assertEqual({row.item_code for row in entry.items}, {self.variant, self.second_variant()})
+		self.assertEqual({row.qty for row in entry.items}, {10, 20})
+		entry.items[0].qty = entry.items[0].remaining_qty / 2
+		entry.items[1].qty = entry.items[1].remaining_qty / 2
+		entry.insert().submit()
+		schedule.reload()
+		self.assertEqual(schedule.status, "Partly Produced")
+		self.assertEqual(schedule.percent_completed, 50)
+		self.assertTrue(all(row.percent_completed == 50 for row in schedule.items))
+		remaining = make_production_entry(schedule.name, supervisor=self.supervisors[0])
+		self.assertEqual({row.qty for row in remaining.items}, {5, 10})
+		remaining.insert().submit()
+		schedule.reload()
+		self.assertEqual(
+			(schedule.status, schedule.percent_completed, schedule.remaining_items), ("Completed", 100, 0)
+		)
+		with self.assertRaises(frappe.ValidationError):
+			make_production_entry(schedule.name)
+		remaining.cancel()
+		schedule.reload()
+		self.assertEqual((schedule.status, schedule.percent_completed), ("Partly Produced", 50))
+
+	def test_multi_item_specific_variant_cannot_be_substituted(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		entry = make_production_entry(schedule.name)
+		entry.items[0].item_code = (
+			self.second_variant() if entry.items[0].item_code == self.variant else self.variant
+		)
+		with self.assertRaises(frappe.ValidationError):
+			entry.insert()
+
+	def test_multi_item_template_output_can_split_across_variants(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 10}])
+		entry = make_production_entry(schedule.name)
+		row = entry.items[0]
+		row.item_code, row.qty = self.variant, 4
+		entry.append("items", {"assignment": row.assignment, "item_code": self.second_variant(), "qty": 6})
+		entry.insert().submit()
+		self.assertEqual(schedule.reload().percent_completed, 100)
+		self.assertEqual(submitted_qty(row.assignment), 10)
+
+	def test_multi_item_duplicate_rows_cannot_exceed_one_source_target(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 10}])
+		entry = make_production_entry(schedule.name)
+		entry.items[0].item_code, entry.items[0].qty = self.variant, 6
+		entry.append(
+			"items", {"assignment": entry.items[0].assignment, "item_code": self.second_variant(), "qty": 6}
+		)
+		entry.insert()
+		with self.assertRaises(frappe.ValidationError):
+			entry.submit()
+		self.assertEqual(submitted_qty(entry.items[0].assignment), 0)
+
+	def test_multi_item_schedule_rejects_invalid_variant_and_duplicates(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				rows=[{"template": self.template, "item_code": self.template, "qty_per_occurrence": 1}]
+			)
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				rows=[{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 1}] * 2
+			)
+
+	def test_multi_item_forged_cross_schedule_entry_rejected(self):
+		from srv_erp.production.service import make_production_entry
+
+		first, second = self.multi_schedule(), self.multi_schedule()
+		entry = make_production_entry(first.name)
+		foreign = frappe.get_all(ASSIGNMENT, filters={"schedule": second.name}, pluck="name")[0]
+		entry.items[0].assignment = foreign
+		with self.assertRaises(frappe.ValidationError):
+			entry.insert()
+
+	def test_multi_item_supervisor_mapping_and_entry_privacy(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		names = frappe.get_all(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="name")
+		frappe.db.set_value(ASSIGNMENT, names[0], "supervisor", self.supervisors[1])
+		frappe.set_user(self.supervisors[0])
+		entry = make_production_entry(schedule.name)
+		self.assertEqual(len(entry.items), 1)
+		self.assertNotEqual(entry.items[0].assignment, names[0])
+		entry.insert().submit()
+		own_entry = entry.name
+		frappe.set_user(self.supervisors[1])
+		visible = frappe.get_list(ENTRY, pluck="name", limit_page_length=0)
+		self.assertNotIn(own_entry, visible)
+		with self.assertRaises(frappe.PermissionError):
+			frappe.get_doc(ENTRY, own_entry).check_permission("read")
+		other = make_production_entry(schedule.name)
+		self.assertEqual(other.items[0].assignment, names[0])
+
+	def test_multi_item_submitted_source_rows_are_immutable(self):
+		schedule = self.multi_schedule()
+		schedule.items[0].qty_per_occurrence = 999
+		with self.assertRaises(frappe.ValidationError):
+			schedule.save()
+
+	def test_multi_item_migration_is_idempotent_and_preserves_totals(self):
+		from srv_erp.production.migrate import execute
+
+		_, names = self.schedule()
+		entry = self.entry(names[0]).submit()
+		before = submitted_qty(names[0])
+		# Emulate the previous release's persisted single-item documents.
+		frappe.db.delete("SRV Production Entry Item", {"parent": entry.name})
+		schedule = frappe.db.get_value(ASSIGNMENT, names[0], "schedule")
+		frappe.db.delete("SRV Production Schedule Item", {"parent": schedule})
+		frappe.db.sql(
+			"UPDATE `tabSRV Production Assignment` SET schedule_item=NULL WHERE schedule=%s", schedule
+		)
+		execute()
+		execute()
+		self.assertEqual(submitted_qty(names[0]), before)
+		self.assertEqual(frappe.db.count("SRV Production Entry Item", {"parent": entry.name}), 1)
+		self.assertEqual(frappe.db.count("SRV Production Schedule Item", {"parent": schedule}), 1)
+		self.assertEqual(frappe.get_doc(SCHEDULE, schedule).status, "Partly Produced")
+
+	def test_multi_item_reassignment_does_not_expose_other_rows(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		entry = make_production_entry(schedule.name).insert().submit()
+		assignment = frappe.get_doc(ASSIGNMENT, entry.items[0].assignment)
+		assignment.supervisor = self.supervisors[1]
+		assignment.change_reason = "Move this item to another supervisor"
+		assignment.save()
+		for user in self.supervisors:
+			frappe.set_user(user)
+			self.assertFalse(frappe.has_permission(ENTRY, "read", doc=frappe.get_doc(ENTRY, entry.name)))
+			self.assertNotIn(entry.name, frappe.get_list(ENTRY, pluck="name", limit_page_length=0))
+		frappe.set_user(self.supervisors[0])
+		forged = frappe.get_doc(ENTRY, entry.name)
+		forged.items = [row for row in forged.items if row.assignment != assignment.name]
+		with self.assertRaises(frappe.PermissionError):
+			forged.save()
+
+	def test_multi_item_cancelled_child_quantities_cannot_be_changed(self):
+		from srv_erp.production.service import make_production_entry
+
+		entry = make_production_entry(self.multi_schedule().name).insert().submit()
+		entry.items[0].qty = 1
+		with self.assertRaises(frappe.ValidationError):
+			entry.cancel()
+
+	def test_multi_item_mapper_respects_selected_schedule_rows(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		previous = frappe.flags.selected_children
+		try:
+			frappe.flags.selected_children = {"items": [schedule.items[1].name]}
+			entry = make_production_entry(schedule.name)
+			self.assertEqual(len(entry.items), 1)
+			self.assertEqual(entry.items[0].item_code, schedule.items[1].item_code)
+		finally:
+			frappe.flags.selected_children = previous
+
+	def test_multi_item_child_table_apis_cannot_bypass_entry_permissions(self):
+		from frappe.client import get, get_list, get_value
+
+		from srv_erp.production.service import make_production_entry
+
+		own = make_production_entry(self.multi_schedule().name).insert().submit()
+		foreign_schedule = self.multi_schedule()
+		for name in frappe.get_all(ASSIGNMENT, filters={"schedule": foreign_schedule.name}, pluck="name"):
+			frappe.db.set_value(ASSIGNMENT, name, "supervisor", self.supervisors[1])
+		foreign = make_production_entry(foreign_schedule.name).insert().submit()
+		frappe.set_user(self.supervisors[0])
+		rows = get_list(
+			"SRV Production Entry Item", fields=["parent", "name"], parent=ENTRY, limit_page_length=0
+		)
+		self.assertIn(own.name, {row.parent for row in rows})
+		self.assertNotIn(foreign.name, {row.parent for row in rows})
+		with self.assertRaises(frappe.PermissionError):
+			get("SRV Production Entry Item", name=foreign.items[0].name, parent=ENTRY)
+		self.assertFalse(
+			get_value("SRV Production Entry Item", "qty", {"name": foreign.items[0].name}, parent=ENTRY)
+		)
+		with self.assertRaises(frappe.PermissionError):
+			get_list("SRV Production Schedule Item", parent=SCHEDULE)
+
+	def test_multi_item_child_rows_cannot_be_shared(self):
+		schedule = self.multi_schedule()
+		with self.assertRaises(frappe.PermissionError):
+			frappe.share.add_docshare(
+				"SRV Production Schedule Item",
+				schedule.items[0].name,
+				user=self.supervisors[0],
+				flags={"ignore_share_permission": True},
+			)
