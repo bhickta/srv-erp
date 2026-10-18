@@ -31,3 +31,26 @@ frappe.ui.form.on("Item", {
 	},
 	variant_of: srv_erp.item.toggle_variant_item_group,
 });
+
+frappe.ui.form.on("Item", {
+	setup(frm) {
+		frm.set_query("custom_production_supervisor", () => ({
+			query: "srv_erp.production.service.supervisor_query",
+		}));
+	},
+	refresh(frm) {
+		if (
+			!frm.is_new() &&
+			frm.doc.has_variants &&
+			frappe.model.can_create("SRV Production Schedule")
+		) {
+			frm.add_custom_button(__("Plan Production"), () => {
+				frappe.new_doc("SRV Production Schedule", {
+					template: frm.doc.name,
+					supervisor: frm.doc.custom_production_supervisor,
+					uom: frm.doc.stock_uom,
+				});
+			});
+		}
+	},
+});
