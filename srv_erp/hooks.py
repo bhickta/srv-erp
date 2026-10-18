@@ -410,6 +410,8 @@ permission_query_conditions = {
 	"SRV Production Schedule": "srv_erp.production.permissions.schedule_query",
 	"SRV Production Assignment": "srv_erp.production.permissions.assignment_query",
 	"SRV Production Entry": "srv_erp.production.permissions.entry_query",
+	"SRV Production Schedule Item": "srv_erp.production.permissions.schedule_item_query",
+	"SRV Production Entry Item": "srv_erp.production.permissions.entry_item_query",
 }
 has_permission = {
 	"SRV Production Schedule": "srv_erp.production.permissions.schedule_permission",
