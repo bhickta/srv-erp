@@ -41,14 +41,15 @@ frappe.ui.form.on("Item", {
 	refresh(frm) {
 		if (
 			!frm.is_new() &&
-			frm.doc.has_variants &&
+			(frm.doc.has_variants || frm.doc.variant_of) &&
 			frappe.model.can_create("SRV Production Schedule")
 		) {
 			frm.add_custom_button(__("Plan Production"), () => {
-				frappe.new_doc("SRV Production Schedule", {
-					template: frm.doc.name,
-					supervisor: frm.doc.custom_production_supervisor,
-					uom: frm.doc.stock_uom,
+				frappe.new_doc("SRV Production Schedule", {}, doc => {
+					const row = frappe.model.add_child(doc, "SRV Production Schedule Item", "items");
+					row.template = frm.doc.variant_of || frm.doc.name;
+					row.item_code = frm.doc.variant_of ? frm.doc.name : null;
+					row.qty_per_occurrence = 1;
 				});
 			});
 		}
