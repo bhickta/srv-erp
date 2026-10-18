@@ -1,0 +1,159 @@
+{
+ "doctype": "DocType",
+ "name": "SRV Production Schedule",
+ "module": "Srv Erp",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "template",
+  "supervisor",
+  "uom",
+  "qty_per_occurrence",
+  "start_date",
+  "end_date",
+  "frequency",
+  "interval",
+  "recurrence_unit",
+  "weekdays",
+  "custom_dates",
+  "notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "supervisor",
+   "fieldtype": "Link",
+   "label": "Supervisor",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty_per_occurrence",
+   "fieldtype": "Float",
+   "label": "Qty Per Occurrence",
+   "reqd": 1,
+   "precision": "6",
+   "description": "Target quantity per date in the template stock UOM."
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "label": "Frequency",
+   "options": "Once\nDaily\nWeekdays\nWeekly\nMonthly\nCustom",
+   "default": "Daily",
+   "reqd": 1
+  },
+  {
+   "fieldname": "interval",
+   "fieldtype": "Int",
+   "label": "Interval",
+   "default": "1",
+   "depends_on": "eval:doc.frequency == 'Custom'"
+  },
+  {
+   "fieldname": "recurrence_unit",
+   "fieldtype": "Select",
+   "label": "Recurrence Unit",
+   "options": "Days\nWeeks\nMonths\nDates",
+   "default": "Days",
+   "depends_on": "eval:doc.frequency == 'Custom'"
+  },
+  {
+   "fieldname": "weekdays",
+   "fieldtype": "Data",
+   "label": "Weekdays",
+   "description": "For weekly recurrence: comma-separated Mon,Tue,Wed,Thu,Fri,Sat,Sun. Blank uses the start weekday.",
+   "depends_on": "eval:doc.frequency == 'Weekly' || (doc.frequency == 'Custom' && doc.recurrence_unit == 'Weeks')"
+  },
+  {
+   "fieldname": "custom_dates",
+   "fieldtype": "Small Text",
+   "label": "Custom Dates",
+   "description": "One YYYY-MM-DD date per line.",
+   "depends_on": "eval:doc.frequency == 'Custom' && doc.recurrence_unit == 'Dates'"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "SRV Production Schedule",
+   "read_only": 1,
+   "no_copy": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "SRV Production Planner",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "track_changes": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "is_submittable": 1,
+ "autoname": "hash",
+ "naming_rule": "Random",
+ "title_field": "template"
+}
