@@ -4,20 +4,34 @@
  "module": "Srv Erp",
  "engine": "InnoDB",
  "field_order": [
+  "assignment_details",
   "schedule",
-  "occurrence_key",
   "company",
   "template",
+  "item_code",
+  "responsibility_column",
   "supervisor",
   "planned_date",
+  "status",
+  "progress_section",
   "target_qty",
   "uom",
+  "completed_column",
   "completed_qty",
+  "percent_completed",
+  "remaining_column",
   "remaining_qty",
-  "status",
-  "change_reason"
+  "correction_section",
+  "change_reason",
+  "occurrence_key",
+  "schedule_item"
  ],
  "fields": [
+  {
+   "fieldname": "assignment_details",
+   "fieldtype": "Section Break",
+   "label": "Dated Production Plan"
+  },
   {
    "fieldname": "schedule",
    "fieldtype": "Data",
@@ -25,15 +39,6 @@
    "read_only": 1,
    "reqd": 1,
    "description": "Source schedule reference; available to production planners."
-  },
-  {
-   "fieldname": "occurrence_key",
-   "fieldtype": "Data",
-   "label": "Occurrence Key",
-   "read_only": 1,
-   "hidden": 1,
-   "unique": 1,
-   "reqd": 1
   },
   {
    "fieldname": "company",
@@ -55,6 +60,18 @@
    "in_standard_filter": 1
   },
   {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Planned Variant",
+   "options": "Item",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "responsibility_column",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "supervisor",
    "fieldtype": "Link",
    "label": "Supervisor",
@@ -70,6 +87,21 @@
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nIn Progress\nCompleted\nCancelled",
+   "default": "Planned",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "progress_section",
+   "fieldtype": "Section Break",
+   "label": "Production Progress"
   },
   {
    "fieldname": "target_qty",
@@ -88,12 +120,27 @@
    "reqd": 1
   },
   {
+   "fieldname": "completed_column",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "completed_qty",
    "fieldtype": "Float",
    "label": "Completed Qty",
    "read_only": 1,
    "precision": "6",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "percent_completed",
+   "fieldtype": "Percent",
+   "label": "Produced %",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remaining_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "remaining_qty",
@@ -103,20 +150,32 @@
    "precision": "6"
   },
   {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Planned\nIn Progress\nCompleted\nCancelled",
-   "default": "Planned",
-   "read_only": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1
+   "fieldname": "correction_section",
+   "fieldtype": "Section Break",
+   "label": "Planner Correction",
+   "collapsible": 1
   },
   {
    "fieldname": "change_reason",
    "fieldtype": "Small Text",
    "label": "Change Reason",
    "description": "Required when changing the date, supervisor or target."
+  },
+  {
+   "fieldname": "occurrence_key",
+   "fieldtype": "Data",
+   "label": "Occurrence Key",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "schedule_item",
+   "fieldtype": "Data",
+   "label": "Schedule Item",
+   "read_only": 1,
+   "hidden": 1
   }
  ],
  "permissions": [
