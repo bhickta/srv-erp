@@ -41,3 +41,18 @@ The implementation was ported onto `dev` at `ba768cd` and validated separately o
 - Ruff lint and Git whitespace checks passed.
 
 The dev Item Group suite ran seven tests with two errors in template-to-variant field/group synchronization. Both errors were reproduced against unmodified `dev` (`ba768cd`) on the same isolated database, confirming an existing baseline issue. The five other tests passed. Browser and concurrency results above describe the original implementation; they were not repeated for this hook-preserving port.
+
+## Multi-item schedules and mapped production entries
+
+Validated the multi-item revision on the separate `production-items-test.localhost` database, cloned from the original single-item feature test site. No shared development or production site was changed.
+
+- **30 production tests passed**, including all 16 original tests plus multi-item generation, exact variant enforcement, template output split across variants, native mapped entry creation, selected-row mapping, pending quantities, percentage/status transitions, cancellation reversal, source tampering, supervisor filtering and legacy migration idempotency.
+- Child-table API checks cover lists, direct reads and value fetching, along with blocked row sharing. The child controllers resolve their actual parent document for Frappe v15's document-level permission checks; row queries also enforce the parent scope.
+- The 17 Item/Stock Entry regressions and 13 OEM domain/rules/boundary checks passed.
+- A comparison of the original and upgraded databases verified preservation of seven original schedules, 12 dated assignments and 10 production entries: names, document status, planned/submitted quantities and progress were retained, with source rows and percentages backfilled.
+- The two-connection submission race still allowed only one 6-unit submission against a 10-unit target; the conflicting request could not produce beyond the remaining target on retry.
+- Ruff, ESLint and Git whitespace checks passed.
+
+Chromium exercised the form workflow at 1600px and inspected the responsive form at 390px: create two variant rows under a selected template, verify the template-filtered variant picker, preview, save/submit, use Create → Production Entry, receive pending quantities 10 and 20, submit 5 and 20, and observe Partly Produced / 75% / one item line remaining. A supervisor then opened the pending calendar assignment, mapped the remaining five units without re-entering source data, submitted them, and the parent reached Completed / 100% / zero item lines remaining. Screenshots were inspected to remove internal column labels and confirm compact header sections and full-width item tables.
+
+Overall completion is deliberately the mean completion of dated item assignments, rather than a sum of unlike UOMs. One entry groups only one supervisor's assignments. If a later reassignment splits a grouped entry's current ownership, supervisors cannot access that mixed-ownership entry; planners retain the complete history.

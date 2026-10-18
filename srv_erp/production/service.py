@@ -51,15 +51,50 @@ def schedule_dates(doc):
 
 def validate_schedule(doc):
 	require_planner(doc.company)
-	item = frappe.get_doc("Item", doc.template)
-	item.check_permission("read")
-	if not item.has_variants or item.disabled:
-		frappe.throw(_("Select an enabled Item template."))
-	doc.supervisor = item.get("custom_production_supervisor")
-	validate_supervisor(doc.supervisor)
-	doc.uom = item.stock_uom
-	doc.qty_per_occurrence = positive_qty(doc.qty_per_occurrence)
-	return schedule_dates(doc)
+	if not doc.get("items") and doc.get("template"):
+		doc.append("items", {"template": doc.template, "qty_per_occurrence": doc.qty_per_occurrence})
+	if not doc.get("items"):
+		frappe.throw(_("Add at least one item to produce."))
+	dates = schedule_dates(doc)
+	if len(doc.items) * len(dates) > 1000:
+		frappe.throw(_("A schedule may contain at most 1,000 dated item assignments."))
+	seen = set()
+	for row in doc.items:
+		if not row.template:
+			frappe.throw(_("Choose a template before selecting a variant."))
+		template = frappe.get_doc("Item", row.template)
+		template.check_permission("read")
+		if template.disabled or not template.has_variants:
+			frappe.throw(_("Select an enabled Item template on each row."))
+		if row.item_code:
+			variant = frappe.get_doc("Item", row.item_code)
+			variant.check_permission("read")
+			if variant.disabled or variant.has_variants or variant.variant_of != row.template:
+				frappe.throw(_("The planned variant must belong to the selected template."))
+			if variant.stock_uom != template.stock_uom:
+				frappe.throw(_("The planned variant and template must use the same stock UOM."))
+		key = (row.template, row.item_code or "")
+		if key in seen:
+			frappe.throw(_("An item may only appear once in a schedule."))
+		seen.add(key)
+		row.supervisor = template.get("custom_production_supervisor")
+		validate_supervisor(row.supervisor)
+		row.uom = template.stock_uom
+		row.qty_per_occurrence = positive_qty(row.qty_per_occurrence)
+		row.planned_qty = flt(row.qty_per_occurrence * len(dates), 6)
+		row.completed_qty = row.percent_completed = 0
+		row.remaining_qty = row.planned_qty
+	doc.title = doc.get("title") or doc.items[0].template
+	doc.total_items = doc.remaining_items = len(doc.items)
+	doc.occurrence_count = len(dates)
+	doc.percent_completed = 0
+	doc.status = "Draft"
+	# Retain legacy values for older API clients; all calculations use child rows.
+	doc.template, doc.supervisor, doc.uom = (
+		doc.items[0].get(key) for key in ("template", "supervisor", "uom")
+	)
+	doc.qty_per_occurrence = doc.items[0].qty_per_occurrence
+	return dates
 
 
 def lock_schedule(name):
@@ -81,14 +116,76 @@ def lock_assignment(name):
 
 def submitted_qty(assignment, exclude=None):
 	rows = frappe.db.sql(
-		"""SELECT qty FROM `tabSRV Production Entry`
-		WHERE assignment=%s AND docstatus=1 AND name != %s FOR UPDATE""",
+		"""SELECT i.qty FROM `tabSRV Production Entry Item` i
+		INNER JOIN `tabSRV Production Entry` e ON e.name=i.parent
+		WHERE i.assignment=%s AND e.docstatus=1 AND e.name != %s FOR UPDATE""",
 		(assignment, exclude or ""),
 	)
-	return flt(sum(row[0] for row in rows), 6)
+	# Supports the interval between schema synchronization and legacy backfill.
+	legacy = frappe.db.sql(
+		"""SELECT e.qty FROM `tabSRV Production Entry` e
+		WHERE e.assignment=%s AND e.docstatus=1 AND e.name != %s
+		AND NOT EXISTS (SELECT 1 FROM `tabSRV Production Entry Item` i WHERE i.parent=e.name)
+		FOR UPDATE""",
+		(assignment, exclude or ""),
+	)
+	return flt(sum(row[0] for row in [*rows, *legacy]), 6)
 
 
-def update_progress(assignment, cancelled=False):
+def refresh_schedule_progress(schedule):
+	rows = frappe.db.sql(
+		"""SELECT schedule_item, target_qty, completed_qty, status, planned_date
+		FROM `tabSRV Production Assignment` WHERE schedule=%s FOR UPDATE""",
+		schedule,
+		as_dict=True,
+	)
+	grouped = {}
+	for row in rows:
+		group = grouped.setdefault(row.schedule_item, {"planned_qty": 0, "completed_qty": 0})
+		group["planned_qty"] += row.target_qty
+		group["completed_qty"] += row.completed_qty
+	remaining_items = 0
+	for name, values in grouped.items():
+		values["remaining_qty"] = flt(max(values["planned_qty"] - values["completed_qty"], 0), 6)
+		values["percent_completed"] = (
+			flt(100 * values["completed_qty"] / values["planned_qty"], 2) if values["planned_qty"] else 0
+		)
+		remaining_items += values["remaining_qty"] > 0
+		if name:
+			frappe.db.set_value("SRV Production Schedule Item", name, values, update_modified=False)
+	percent = (
+		flt(sum(min(row.completed_qty / row.target_qty, 1) for row in rows) * 100 / len(rows), 2)
+		if rows
+		else 0
+	)
+	docstatus = frappe.db.get_value(SCHEDULE, schedule, "docstatus")
+	status = (
+		"Cancelled"
+		if docstatus == 2
+		else "Draft"
+		if docstatus == 0
+		else (
+			"Completed"
+			if rows and all(row.completed_qty >= row.target_qty for row in rows)
+			else "Partly Produced"
+			if any(row.completed_qty > 0 for row in rows)
+			else "To Produce"
+		)
+	)
+	frappe.db.set_value(
+		SCHEDULE,
+		schedule,
+		{
+			"status": status,
+			"percent_completed": percent,
+			"remaining_items": remaining_items,
+			"total_items": len(grouped),
+			"occurrence_count": len({row.planned_date for row in rows}),
+		},
+	)
+
+
+def update_progress(assignment, cancelled=False, refresh_schedule=True):
 	completed = submitted_qty(assignment.name)
 	status = (
 		"Cancelled"
@@ -103,9 +200,12 @@ def update_progress(assignment, cancelled=False):
 		{
 			"completed_qty": completed,
 			"remaining_qty": flt(max(assignment.target_qty - completed, 0), 6),
+			"percent_completed": flt(100 * completed / assignment.target_qty, 2),
 			"status": status,
 		},
 	)
+	if refresh_schedule:
+		refresh_schedule_progress(assignment.schedule)
 
 
 @frappe.whitelist()
@@ -123,6 +223,7 @@ def get_events(start, end, filters=None, **kwargs):
 		fields=[
 			"name",
 			"template",
+			"item_code",
 			"planned_date",
 			"supervisor",
 			"target_qty",
@@ -134,7 +235,9 @@ def get_events(start, end, filters=None, **kwargs):
 		order_by="planned_date asc",
 	)
 	for row in events:
-		row.calendar_title = f"{row.template}: {row.completed_qty:g}/{row.target_qty:g} {row.uom}"
+		row.calendar_title = (
+			f"{row.item_code or row.template}: {row.completed_qty:g}/{row.target_qty:g} {row.uom}"
+		)
 		row.calendar_editable = False
 		row.convert_to_user_tz = 0
 	return events
@@ -144,7 +247,21 @@ def get_events(start, end, filters=None, **kwargs):
 def get_assignment_details(assignment):
 	doc = frappe.get_doc(ASSIGNMENT, assignment)
 	doc.check_permission("read")
-	return {key: doc.get(key) for key in ("company", "template", "supervisor", "uom", "remaining_qty")}
+	return {
+		key: doc.get(key)
+		for key in (
+			"company",
+			"template",
+			"item_code",
+			"supervisor",
+			"uom",
+			"remaining_qty",
+			"target_qty",
+			"completed_qty",
+			"planned_date",
+			"schedule",
+		)
+	}
 
 
 def validate_production_date(value):
@@ -171,7 +288,111 @@ def prevent_cancel_edits(doc):
 	# Frappe intentionally skips validate() on cancellation. Keep submitted
 	# production and source fields immutable on that path as well.
 	for field in doc.meta.fields:
-		if field.fieldtype not in ("HTML", "Section Break", "Column Break") and doc.has_value_changed(
-			field.fieldname
-		):
-			frappe.throw(_("Submitted production fields cannot be changed during cancellation."))
+		if field.fieldtype == "Table":
+			previous = doc.get_doc_before_save()
+
+			def values(rows):
+				return [
+					{
+						key: value
+						for key, value in row.as_dict(
+							convert_dates_to_str=True, no_private_properties=True
+						).items()
+						if key not in ("docstatus", "creation", "modified", "modified_by")
+					}
+					for row in rows
+				]
+
+			changed = values(doc.get(field.fieldname)) != values(previous.get(field.fieldname))
+		else:
+			changed = field.fieldtype not in (
+				"HTML",
+				"Section Break",
+				"Column Break",
+			) and doc.has_value_changed(field.fieldname)
+		if changed:
+			frappe.throw(
+				_("Submitted production field {0} cannot be changed during cancellation.").format(
+					field.fieldname
+				)
+			)
+
+
+@frappe.whitelist()
+def get_pending_options(schedule):
+	frappe.has_permission(ENTRY, "create", throw=True)
+	rows = frappe.get_list(
+		ASSIGNMENT,
+		filters={"schedule": schedule, "remaining_qty": [">", 0], "status": ["!=", "Cancelled"]},
+		fields=["name", "supervisor", "planned_date"],
+		limit_page_length=0,
+		order_by="planned_date",
+	)
+	if not rows:
+		frappe.throw(_("There are no pending items available to you in this schedule."))
+	return {
+		"supervisors": sorted({row.supervisor for row in rows}),
+		"dates": sorted({str(row.planned_date) for row in rows}),
+	}
+
+
+@frappe.whitelist()
+def make_production_entry(source_name, supervisor=None, planned_date=None, assignment=None):
+	frappe.has_permission(ENTRY, "create", throw=True)
+	args = frappe.flags.args or {}
+	supervisor = supervisor or args.get("supervisor")
+	planned_date = planned_date or args.get("planned_date")
+	assignment = assignment or args.get("assignment")
+	filters = {"schedule": source_name, "remaining_qty": [">", 0], "status": ["!=", "Cancelled"]}
+	selected = (frappe.flags.selected_children or {}).get("items")
+	if selected:
+		filters["schedule_item"] = ["in", selected]
+	if supervisor:
+		filters["supervisor"] = supervisor
+	if planned_date:
+		filters["planned_date"] = getdate(planned_date)
+	if assignment:
+		filters["name"] = assignment
+	if lock_schedule(source_name) != 1:
+		frappe.throw(_("Only submitted schedules can create production entries."))
+	rows = frappe.get_list(
+		ASSIGNMENT,
+		filters=filters,
+		fields=["name", "supervisor", "planned_date"],
+		limit_page_length=0,
+		order_by="planned_date, creation",
+	)
+	if not rows:
+		frappe.throw(_("No pending production items match this selection."))
+	if len({row.supervisor for row in rows}) != 1:
+		frappe.throw(_("Select one supervisor when creating the production entry."))
+	doc = frappe.new_doc(ENTRY)
+	doc.schedule = source_name
+	doc.production_date = nowdate()
+	for row in rows:
+		source, _status = lock_assignment(row.name)
+		source.check_permission("read")
+		remaining = flt(max(source.target_qty - submitted_qty(source.name), 0), 6)
+		if remaining <= 0:
+			continue
+		doc.company, doc.supervisor = source.company, source.supervisor
+		doc.append(
+			"items",
+			{
+				"assignment": source.name,
+				"template": source.template,
+				"item_code": source.item_code,
+				"planned_item": source.item_code,
+				"supervisor": source.supervisor,
+				"planned_date": source.planned_date,
+				"planned_qty": source.target_qty,
+				"previously_produced_qty": flt(source.target_qty - remaining, 6),
+				"remaining_qty": remaining,
+				"qty": remaining,
+				"uom": source.uom,
+			},
+		)
+	if not doc.items:
+		frappe.throw(_("All selected production items have already been completed."))
+	doc.item_count = len(doc.items)
+	return doc
