@@ -215,6 +215,7 @@ after_migrate = ["srv_erp.install.after_migrate", "srv_erp.oem_catalog.infrastru
 # Hook on document methods and events
 
 doc_events = {
+	"DocShare": {"validate": "srv_erp.production.permissions.prevent_production_sharing"},
 	"*": {
 		"before_validate": [
 			"srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",
@@ -225,6 +226,7 @@ doc_events = {
 		"before_insert": "srv_erp.masters.dynamic_item.guard.validate_dynamic_item_insert",
 		"validate": [
 			"srv_erp.item.variant_field_sync.validate_item_group_sync",
+			"srv_erp.production.setup.validate_item_supervisor",
 			"srv_erp.masters.dynamic_item.guard.protect_dynamic_item_state",
 			"srv_erp.item.variant_attribute_edit.sync_variant_signature",
 		],
@@ -437,3 +439,15 @@ scheduler_events = {"hourly": ["srv_erp.oem_catalog.infrastructure.outbox.delive
 app_include_js.append("/assets/srv_erp/js/oem_catalog/admin.js")
 
 doc_events["Sales Order"]["before_print"] = "srv_erp.oem_catalog.hooks.printing.before_print"
+
+# Preserve OEM privacy hooks while adding production ownership restrictions.
+permission_query_conditions.update({
+    "SRV Production Schedule": "srv_erp.production.permissions.schedule_query",
+    "SRV Production Assignment": "srv_erp.production.permissions.assignment_query",
+    "SRV Production Entry": "srv_erp.production.permissions.entry_query",
+})
+has_permission.update({
+    "SRV Production Schedule": "srv_erp.production.permissions.schedule_permission",
+    "SRV Production Assignment": "srv_erp.production.permissions.assignment_permission",
+    "SRV Production Entry": "srv_erp.production.permissions.entry_permission",
+})

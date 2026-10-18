@@ -1,0 +1,58 @@
+{
+ "doctype": "Workspace",
+ "name": "Production Scheduling",
+ "title": "Production Scheduling",
+ "label": "Production Scheduling",
+ "module": "Srv Erp",
+ "app": "srv_erp",
+ "public": 1,
+ "is_hidden": 0,
+ "icon": "calendar",
+ "sequence_id": 26,
+ "content": "[{\"id\": \"production-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Production Scheduling</b></span>\", \"col\": 12}}, {\"id\": \"production-calendar\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Production Calendar\", \"col\": 4}}, {\"id\": \"production-card\", \"type\": \"card\", \"data\": {\"card_name\": \"Production\", \"col\": 12}}]",
+ "links": [
+  {
+   "type": "Card Break",
+   "label": "Production",
+   "link_count": 3
+  },
+  {
+   "type": "Link",
+   "label": "Production Assignments",
+   "link_type": "DocType",
+   "link_to": "SRV Production Assignment"
+  },
+  {
+   "type": "Link",
+   "label": "Production Entries",
+   "link_type": "DocType",
+   "link_to": "SRV Production Entry"
+  },
+  {
+   "type": "Link",
+   "label": "Production Schedules",
+   "link_type": "DocType",
+   "link_to": "SRV Production Schedule"
+  }
+ ],
+ "shortcuts": [
+  {
+   "label": "Production Calendar",
+   "type": "DocType",
+   "link_to": "SRV Production Assignment",
+   "doc_view": "Calendar",
+   "color": "Blue"
+  }
+ ],
+ "roles": [
+  {
+   "role": "SRV Production Planner"
+  },
+  {
+   "role": "SRV Production Supervisor"
+  },
+  {
+   "role": "System Manager"
+  }
+ ]
+}
