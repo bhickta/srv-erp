@@ -6,7 +6,6 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
-from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 
 INWARD_VOUCHER_TYPES = ("Purchase Receipt", "Stock Entry")
@@ -19,7 +18,6 @@ def execute(filters=None):
 
     columns = get_columns(filters)
     data = get_data(filters)
-    add_selected_uom_columns(columns, data, filters.get("include_uom"))
     report_summary = get_report_summary(data)
 
     return columns, data, None, None, report_summary
@@ -111,11 +109,17 @@ def get_columns(filters):
                 "width": 200,
             },
             {
-                "label": _("Stock UOM"),
+                "label": _("Voucher UOM"),
                 "fieldname": "stock_uom",
                 "fieldtype": "Link",
                 "options": "UOM",
                 "width": 100,
+            },
+            {
+                "label": _("Pkg"),
+                "fieldname": "pkg",
+                "fieldtype": "Float",
+                "width": 80,
             },
             {
                 "label": _("Inward Qty UOM"),
@@ -209,7 +213,13 @@ def get_data(filters):
 
             item.item_name AS item_name,
 
-            SUM(sle.actual_qty) AS in_qty,
+            SUM(
+                sle.actual_qty / COALESCE(
+                    NULLIF(sed.conversion_factor, 0),
+                    NULLIF(pri.conversion_factor, 0),
+                    1
+                )
+            ) AS in_qty,
 
             COUNT(
                 DISTINCT CONCAT(
@@ -245,11 +255,21 @@ def get_data(filters):
             ) AS supplier_name,
 
             COALESCE(
+                sed.uom,
+                pri.uom,
                 sle.stock_uom,
                 ''
             ) AS stock_uom,
 
             COALESCE(
+                NULLIF(sed.conversion_factor, 0),
+                NULLIF(pri.conversion_factor, 0),
+                1
+            ) AS pkg,
+
+            COALESCE(
+                sed.uom,
+                pri.uom,
                 sle.stock_uom,
                 ''
             ) AS uom_in_qty,
@@ -317,7 +337,16 @@ def get_data(filters):
                 pr.supplier_name,
                 se.supplier_name
             ),
-            sle.stock_uom,
+            COALESCE(
+                sed.uom,
+                pri.uom,
+                sle.stock_uom
+            ),
+            COALESCE(
+                NULLIF(sed.conversion_factor, 0),
+                NULLIF(pri.conversion_factor, 0),
+                1
+            ),
             sle.company,
             company.default_currency
 
