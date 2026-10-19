@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>{{ _("Delivery Note Ledger") }}</title>
+	<style>
+		@page { size: A4 portrait; margin: 12mm 8mm; }
+		* { box-sizing: border-box; }
+		body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 14px; }
+		.header { margin-bottom: 8px; text-align: center; }
+		.header h1 { margin: 0 0 2px; font-size: 20px; }
+		.header .period { font-size: 14px; }
+		table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+		th, td { border: 1px solid #777; padding: 4px 5px; vertical-align: top; }
+		th { background: #f2f2f2; font-size: 12.5px; text-align: center; }
+		.date { width: 9%; text-align: center; }
+		.particulars { width: 35%; overflow-wrap: anywhere; }
+		.quantity { width: 12%; text-align: right; }
+		.rate { width: 15%; text-align: right; }
+		.total { width: 14%; text-align: right; font-weight: 700; }
+		.grand-total-column { width: 15%; text-align: right; font-weight: 700; }
+		.delivery-number { margin-top: 2px; line-height: 1.3; font-size: 12px; }
+		.customer-name { line-height: 1.3; font-weight: 700; }
+		.document-heading-cell { border-bottom: 1px dotted #bbb; }
+		.item-cell { border-top: 1px dotted #bbb; border-bottom: 1px dotted #bbb; line-height: 1.35; }
+		.document-last-item .item-cell { border-bottom: 1px solid #777; }
+		.number-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+		.document-cell { vertical-align: top; font-variant-numeric: tabular-nums; }
+		.amount-cell { vertical-align: top; }
+		.grand-total td { padding: 7px 5px; font-size: 13px; font-weight: 700; }
+		@media print {
+			thead { display: table-header-group; }
+			tr { break-inside: avoid; page-break-inside: avoid; }
+			body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>{{ _("Delivery Note Ledger") }}</h1>
+		{% if date_heading %}<div class="period">{{ _("For") }} {{ date_heading }}</div>{% endif %}
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<th class="date">{{ _("Date") }}</th>
+				<th class="particulars">{{ _("Particulars") }}</th>
+				<th class="quantity">{{ _("Delivered Quantity") }}</th>
+				<th class="rate">{{ _("Rate") }}</th>
+				<th class="total">{{ _("Gross Total") }}</th>
+				<th class="grand-total-column">{{ _("Delivery Note Total") }}</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for delivery_note in delivery_notes %}
+			{% set item_count = delivery_note.items|length %}
+			{% if item_count %}
+			<tr>
+				<td class="date document-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.format_date(delivery_note.posting_date) }}</td>
+				<td class="particulars document-heading-cell">
+					{% if delivery_note.customer_name %}<div class="customer-name">{{ delivery_note.customer_name }}</div>{% endif %}
+					<div class="delivery-number">{{ delivery_note.name }}</div>
+				</td>
+				<td class="quantity document-heading-cell"></td>
+				<td class="rate document-heading-cell"></td>
+				<td class="total amount-cell document-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(delivery_note.total, currency=delivery_note.currency) }}</td>
+				<td class="grand-total-column amount-cell document-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(delivery_note.grand_total, currency=delivery_note.currency) }}</td>
+			</tr>
+			{% for item in delivery_note.items %}
+			<tr class="{% if loop.last %}document-last-item{% endif %}">
+				<td class="particulars item-cell">
+					<div>{{ item.item_code }}: {{ item.item_name or item.item_code }}</div>
+				</td>
+				<td class="quantity item-cell number-cell">
+					<div>{{ frappe.utils.fmt_money(item.qty, precision=2) }} {{ item.uom or item.stock_uom }}</div>
+				</td>
+				<td class="rate item-cell number-cell">
+					<div>{{ frappe.utils.fmt_money(item.rate, currency=delivery_note.currency) }}/{{ item.uom or item.stock_uom }}</div>
+				</td>
+			</tr>
+			{% endfor %}
+			{% else %}
+			<tr>
+				<td class="date document-cell">{{ frappe.utils.format_date(delivery_note.posting_date) }}</td>
+				<td class="particulars">
+					<div class="delivery-number">{{ delivery_note.name }}</div>
+					{% if delivery_note.customer_name %}<div class="customer-name">{{ delivery_note.customer_name }}</div>{% endif %}
+				</td>
+				<td class="quantity"></td>
+				<td class="rate"></td>
+				<td class="total amount-cell number-cell">{{ frappe.utils.fmt_money(delivery_note.total, currency=delivery_note.currency) }}</td>
+				<td class="grand-total-column amount-cell number-cell">{{ frappe.utils.fmt_money(delivery_note.grand_total, currency=delivery_note.currency) }}</td>
+			</tr>
+			{% endif %}
+		{% endfor %}
+			<tr class="grand-total">
+				<td colspan="5" style="text-align:right">{{ _("Grand Total") }}</td>
+				<td class="grand-total-column number-cell">{{ frappe.utils.fmt_money(grand_total, currency=currency) }}</td>
+			</tr>
+		</tbody>
+	</table>
+	<script>
+		window.addEventListener("load", function () { window.setTimeout(function () { window.print(); }, 250); });
+	</script>
+</body>
+</html>

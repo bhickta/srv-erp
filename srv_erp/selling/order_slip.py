@@ -142,7 +142,51 @@ def get_pending_order_slip_ledger_html(names: list[str] | str) -> str:
 		},
 	)
 
- 
+
+@frappe.whitelist()
+def get_delivery_note_ledger_html(names: list[str] | str) -> str:
+	names = parse_order_names(names)
+
+	if not names:
+		frappe.throw(_("Select at least one Delivery Note to print."))
+
+	if len(names) > MAX_ORDERS_PER_PRINT:
+		frappe.throw(
+			_("You can print up to {0} Delivery Notes at a time.").format(
+				MAX_ORDERS_PER_PRINT
+			)
+		)
+
+	delivery_notes = []
+	dates = []
+	grand_total = 0
+	currencies = set()
+
+	for name in names:
+		delivery_note = frappe.get_doc("Delivery Note", name)
+		ensure_print_permission(delivery_note)
+		delivery_notes.append(delivery_note)
+
+		if delivery_note.posting_date:
+			dates.append(delivery_note.posting_date)
+
+		grand_total += flt(delivery_note.grand_total)
+		currencies.add(delivery_note.currency)
+
+	dates.sort()
+	currency = next(iter(currencies)) if len(currencies) == 1 else None
+
+	return frappe.render_template(
+		"srv_erp/templates/delivery_note_ledger.html",
+		{
+			"delivery_notes": delivery_notes,
+			"date_heading": get_date_heading(dates),
+			"grand_total": grand_total,
+			"currency": currency,
+		},
+	)
+
+
  
  
 @frappe.whitelist()
