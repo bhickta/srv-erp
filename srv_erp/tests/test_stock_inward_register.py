@@ -7,6 +7,7 @@ from srv_erp.srv_erp.report.stock_inward_register.stock_inward_register import (
 	GROUP_BY,
 	add_group_rows,
 	get_conditions,
+	get_data,
 	get_order_by,
 	get_report_summary,
 	set_batch_numbers,
@@ -81,6 +82,29 @@ class TestStockInwardRegister(TestCase):
 
 		self.assertEqual(rows[0].batch_no, "BATCH-1, BATCH-2")
 		self.assertEqual(len(rows), 1)
+
+	@patch("srv_erp.srv_erp.report.stock_inward_register.stock_inward_register.frappe.db.sql")
+	def test_data_groups_by_voucher_uom_and_converts_stock_qty(self, sql):
+		sql.return_value = []
+
+		get_data(self.filters)
+
+		query = " ".join(sql.call_args.args[0].split())
+		self.assertIn(
+			"SUM( sle.actual_qty / COALESCE( NULLIF(sed.conversion_factor, 0), "
+			"NULLIF(pri.conversion_factor, 0), 1 ) ) AS in_qty",
+			query,
+		)
+		self.assertIn("COALESCE( sed.uom, pri.uom, sle.stock_uom, '' ) AS stock_uom", query)
+		self.assertIn(
+			"COALESCE( NULLIF(sed.conversion_factor, 0), NULLIF(pri.conversion_factor, 0), 1 ) AS pkg",
+			query,
+		)
+		self.assertIn(
+			"COALESCE( sed.uom, pri.uom, sle.stock_uom ), COALESCE( "
+			"NULLIF(sed.conversion_factor, 0), NULLIF(pri.conversion_factor, 0), 1 ), sle.company",
+			query,
+		)
 
 	def test_order_by_is_allowlisted_and_stable(self):
 		filters = self.filters.copy()

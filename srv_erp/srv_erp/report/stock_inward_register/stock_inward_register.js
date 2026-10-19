@@ -64,12 +64,6 @@ frappe.query_reports["Stock Inward Register"] = {
             options: "Item",
         },
         {
-            fieldname: "include_uom",
-            label: __("Include UOM"),
-            fieldtype: "Link",
-            options: "UOM",
-        },
-        {
             fieldname: "item_group",
             label: __("Item Group"),
             fieldtype: "Link",
