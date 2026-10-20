@@ -78,6 +78,17 @@ frappe.ui.form.on("SRV Production Schedule", {
 			});
 		}
 		if (frm.doc.docstatus === 1) {
+			if (frappe.user.has_role(["SRV Production Planner", "System Manager"])) {
+				frm.add_custom_button(__("Update Plan"), () => srv_production_edit_plan(frm));
+			}
+			frm.add_custom_button(
+				__("Dated Plans"),
+				() => {
+					frappe.route_options = { schedule: frm.doc.name };
+					frappe.set_route("List", "SRV Production Assignment");
+				},
+				__("View"),
+			);
 			frm.add_custom_button(
 				__("Assignments Calendar"),
 				() => {
@@ -234,4 +245,199 @@ async function srv_production_update_defaults(frm, field) {
 		}
 	}
 	frm._planning_defaults = { ...previous, [key]: defaults[key] };
+}
+
+async function srv_production_edit_plan(frm) {
+	const method = "srv_erp.production.updates.";
+	const { message: rows } = await frappe.call({
+		method: method + "get_plan",
+		args: { schedule: frm.doc.name },
+	});
+	if (!rows.length) return frappe.msgprint(__("This schedule has no active dated plans."));
+	const original = new Map(rows.map((row) => [row.name, { ...row }]));
+	const dialog = new frappe.ui.Dialog({
+		title: __("Update Submitted Production Plan"),
+		size: "extra-large",
+		fields: [
+			{
+				fieldtype: "HTML",
+				fieldname: "help",
+				options: `<p>${__("Edit dated plans below, or select rows and apply common values. Target Qty is the total required, including produced quantity. Recorded production stays unchanged. Original item ranges remain as the submission record; Dated Plans and the calendar show current work.")}</p>`,
+			},
+			{ fieldtype: "Section Break", label: __("Apply to Selected Rows") },
+			{ fieldtype: "Date", fieldname: "new_date", label: __("New Schedule Date") },
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Link",
+				fieldname: "new_supervisor",
+				label: __("New Supervisor"),
+				options: "User",
+				get_query: () => ({ query: "srv_erp.production.service.supervisor_query" }),
+			},
+			{ fieldtype: "Column Break" },
+			{ fieldtype: "Float", fieldname: "new_target", label: __("New Total Target Qty") },
+			{
+				fieldtype: "Button",
+				fieldname: "apply_selected",
+				label: __("Apply to Selected Rows"),
+				click() {
+					const selected = dialog.fields_dict.rows.grid.get_selected_children();
+					if (!selected.length)
+						return frappe.msgprint(__("Select dated plan rows first."));
+					const values = {
+						new_date: dialog.get_value("new_date"),
+						new_supervisor: dialog.get_value("new_supervisor"),
+						new_target: dialog.get_value("new_target"),
+					};
+					if (!values.new_date && !values.new_supervisor && !values.new_target)
+						return frappe.msgprint(
+							__("Enter a new date, supervisor or target to apply."),
+						);
+					for (const row of selected) {
+						if (values.new_date) row.planned_date = values.new_date;
+						if (values.new_supervisor) row.supervisor = values.new_supervisor;
+						if (values.new_target) row.target_qty = values.new_target;
+						row.remaining_qty = flt(row.target_qty - row.completed_qty, 6);
+					}
+					dialog.fields_dict.rows.grid.refresh();
+				},
+			},
+			{ fieldtype: "Section Break", label: __("Current Dated Plans") },
+			{
+				fieldname: "rows",
+				fieldtype: "Table",
+				label: __("Dated Plans"),
+				cannot_add_rows: true,
+				cannot_delete_rows: true,
+				in_place_edit: true,
+				data: rows,
+				fields: [
+					{
+						fieldname: "item",
+						fieldtype: "Data",
+						label: __("Item"),
+						read_only: 1,
+						in_list_view: 1,
+						columns: 2,
+					},
+					{
+						fieldname: "item_name",
+						fieldtype: "Data",
+						label: __("Item Name"),
+						read_only: 1,
+					},
+					{
+						fieldname: "work_area",
+						fieldtype: "Link",
+						options: "Operation",
+						label: __("Operation"),
+						read_only: 1,
+						in_list_view: 1,
+						columns: 1,
+					},
+					{
+						fieldname: "planned_date",
+						fieldtype: "Date",
+						label: __("Date"),
+						reqd: 1,
+						in_list_view: 1,
+						columns: 2,
+					},
+					{
+						fieldname: "supervisor",
+						fieldtype: "Link",
+						options: "User",
+						label: __("Supervisor"),
+						reqd: 1,
+						in_list_view: 1,
+						columns: 2,
+						get_query: () => ({
+							query: "srv_erp.production.service.supervisor_query",
+						}),
+					},
+					{
+						fieldname: "target_qty",
+						onchange() {
+							this.doc.remaining_qty = flt(
+								this.doc.target_qty - this.doc.completed_qty,
+								6,
+							);
+							this.grid_row.refresh_field("remaining_qty");
+						},
+						fieldtype: "Float",
+						label: __("Target"),
+						reqd: 1,
+						in_list_view: 1,
+						columns: 1,
+					},
+					{
+						fieldname: "completed_qty",
+						fieldtype: "Float",
+						label: __("Produced"),
+						read_only: 1,
+						in_list_view: 1,
+						columns: 1,
+					},
+					{
+						fieldname: "remaining_qty",
+						fieldtype: "Float",
+						label: __("Remaining"),
+						read_only: 1,
+						in_list_view: 1,
+						columns: 1,
+					},
+					{ fieldname: "status", fieldtype: "Data", label: __("Status"), read_only: 1 },
+					{ fieldname: "uom", fieldtype: "Data", label: __("UOM"), read_only: 1 },
+				],
+			},
+			{ fieldtype: "Section Break", label: __("Change Record") },
+			{
+				fieldtype: "Small Text",
+				fieldname: "reason",
+				label: __("Reason for Update"),
+				reqd: 1,
+			},
+		],
+		primary_action_label: __("Save Plan Updates"),
+		async primary_action(values) {
+			const changed = values.rows
+				.filter((row) => {
+					const before = original.get(row.name);
+					return (
+						row.planned_date !== before.planned_date ||
+						row.supervisor !== before.supervisor ||
+						Number(row.target_qty) !== Number(before.target_qty)
+					);
+				})
+				.map((row) => ({
+					name: row.name,
+					modified: original.get(row.name).modified,
+					row_number: original.get(row.name).row_number,
+					completed_qty: original.get(row.name).completed_qty,
+					planned_date: row.planned_date,
+					supervisor: row.supervisor,
+					target_qty: row.target_qty,
+				}));
+			if (!changed.length)
+				return frappe.msgprint(__("Change a date, supervisor or target first."));
+			const { message } = await frappe.call({
+				method: method + "update_plan",
+				args: { schedule: frm.doc.name, rows: changed, reason: values.reason },
+				freeze: true,
+				freeze_message: __("Updating production plan…"),
+				btn: dialog.get_primary_btn(),
+			});
+			dialog.hide();
+			await frm.reload_doc();
+			frappe.show_alert({
+				message: __("Updated {0} dated plans", [message.updated]),
+				indicator: "green",
+			});
+		},
+	});
+	for (const row of rows) {
+		row.item = row.item_code || row.template;
+		row.idx = row.row_number;
+	}
+	dialog.show();
 }
