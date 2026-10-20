@@ -94,16 +94,20 @@ def validate_schedule(doc):
 				frappe.throw(_("The planned variant must belong to the selected template."))
 			if variant.stock_uom != template.stock_uom:
 				frappe.throw(_("The planned variant and template must use the same stock UOM."))
-		key = (row.template, row.item_code or "")
-		if key in seen:
-			frappe.throw(_("An item may only appear once in a schedule."))
-		seen.add(key)
 		row.supervisor = template.get("custom_production_supervisor")
 		if not doc.get("responsibilities"):
 			validate_supervisor(row.supervisor)
 		row.schedule_date = getdate(row.get("schedule_date") or doc.schedule_date)
 		if not getdate(doc.start_date) <= row.schedule_date <= getdate(doc.end_date):
 			frappe.throw(_("Each item Schedule Date must be within the schedule date range."))
+		key = (row.template, row.item_code or "", row.schedule_date)
+		if key in seen:
+			frappe.throw(
+				_(
+					"The same item may only appear once per Schedule Date. Use another date or combine the quantity."
+				)
+			)
+		seen.add(key)
 		row_dates = schedule_dates(doc, row.schedule_date)
 		all_dates.update(row_dates)
 		assignment_count += len(row_dates) * max(len(doc.get("responsibilities") or []), 1)
