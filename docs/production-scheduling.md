@@ -46,6 +46,8 @@ Production entries have Draft, Submitted and Cancelled statuses. Cancelling an e
 
 ## Layout and access
 
+Production Schedule, Assignment and Entry lists hide Cancelled, Rejected and Disabled statuses by default for all users. Remove or change the status filter to inspect history within your existing access. Explicit saved status/document-status filters are respected; an older saved view with no status filter receives the active default when opened. These are view defaults and do not change document permissions.
+
 Schedules and entries use compact column groups for their headers and full-width item tables. Submitted schedule source rows are read-only. Planners can adjust individual dated targets, dates or supervisors with a new change reason; changing Item defaults affects future plans only. Generated assignments and their schedules remain available for audit history.
 
 Supervisors see only their own dated assignments. Every entry row must be accessible to its supervisor, and the server applies those checks to mapping, lists, direct document access and submission. Production records cannot be shared to bypass responsibility. Company user permissions continue to apply.
