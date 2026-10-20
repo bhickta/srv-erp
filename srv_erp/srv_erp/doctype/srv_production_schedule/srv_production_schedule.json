@@ -7,6 +7,7 @@
   "schedule_details",
   "title",
   "company",
+  "schedule_date",
   "schedule_status_column",
   "status",
   "percent_completed",
@@ -24,6 +25,8 @@
   "weekdays",
   "custom_dates",
   "occurrence_count",
+  "responsibilities_section",
+  "responsibilities",
   "items_section",
   "items",
   "notes_section",
@@ -54,6 +57,12 @@
    "options": "Company",
    "reqd": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
+   "description": "Defaults onto new item rows; individual item dates can be changed."
   },
   {
    "fieldname": "schedule_status_column",
@@ -171,6 +180,19 @@
    "read_only": 1,
    "allow_on_submit": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "responsibilities_section",
+   "fieldtype": "Section Break",
+   "label": "Responsibilities"
+  },
+  {
+   "fieldname": "responsibilities",
+   "fieldtype": "Table",
+   "label": "Responsibilities",
+   "options": "SRV Production Schedule Responsibility",
+   "allow_on_submit": 1,
+   "description": "Each user/work area gets an independent target for every item. Leave empty to use the template supervisors."
   },
   {
    "fieldname": "items_section",

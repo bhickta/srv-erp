@@ -25,7 +25,17 @@ class SRVProductionAssignment(Document):
 		previous, docstatus = lock_assignment(self.name)
 		if docstatus != 1:
 			frappe.throw(_("The production schedule is not active."))
-		for key in ("schedule", "schedule_item", "occurrence_key", "company", "template", "item_code", "uom"):
+		for key in (
+			"schedule",
+			"schedule_item",
+			"responsibility",
+			"work_area",
+			"occurrence_key",
+			"company",
+			"template",
+			"item_code",
+			"uom",
+		):
 			if self.get(key) != previous.get(key):
 				frappe.throw(_("The source and item of a generated assignment cannot be changed."))
 		validate_supervisor(self.supervisor)

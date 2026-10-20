@@ -63,6 +63,7 @@ def execute():
 				},
 				update_modified=False,
 			)
+	backfill_dates_and_names()
 	frappe.db.sql("""UPDATE `tabSRV Production Assignment`
 		SET percent_completed=CASE WHEN target_qty>0 THEN ROUND(completed_qty / target_qty * 100, 2) ELSE 0 END""")
 	for name in frappe.get_all(SCHEDULE, pluck="name"):
@@ -70,9 +71,9 @@ def execute():
 		if doc.docstatus == 0:
 			from srv_erp.production.service import schedule_dates
 
-			count = len(schedule_dates(doc))
+			count = len({date for row in doc.items for date in schedule_dates(doc, row.schedule_date)})
 			for row in doc.items:
-				planned = row.qty_per_occurrence * count
+				planned = row.qty_per_occurrence * len(schedule_dates(doc, row.schedule_date))
 				frappe.db.set_value(
 					row.doctype,
 					row.name,
@@ -99,3 +100,30 @@ def execute():
 			)
 		else:
 			refresh_schedule_progress(name)
+
+
+def backfill_dates_and_names():
+	# Empty responsibility tables preserve historical template ownership. Never
+	# regenerate assignments: old entries must retain their original sources.
+	frappe.db.sql("""UPDATE `tabSRV Production Schedule`
+		SET schedule_date=start_date WHERE schedule_date IS NULL""")
+	frappe.db.sql("""UPDATE `tabSRV Production Schedule Item` i
+		INNER JOIN `tabSRV Production Schedule` s ON s.name=i.parent
+		LEFT JOIN `tabItem` m ON m.name=COALESCE(NULLIF(i.item_code, ''), i.template)
+		SET i.schedule_date=COALESCE(i.schedule_date, s.schedule_date),
+		i.item_name=COALESCE(NULLIF(i.item_name, ''), m.item_name)""")
+	frappe.db.sql("""UPDATE `tabSRV Production Assignment` a
+		LEFT JOIN `tabItem` m ON m.name=COALESCE(NULLIF(a.item_code, ''), a.template)
+		SET a.work_area=COALESCE(NULLIF(a.work_area, ''), 'Production'),
+		a.item_name=COALESCE(NULLIF(a.item_name, ''), m.item_name)""")
+	frappe.db.sql("""UPDATE `tabSRV Production Entry Item` i
+		INNER JOIN `tabSRV Production Assignment` a ON a.name=i.assignment
+		LEFT JOIN `tabItem` m ON m.name=i.item_code
+		SET i.work_area=COALESCE(NULLIF(i.work_area, ''), a.work_area),
+		i.planned_date=COALESCE(i.planned_date, a.planned_date),
+		i.item_name=COALESCE(NULLIF(i.item_name, ''), m.item_name)""")
+	frappe.db.sql("""UPDATE `tabSRV Production Entry` e
+		INNER JOIN (SELECT parent, MIN(planned_date) schedule_date, MIN(work_area) work_area
+		FROM `tabSRV Production Entry Item` GROUP BY parent) i ON i.parent=e.name
+		SET e.schedule_date=COALESCE(e.schedule_date, i.schedule_date),
+		e.work_area=COALESCE(NULLIF(e.work_area, ''), i.work_area)""")

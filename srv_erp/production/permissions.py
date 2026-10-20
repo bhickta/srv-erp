@@ -106,6 +106,7 @@ def prevent_production_sharing(doc, method=None):
 		"SRV Production Assignment",
 		"SRV Production Entry",
 		"SRV Production Schedule Item",
+		"SRV Production Schedule Responsibility",
 		"SRV Production Entry Item",
 	):
 		frappe.throw(
@@ -128,4 +129,12 @@ def entry_item_query(user=None):
 		"EXISTS (SELECT 1 FROM `tabSRV Production Entry` "
 		"WHERE `tabSRV Production Entry`.name=`tabSRV Production Entry Item`.parent "
 		f"AND {entry_query(user)})"
+	)
+
+
+def responsibility_query(user=None):
+	return (
+		"EXISTS (SELECT 1 FROM `tabSRV Production Schedule` "
+		"WHERE `tabSRV Production Schedule`.name=`tabSRV Production Schedule Responsibility`.parent "
+		f"AND {schedule_query(user)})"
 	)

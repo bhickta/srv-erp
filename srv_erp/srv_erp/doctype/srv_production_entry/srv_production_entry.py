@@ -3,7 +3,7 @@ from collections import defaultdict
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, getdate
 
 from srv_erp.production.permissions import assignment_permission, entry_permission, is_planner
 from srv_erp.production.service import (
@@ -44,6 +44,8 @@ class SRVProductionEntry(Document):
 		supervisors = {doc.supervisor for doc in assignments.values()}
 		if len(supervisors) != 1:
 			frappe.throw(_("Create a separate production entry for each supervisor."))
+		if len({source.work_area or "Production" for source in assignments.values()}) != 1:
+			frappe.throw(_("Create a separate production entry for each work area."))
 		for row in self.items:
 			source = assignments[row.assignment]
 			if not row.item_code:
@@ -57,6 +59,8 @@ class SRVProductionEntry(Document):
 			if item.stock_uom != source.uom:
 				frappe.throw(_("Produced variants must use the planned stock UOM."))
 			row.qty = positive_qty(row.qty)
+			row.item_name = item.item_name
+			row.work_area = source.work_area or "Production"
 			row.template, row.planned_item = source.template, source.item_code
 			row.supervisor, row.uom, row.planned_date = source.supervisor, source.uom, source.planned_date
 			row.planned_qty = source.target_qty
@@ -64,6 +68,8 @@ class SRVProductionEntry(Document):
 			row.remaining_qty = flt(max(source.target_qty - row.previously_produced_qty, 0), 6)
 		first = next(iter(assignments.values()))
 		self.company, self.supervisor = first.company, first.supervisor
+		self.work_area = first.work_area or "Production"
+		self.schedule_date = min(getdate(row.planned_date) for row in self.items)
 		self.item_count = len(self.items)
 		self.status = "Draft"
 		# Legacy snapshots remain available to integrations, hidden from the form.
