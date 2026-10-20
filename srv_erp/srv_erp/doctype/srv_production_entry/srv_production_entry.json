@@ -7,9 +7,11 @@
   "entry_details",
   "schedule",
   "company",
+  "supervisor",
   "entry_date_column",
   "production_date",
-  "supervisor",
+  "schedule_date",
+  "work_area",
   "entry_status_column",
   "status",
   "item_count",
@@ -49,6 +51,14 @@
    "reqd": 1
   },
   {
+   "fieldname": "supervisor",
+   "fieldtype": "Link",
+   "label": "Supervisor",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
    "fieldname": "entry_date_column",
    "fieldtype": "Column Break"
   },
@@ -61,12 +71,18 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "supervisor",
-   "fieldtype": "Link",
-   "label": "Supervisor",
-   "options": "User",
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
    "read_only": 1,
-   "reqd": 1
+   "description": "Earliest source item date."
+  },
+  {
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area / Operation",
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "entry_status_column",
