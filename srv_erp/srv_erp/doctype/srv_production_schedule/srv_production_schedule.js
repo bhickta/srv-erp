@@ -58,7 +58,7 @@ frappe.ui.form.on("SRV Production Schedule", {
 				const details = message.items
 					.map(
 						(row) => `<details class="mb-3">
-					<summary>${__("Row")} ${escape(row.row)} · ${escape(row.item_code || row.template)} · ${escape(row.occurrence_count)} ${__("dates")}</summary>
+					<summary>${__("Row")} ${escape(row.row)} · ${escape(row.item_code || row.template)} · ${escape(row.occurrence_count)} ${row.occurrence_count === 1 ? __("date") : __("dates")}</summary>
 					<table class="table table-bordered mt-2"><thead><tr><th>${__("Schedule Date")}</th><th>${__("Qty / Date")}</th><th>${__("UOM")}</th></tr></thead>
 					<tbody>${row.dates.map((date) => `<tr><td>${escape(date)}</td><td>${escape(row.qty_per_occurrence)}</td><td>${escape(row.uom)}</td></tr>`).join("")}</tbody></table>
 				</details>`,
@@ -225,8 +225,11 @@ async function srv_production_update_defaults(frm, field) {
 	const key = { start_date: "from_date", end_date: "to_date" }[field] || field;
 	const defaults = srv_production_defaults(frm);
 	const previous = frm._planning_defaults || {};
+	const required = ["from_date", "to_date", "frequency", "interval", "recurrence_unit"].includes(
+		key,
+	);
 	for (const row of frm.doc.items || []) {
-		if (!row[key] || row[key] === previous[key]) {
+		if (row[key] == null || (required && row[key] === "") || row[key] === previous[key]) {
 			await frappe.model.set_value(row.doctype, row.name, key, defaults[key]);
 		}
 	}

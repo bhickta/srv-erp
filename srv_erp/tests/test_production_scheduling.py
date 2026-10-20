@@ -1283,3 +1283,12 @@ class TestProductionScheduling(FrappeTestCase):
 		self.assertEqual(
 			(str(row.from_date), str(row.to_date), row.occurrence_count), ("2026-10-10", "2026-10-10", 1)
 		)
+
+	def test_submitted_plan_round_trip_accepts_browser_serialized_dates(self):
+		schedule = self.multi_schedule()
+		payload = schedule.as_dict(convert_dates_to_str=True)
+		doc = frappe.get_doc(payload)
+		doc.save()
+		self.assertEqual(
+			frappe.get_doc(SCHEDULE, schedule.name).items[0].planned_qty, schedule.items[0].planned_qty
+		)
