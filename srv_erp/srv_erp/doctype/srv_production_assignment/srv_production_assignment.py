@@ -58,7 +58,7 @@ class SRVProductionAssignment(Document):
 		)
 
 	def on_update(self):
-		if not self.flags.from_production_schedule:
+		if not self.flags.from_production_schedule and not self.flags.defer_schedule_progress:
 			from srv_erp.production.service import refresh_schedule_progress
 
 			refresh_schedule_progress(self.schedule)

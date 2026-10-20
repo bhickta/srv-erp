@@ -202,6 +202,167 @@ class TestProductionScheduling(FrappeTestCase):
 			}
 		).insert()
 
+	def test_update_plan_after_production_preserves_entry_and_rolls_up(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, names = self.schedule()
+		entry = self.entry(names[0], 4).submit()
+		before = entry.as_dict(convert_dates_to_str=True)
+		rows = get_plan(schedule.name)
+		rows[0].update(target_qty=12, planned_date="2026-10-09", supervisor=self.supervisors[1])
+		self.assertEqual(update_plan(schedule.name, [rows[0]], "Delivery postponed"), {"updated": 1})
+		assignment = frappe.get_doc(ASSIGNMENT, names[0])
+		self.assertEqual(
+			(assignment.completed_qty, assignment.remaining_qty, assignment.supervisor),
+			(4, 8, self.supervisors[1]),
+		)
+		self.assertEqual(str(assignment.planned_date), "2026-10-09")
+		self.assertEqual(frappe.get_doc(ENTRY, entry.name).as_dict(convert_dates_to_str=True), before)
+		schedule.reload()
+		self.assertEqual(schedule.items[0].planned_qty, 32)
+		self.assertEqual(schedule.items[0].completed_qty, 4)
+		self.assertEqual(schedule.items[0].remaining_qty, 28)
+		self.assertTrue(frappe.db.exists("Version", {"ref_doctype": ASSIGNMENT, "docname": names[0]}))
+		self.assertTrue(
+			frappe.db.exists(
+				"Comment",
+				{"reference_doctype": SCHEDULE, "reference_name": schedule.name, "comment_type": "Comment"},
+			)
+		)
+
+	def test_update_plan_rejects_underproduction_target_without_partial_changes(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, names = self.schedule()
+		self.entry(names[1], 4).submit()
+		rows = get_plan(schedule.name)
+		rows[0].target_qty = 15
+		rows[1].target_qty = 3
+		with self.assertRaisesRegex(frappe.ValidationError, "Update row 2.*target 3.*submitted production 4"):
+			update_plan(schedule.name, rows[:2], "Reduce quantities")
+		self.assertEqual(frappe.db.get_value(ASSIGNMENT, names[0], "target_qty"), 10)
+
+	def test_update_plan_detects_stale_production_and_plan(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, names = self.schedule()
+		rows = get_plan(schedule.name)
+		self.entry(names[0], 4).submit()
+		rows[0].target_qty = 20
+		with self.assertRaisesRegex(frappe.ValidationError, "recorded production changed"):
+			update_plan(schedule.name, [rows[0]], "Increase")
+		rows = get_plan(schedule.name)
+		rows[0].target_qty = 20
+		update_plan(schedule.name, [rows[0]], "Increase")
+		with self.assertRaisesRegex(frappe.ValidationError, "recorded production changed"):
+			update_plan(schedule.name, [rows[0]], "Increase again")
+
+	def test_update_plan_permissions_and_foreign_rows(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, _ = self.schedule()
+		other, _ = self.schedule()
+		rows = get_plan(other.name)
+		with self.assertRaisesRegex(frappe.ValidationError, "does not belong"):
+			update_plan(schedule.name, [rows[0]], "Wrong schedule")
+		frappe.set_user(self.supervisors[0])
+		with self.assertRaises(frappe.PermissionError):
+			get_plan(schedule.name)
+		with self.assertRaises(frappe.PermissionError):
+			update_plan(schedule.name, rows, "Forbidden")
+
+	def test_update_plan_rejects_collisions_and_supports_atomic_date_swap(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, _ = self.schedule()
+		rows = get_plan(schedule.name)
+		first_date, second_date = rows[0].planned_date, rows[1].planned_date
+		rows[0].planned_date = second_date
+		with self.assertRaisesRegex(frappe.ValidationError, "Date collision.*2026-10-02"):
+			update_plan(schedule.name, [rows[0]], "Move day")
+		rows[1].planned_date = first_date
+		self.assertEqual(update_plan(schedule.name, rows[:2], "Swap days"), {"updated": 2})
+
+	def test_update_plan_requires_reason_valid_fields_and_distinct_rows(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, _ = self.schedule()
+		row = get_plan(schedule.name)[0]
+		with self.assertRaisesRegex(frappe.ValidationError, "reason"):
+			update_plan(schedule.name, [row], " ")
+		with self.assertRaisesRegex(frappe.ValidationError, "No dates"):
+			update_plan(schedule.name, [row], "No changes")
+		with self.assertRaisesRegex(frappe.ValidationError, "repeated assignment"):
+			update_plan(schedule.name, [row, row], "Duplicate")
+		row.planned_date = "invalid"
+		with self.assertRaisesRegex(frappe.ValidationError, "Update row 1.*valid date"):
+			update_plan(schedule.name, [row], "Invalid")
+
+	def test_update_plan_can_reopen_completed_work_and_cancel_entries(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, names = self.schedule(end_date="2026-10-01")
+		entry = self.entry(names[0], 10).submit()
+		schedule.reload()
+		self.assertEqual(schedule.status, "Completed")
+		row = get_plan(schedule.name)[0]
+		row.target_qty = 12
+		update_plan(schedule.name, [row], "Extra requirement")
+		schedule.reload()
+		self.assertEqual(schedule.status, "Partly Produced")
+		entry.cancel()
+		self.assertEqual(frappe.db.get_value(ASSIGNMENT, names[0], "remaining_qty"), 12)
+
+	def test_update_plan_rejects_inactive_schedule_and_invalid_supervisor(self):
+		from srv_erp.production.updates import get_plan, update_plan
+
+		schedule, _ = self.schedule()
+		row = get_plan(schedule.name)[0]
+		row.target_qty = 12
+		row.supervisor = "missing-supervisor@example.test"
+		with self.assertRaisesRegex(frappe.ValidationError, "Update row 1"):
+			update_plan(schedule.name, [row], "Invalid user")
+		row.supervisor = self.supervisors[1]
+		with (
+			patch("srv_erp.production.updates.company_allowed", return_value=False),
+			self.assertRaisesRegex(frappe.ValidationError, "cannot access company"),
+		):
+			update_plan(schedule.name, [row], "Company mismatch")
+		schedule.reload()
+		schedule.cancel()
+		with self.assertRaisesRegex(frappe.ValidationError, "must be submitted and active"):
+			get_plan(schedule.name)
+		with self.assertRaisesRegex(frappe.ValidationError, "must be submitted and active"):
+			update_plan(schedule.name, [row], "Inactive")
+
+	def test_update_plan_rolls_back_on_save_failure(self):
+		from srv_erp.production.updates import get_plan, update_plan
+		from srv_erp.srv_erp.doctype.srv_production_assignment.srv_production_assignment import (
+			SRVProductionAssignment,
+		)
+
+		schedule, names = self.schedule()
+		rows = get_plan(schedule.name)
+		for row in rows:
+			row.target_qty = 20
+		original = SRVProductionAssignment.on_update
+
+		def fail_second(doc):
+			original(doc)
+			if doc.name == names[1]:
+				raise frappe.ValidationError("Simulated save failure")
+
+		with (
+			patch.object(SRVProductionAssignment, "on_update", fail_second),
+			self.assertRaisesRegex(frappe.ValidationError, "Simulated"),
+		):
+			update_plan(schedule.name, rows, "Increase")
+		self.assertEqual(
+			[frappe.db.get_value(ASSIGNMENT, name, "target_qty") for name in names], [10, 10, 10]
+		)
+		schedule.reload()
+		self.assertEqual(schedule.items[0].planned_qty, 30)
+
 	def test_schedule_generation_and_unique_occurrences(self):
 		schedule, names = self.schedule()
 		self.assertEqual(len(names), 3)
