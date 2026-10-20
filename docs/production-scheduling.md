@@ -39,6 +39,18 @@ Adjust **Produced Qty** and remove rows not produced on this entry. For a templa
 
 Save a draft or submit. Drafts do not consume pending quantities. Submission updates the assignments and schedule progress. The next mapped entry brings in the remaining quantities. Supervisors can also open their own assignment and use **Record Production**, which carries the operation and date automatically.
 
+## Updating a submitted plan after production starts
+
+Open a submitted **SRV Production Schedule** and click **Update Plan**. Planners can change each dated assignment's schedule date, supervisor and total target, including assignments with submitted production. Expand a dated row for its item name, UOM and status. Select several rows and use **Apply to Selected Rows** to set a common date, supervisor or total target. Enter a reason and click **Save Plan Updates**.
+
+**Target** means the full required quantity, including the **Produced** quantity. **Remaining** previews the balance against the proposed target. For example, after producing 40 of 100, changing the target to 120 leaves 80 pending. The target cannot fall below submitted production. Raising a completed target reopens its pending work. When several operations should have the same physical target, select their rows together.
+
+All changed rows save together. If another user changes an assignment or records production while the screen is open, reopen **Update Plan** to load the current balances. Errors identify the update row, item, operation, date and assignment; new collisions identify both assignments and the affected row(s). The collision check covers the same item, operation, supervisor and date in this schedule and permits atomic swaps of dates.
+
+Submitted production entries retain their quantities, source dates and supervisor snapshots. Supervisors' access continues to follow the current assignment owner; after reassignment, mixed-owner entries remain planner-only. The schedule's original ranges, frequency, item identities and responsibility definitions remain the submission record. This action updates existing dated work; it does not regenerate recurrence, add items or remove production history. Use **View → Dated Plans** or **Assignments Calendar** for current dates and owners. Totals, pending quantities, percentages and statuses refresh after saving. Each assignment retains field change history and the reason, and the schedule timeline records the batch update and author.
+
+This change adds no database fields. Deploy the app code, clear the site cache and restart app processes through the normal deployment process.
+
 ## Progress, layout and access
 
 Schedules move through **Draft → To Produce → Partly Produced → Completed**, or **Cancelled**. Entry statuses are Draft, Submitted and Cancelled. Responsibilities have Planned, In Progress, Completed and Cancelled statuses.
