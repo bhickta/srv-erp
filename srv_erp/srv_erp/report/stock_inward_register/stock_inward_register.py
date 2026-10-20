@@ -75,6 +75,12 @@ def get_columns(filters):
             "convertible": "qty",
         },
         {
+            "label": _("Qty (PC)"),
+            "fieldname": "qty_pc",
+            "fieldtype": "Float",
+            "width": 130,
+        },
+        {
             "label": _("Voucher"),
             "fieldname": "voucher",
             "fieldtype": "Data",
@@ -220,6 +226,8 @@ def get_data(filters):
                     1
                 )
             ) AS in_qty,
+
+            SUM(sle.actual_qty) AS qty_pc,
 
             COUNT(
                 DISTINCT CONCAT(
