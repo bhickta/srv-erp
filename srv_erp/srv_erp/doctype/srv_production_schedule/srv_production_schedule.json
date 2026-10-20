@@ -7,24 +7,25 @@
   "schedule_details",
   "title",
   "company",
-  "schedule_date",
   "schedule_status_column",
   "status",
   "percent_completed",
   "schedule_counts_column",
   "total_items",
   "remaining_items",
+  "occurrence_count",
   "dates_section",
   "start_date",
+  "date_end_column",
   "end_date",
   "frequency_column",
   "frequency",
+  "default_recurrence_section",
   "interval",
   "recurrence_unit",
   "custom_dates_column",
   "weekdays",
   "custom_dates",
-  "occurrence_count",
   "responsibilities_section",
   "responsibilities",
   "items_section",
@@ -35,7 +36,8 @@
   "template",
   "supervisor",
   "uom",
-  "qty_per_occurrence"
+  "qty_per_occurrence",
+  "schedule_date"
  ],
  "fields": [
   {
@@ -57,12 +59,6 @@
    "options": "Company",
    "reqd": 1,
    "in_standard_filter": 1
-  },
-  {
-   "fieldname": "schedule_date",
-   "fieldtype": "Date",
-   "label": "Schedule Date",
-   "description": "Defaults onto new item rows; individual item dates can be changed."
   },
   {
    "fieldname": "schedule_status_column",
@@ -110,23 +106,37 @@
    "no_copy": 1
   },
   {
+   "fieldname": "occurrence_count",
+   "fieldtype": "Int",
+   "label": "Production Dates",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
    "fieldname": "dates_section",
    "fieldtype": "Section Break",
-   "label": "Dates & Frequency"
+   "label": "Planning Defaults"
   },
   {
    "fieldname": "start_date",
    "fieldtype": "Date",
-   "label": "Start Date",
+   "label": "Default From Date",
    "reqd": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "Defaults onto new item rows; each row can use its own dates."
+  },
+  {
+   "fieldname": "date_end_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
-   "label": "End Date",
+   "label": "Default To Date",
    "reqd": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "Default end of recurrence for new item rows."
   },
   {
    "fieldname": "frequency_column",
@@ -135,10 +145,17 @@
   {
    "fieldname": "frequency",
    "fieldtype": "Select",
-   "label": "Frequency",
+   "label": "Default Frequency",
    "options": "Once\nDaily\nWeekdays\nWeekly\nMonthly\nCustom",
    "default": "Daily",
-   "reqd": 1
+   "reqd": 1,
+   "description": "Each item can override this frequency."
+  },
+  {
+   "fieldname": "default_recurrence_section",
+   "fieldtype": "Section Break",
+   "label": "Default Custom Recurrence",
+   "depends_on": "eval:doc.frequency == 'Custom' || doc.frequency == 'Weekly'"
   },
   {
    "fieldname": "interval",
@@ -174,14 +191,6 @@
    "depends_on": "eval:doc.frequency == 'Custom' && doc.recurrence_unit == 'Dates'"
   },
   {
-   "fieldname": "occurrence_count",
-   "fieldtype": "Int",
-   "label": "Production Dates",
-   "read_only": 1,
-   "allow_on_submit": 1,
-   "no_copy": 1
-  },
-  {
    "fieldname": "responsibilities_section",
    "fieldtype": "Section Break",
    "label": "Responsibilities"
@@ -197,7 +206,7 @@
   {
    "fieldname": "items_section",
    "fieldtype": "Section Break",
-   "label": "Items to Produce"
+   "label": "Items & Date Ranges"
   },
   {
    "fieldname": "items",
@@ -206,7 +215,7 @@
    "options": "SRV Production Schedule Item",
    "reqd": 1,
    "allow_on_submit": 1,
-   "description": "Choose a template first, then optionally select a specific variant. Quantity is per production date."
+   "description": "One row per item and date range. Qty / Date applies to every generated date. Use Preview Dates to check quantities and collisions."
   },
   {
    "fieldname": "notes_section",
@@ -267,6 +276,14 @@
    "hidden": 1,
    "read_only": 1,
    "in_list_view": 0
+  },
+  {
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
+   "description": "Legacy default date; use default From Date for new rows.",
+   "hidden": 1,
+   "read_only": 1
   }
  ],
  "permissions": [

@@ -47,11 +47,16 @@ def setup_production():
 	)
 
 
-def validate_supervisor(user):
+def validate_supervisor(user, context=None):
 	if not user or not frappe.db.exists("User", {"name": user, "enabled": 1, "user_type": "System User"}):
-		frappe.throw(_("Select an enabled system user as Production Supervisor."))
+		frappe.throw(
+			(f"{context}: " if context else "") + _("Select an enabled system user as Production Supervisor.")
+		)
 	if SUPERVISOR not in frappe.get_roles(user):
-		frappe.throw(_("The responsible user must have the SRV Production Supervisor role."))
+		frappe.throw(
+			(f"{context}: " if context else "")
+			+ _("The responsible user must have the SRV Production Supervisor role.")
+		)
 
 
 def validate_item_supervisor(doc, method=None):
