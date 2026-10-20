@@ -309,7 +309,7 @@ async function srv_production_edit_plan(frm) {
 				label: __("Dated Plans"),
 				cannot_add_rows: true,
 				cannot_delete_rows: true,
-				in_place_edit: true,
+				in_place_edit: false,
 				data: rows,
 				fields: [
 					{
@@ -439,5 +439,7 @@ async function srv_production_edit_plan(frm) {
 		row.item = row.item_code || row.template;
 		row.idx = row.row_number;
 	}
+	// Frappe hides dialog grid indices globally; keep these visible for row diagnostics.
+	dialog.$wrapper.find(".row-index").css("display", "flex");
 	dialog.show();
 }
