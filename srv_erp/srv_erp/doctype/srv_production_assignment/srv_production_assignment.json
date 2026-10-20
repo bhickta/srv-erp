@@ -91,11 +91,12 @@
   },
   {
    "fieldname": "work_area",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Work Area / Operation",
    "read_only": 1,
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "options": "Operation"
   },
   {
    "fieldname": "planned_date",

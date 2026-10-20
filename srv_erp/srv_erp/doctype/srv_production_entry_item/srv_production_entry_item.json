@@ -98,9 +98,10 @@
   },
   {
    "fieldname": "work_area",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Work Area / Operation",
-   "read_only": 1
+   "read_only": 1,
+   "options": "Operation"
   },
   {
    "fieldname": "planned_qty",

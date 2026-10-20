@@ -107,16 +107,28 @@ frappe.ui.form.on("SRV Production Schedule", {
 									onchange() {
 										if (!dialog) return;
 										const options = areas(dialog.get_value("supervisor"));
-										dialog.set_df_property("work_area", "options", options);
-										dialog.set_value("work_area", options[0]);
+										return dialog.set_value("work_area", options[0]);
 									},
 									reqd: 1,
 								},
 								{
 									fieldname: "work_area",
 									label: __("Work Area / Operation"),
-									fieldtype: "Select",
-									options: areas(message.supervisors[0]),
+									fieldtype: "Link",
+									options: "Operation",
+									get_query() {
+										return {
+											filters: {
+												name: [
+													"in",
+													areas(
+														dialog?.get_value("supervisor") ||
+															message.supervisors[0],
+													),
+												],
+											},
+										};
+									},
 									default: areas(message.supervisors[0])[0],
 									reqd: 1,
 								},
