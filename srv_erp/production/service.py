@@ -69,7 +69,9 @@ def validate_schedule(doc):
 			frappe.throw(_("The assigned user must have access to the schedule company."))
 		role.work_area = (role.work_area or "").strip()
 		if not role.work_area:
-			frappe.throw(_("Enter a work area for each responsibility."))
+			frappe.throw(_("Select an Operation for each responsibility."))
+		if not frappe.db.exists("Operation", role.work_area):
+			frappe.throw(_("Select an existing Operation for each responsibility."))
 		key = (role.supervisor, role.work_area.casefold())
 		if key in seen_responsibilities:
 			frappe.throw(_("The same user/work area may only be assigned once."))

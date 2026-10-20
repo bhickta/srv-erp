@@ -18,11 +18,12 @@
   },
   {
    "fieldname": "work_area",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Work Area / Operation",
    "reqd": 1,
    "in_list_view": 1,
-   "columns": 3
+   "columns": 3,
+   "options": "Operation"
   },
   {
    "fieldname": "status",

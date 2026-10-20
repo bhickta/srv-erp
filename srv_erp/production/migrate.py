@@ -6,6 +6,7 @@ from srv_erp.production.service import ASSIGNMENT, ENTRY, SCHEDULE, refresh_sche
 
 
 def execute():
+	backfill_operation_links()
 	for name in frappe.get_all(SCHEDULE, pluck="name"):
 		doc = frappe.get_doc(SCHEDULE, name)
 		if not doc.get("items") and doc.template:
@@ -127,3 +128,20 @@ def backfill_dates_and_names():
 		FROM `tabSRV Production Entry Item` GROUP BY parent) i ON i.parent=e.name
 		SET e.schedule_date=COALESCE(e.schedule_date, i.schedule_date),
 		e.work_area=COALESCE(NULLIF(e.work_area, ''), i.work_area)""")
+
+
+def backfill_operation_links():
+	from srv_erp.production.setup import ensure_operation
+
+	ensure_operation("Production")
+	# Preserve submitted source names and history; only create the missing
+	# master records. Normal new schedules must select an existing Operation.
+	for doctype in (
+		"SRV Production Schedule Responsibility",
+		ASSIGNMENT,
+		ENTRY,
+		"SRV Production Entry Item",
+	):
+		for name in frappe.get_all(doctype, pluck="work_area", distinct=True):
+			if name:
+				ensure_operation(name)

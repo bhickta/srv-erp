@@ -79,10 +79,11 @@
   },
   {
    "fieldname": "work_area",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Work Area / Operation",
    "read_only": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "options": "Operation"
   },
   {
    "fieldname": "entry_status_column",

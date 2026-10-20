@@ -105,6 +105,9 @@ class TestProductionScheduling(FrappeTestCase):
 		super().setUpClass()
 		frappe.set_user("Administrator")
 		setup_production()
+		for operation in ("Fabrication", "Bending"):
+			if not frappe.db.exists("Operation", operation):
+				frappe.get_doc({"doctype": "Operation", "name": operation}).insert()
 		cls.company = frappe.get_all("Company", pluck="name", limit=1)[0]
 		cls.supervisors = ["production-a@example.test", "production-b@example.test"]
 		for user in cls.supervisors:
@@ -658,7 +661,7 @@ class TestProductionScheduling(FrappeTestCase):
 		for row in entry.items:
 			row.planned_date = "2020-01-01"
 			row.item_name = "Forged name"
-			row.work_area = "Forged area"
+			row.work_area = "Bending"
 		entry.schedule_date = "2020-01-01"
 		entry.insert().submit()
 		self.assertEqual(str(entry.schedule_date), "2026-10-02")
@@ -800,3 +803,52 @@ class TestProductionScheduling(FrappeTestCase):
 			frappe.share.add_docshare(
 				row.doctype, row.name, user=self.supervisors[0], flags={"ignore_share_permission": True}
 			)
+
+	def test_work_area_links_existing_operation_and_supervisors_can_select(self):
+		from frappe.desk.search import search_link
+
+		for doctype in (
+			"SRV Production Schedule Responsibility",
+			ASSIGNMENT,
+			ENTRY,
+			"SRV Production Entry Item",
+		):
+			field = frappe.get_meta(doctype).get_field("work_area")
+			self.assertEqual((field.fieldtype, field.options), ("Link", "Operation"))
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				responsibilities=[
+					{"supervisor": self.supervisors[0], "work_area": "_Missing Production Operation"}
+				]
+			)
+		frappe.set_user(self.supervisors[0])
+		self.assertTrue(frappe.has_permission("Operation", ptype="select"))
+		results = search_link("Operation", "Bending", filters={"name": ["in", ["Bending"]]})
+		self.assertIn("Bending", [row["value"] for row in results])
+
+	def test_operation_link_migration_preserves_existing_text_and_is_idempotent(self):
+		from srv_erp.production.migrate import execute
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.role_schedule()
+		entry = make_production_entry(schedule.name, work_area="Fabrication").insert().submit()
+		legacy = "_Test Legacy Fabrication Area"
+		self.assertFalse(frappe.db.exists("Operation", legacy))
+		for role in schedule.responsibilities:
+			if role.work_area == "Fabrication":
+				frappe.db.set_value(role.doctype, role.name, "work_area", legacy)
+		for row in entry.items:
+			frappe.db.set_value(ASSIGNMENT, row.assignment, "work_area", legacy)
+			frappe.db.set_value(row.doctype, row.name, "work_area", legacy)
+		frappe.db.set_value(ENTRY, entry.name, "work_area", legacy)
+		sources = {row.assignment for row in entry.items}
+		execute()
+		execute()
+		self.assertEqual(frappe.db.count("Operation", {"name": legacy}), 1)
+		entry.reload()
+		schedule.reload()
+		self.assertEqual(entry.work_area, legacy)
+		self.assertEqual(schedule.responsibilities[0].work_area, legacy)
+		self.assertEqual({row.assignment for row in entry.items}, sources)
+		self.assertTrue(all(row.work_area == legacy for row in entry.items))
+		self.assertEqual(schedule.percent_completed, 50)
