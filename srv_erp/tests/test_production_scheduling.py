@@ -852,3 +852,88 @@ class TestProductionScheduling(FrappeTestCase):
 		self.assertEqual({row.assignment for row in entry.items}, sources)
 		self.assertTrue(all(row.work_area == legacy for row in entry.items))
 		self.assertEqual(schedule.percent_completed, 50)
+
+	def test_same_variant_on_different_dates_has_independent_entry_balances(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"qty_per_occurrence": 20,
+					"schedule_date": "2026-10-03",
+				},
+			],
+			end_date="2026-10-03",
+		)
+		self.assertEqual(schedule.total_items, 2)
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 2)
+		entry = make_production_entry(schedule.name, planned_date="2026-10-01")
+		self.assertEqual(len(entry.items), 1)
+		entry.items[0].qty = 4
+		entry.insert().submit()
+		pending = make_production_entry(schedule.name)
+		self.assertEqual(
+			{str(row.planned_date): row.qty for row in pending.items}, {"2026-10-01": 6, "2026-10-03": 20}
+		)
+		self.assertEqual(len({row.assignment for row in pending.items}), 2)
+		pending.insert().submit()
+		schedule.reload()
+		self.assertEqual(
+			(schedule.status, schedule.percent_completed, schedule.remaining_items), ("Completed", 100, 0)
+		)
+		self.assertEqual({row.completed_qty for row in schedule.items}, {10, 20})
+
+	def test_template_can_repeat_on_different_dates_but_not_same_default_date(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "qty_per_occurrence": 10},
+				{"template": self.template, "qty_per_occurrence": 20, "schedule_date": "2026-10-03"},
+			],
+			end_date="2026-10-03",
+		)
+		entry = make_production_entry(schedule.name)
+		self.assertEqual({str(row.planned_date) for row in entry.items}, {"2026-10-01", "2026-10-03"})
+		for row in entry.items:
+			row.item_code = self.variant
+		entry.insert().submit()
+		self.assertEqual(schedule.reload().status, "Completed")
+		with self.assertRaisesRegex(frappe.ValidationError, "once per Schedule Date"):
+			self.multi_schedule(
+				rows=[
+					{"template": self.template, "qty_per_occurrence": 10},
+					{"template": self.template, "qty_per_occurrence": 20, "schedule_date": "2026-10-01"},
+				]
+			)
+
+	def test_repeated_variant_recurrence_keeps_overlapping_occurrences_separate(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"qty_per_occurrence": 20,
+					"schedule_date": "2026-10-02",
+				},
+			],
+			end_date="2026-10-03",
+			frequency="Daily",
+		)
+		self.assertEqual({row.planned_qty for row in schedule.items}, {30, 40})
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 5)
+		entry = make_production_entry(schedule.name, planned_date="2026-10-02")
+		self.assertEqual(len(entry.items), 2)
+		self.assertEqual({row.qty for row in entry.items}, {10, 20})
+		self.assertEqual(len({row.assignment for row in entry.items}), 2)
+		entry.insert().submit()
+		remaining = make_production_entry(schedule.name)
+		self.assertEqual(len(remaining.items), 3)
+		remaining.insert().submit()
+		self.assertEqual(schedule.reload().status, "Completed")
