@@ -10,7 +10,11 @@ frappe.ui.form.on("SRV Production Assignment", {
 				frappe.model.open_mapped_doc({
 					method: "srv_erp.production.service.make_production_entry",
 					source_name: frm.doc.schedule,
-					args: { supervisor: frm.doc.supervisor, planned_date: frm.doc.planned_date },
+					args: {
+						supervisor: frm.doc.supervisor,
+						planned_date: frm.doc.planned_date,
+						work_area: frm.doc.work_area || "Production",
+					},
 				});
 			}).addClass("btn-primary");
 		}
