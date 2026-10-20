@@ -3,7 +3,7 @@ from collections import defaultdict
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, getdate
+from frappe.utils import escape_html, flt, getdate
 
 from srv_erp.production.permissions import assignment_permission, entry_permission, is_planner
 from srv_erp.production.service import (
@@ -48,17 +48,35 @@ class SRVProductionEntry(Document):
 			frappe.throw(_("Create a separate production entry for each work area."))
 		for row in self.items:
 			source = assignments[row.assignment]
+			context = _("Entry row {0} ({1}, scheduled {2}, {3})").format(
+				row.idx,
+				escape_html(row.item_code or source.template),
+				source.planned_date,
+				escape_html(source.work_area or "Production"),
+			)
 			if not row.item_code:
-				frappe.throw(_("Select a produced variant for each output row."))
+				frappe.throw(context + ": " + _("Select a produced variant."))
 			item = frappe.get_doc("Item", row.item_code)
 			item.check_permission("read")
 			if item.disabled or item.has_variants or item.variant_of != source.template:
-				frappe.throw(_("Select an enabled variant of the planned template on each row."))
+				frappe.throw(
+					context
+					+ ": "
+					+ _("Select an enabled variant of template {0}.").format(escape_html(source.template))
+				)
 			if source.item_code and item.name != source.item_code:
-				frappe.throw(_("Production must use the exact variant selected in the schedule."))
+				frappe.throw(
+					context
+					+ ": "
+					+ _("Production must use planned variant {0}.").format(escape_html(source.item_code))
+				)
 			if item.stock_uom != source.uom:
-				frappe.throw(_("Produced variants must use the planned stock UOM."))
-			row.qty = positive_qty(row.qty)
+				frappe.throw(
+					context
+					+ ": "
+					+ _("Produced variants must use planned UOM {0}.").format(escape_html(source.uom))
+				)
+			row.qty = positive_qty(row.qty, context + _(" — Produced Qty"))
 			row.item_name = item.item_name
 			row.work_area = source.work_area or "Production"
 			row.template, row.planned_item = source.template, source.item_code
@@ -112,10 +130,20 @@ class SRVProductionEntry(Document):
 			totals[row.assignment] += row.qty
 		for name, qty in totals.items():
 			if flt(submitted_qty(name, exclude=self.name) + qty, 6) > flt(sources[name].target_qty, 6):
+				rows = ", ".join(str(row.idx) for row in self.items if row.assignment == name)
+				pending = max(sources[name].target_qty - submitted_qty(name, exclude=self.name), 0)
 				frappe.throw(
 					_(
-						"Production exceeds the pending quantity for {0}. Refresh the entry or ask a planner to adjust the target."
-					).format(sources[name].item_code or sources[name].template)
+						"Entry row(s) {0}: item {1}, scheduled {2}, operation {3} has {4} {5} pending; this entry records {6}. Reduce Produced Qty or refresh the entry."
+					).format(
+						rows,
+						escape_html(sources[name].item_code or sources[name].template),
+						sources[name].planned_date,
+						escape_html(sources[name].work_area or "Production"),
+						pending,
+						escape_html(sources[name].uom),
+						qty,
+					)
 				)
 		self.status = "Submitted"
 

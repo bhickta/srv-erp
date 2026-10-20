@@ -1,11 +1,12 @@
 import math
+from datetime import date
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, nowdate
+from frappe.utils import escape_html, flt, getdate, nowdate
 
 from srv_erp.production.permissions import company_allowed, is_planner
-from srv_erp.production.recurrence import production_dates
+from srv_erp.production.recurrence import FREQUENCIES, production_dates
 from srv_erp.production.setup import validate_supervisor
 
 SCHEDULE = "SRV Production Schedule"
@@ -14,13 +15,16 @@ ENTRY = "SRV Production Entry"
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
-def positive_qty(value):
+def positive_qty(value, context=None):
 	try:
 		number = float(value)
 	except TypeError, ValueError:
 		number = 0
 	if not math.isfinite(number) or flt(number, 6) <= 0:
-		frappe.throw(_("Quantity must be a positive finite number (minimum 0.000001)."))
+		frappe.throw(
+			(f"{context}: " if context else "")
+			+ _("Quantity must be a positive finite number (minimum 0.000001).")
+		)
 	return flt(number, 6)
 
 
@@ -52,81 +56,239 @@ def schedule_dates(doc, start_date=None):
 		frappe.throw(_("Invalid production recurrence: {0}").format(str(exc)))
 
 
+def planning_date(value, label, context):
+	try:
+		return date.fromisoformat(str(value))
+	except ValueError, TypeError:
+		frappe.throw(
+			_("{0}: {1} must be a valid date (YYYY-MM-DD); received {2}.").format(
+				context, label, escape_html(str(value or "blank"))
+			)
+		)
+
+
+def item_context(row):
+	return _("Item row {0} ({1})").format(
+		row.idx, escape_html(row.item_code or row.template or _("no item selected"))
+	)
+
+
+def item_dates(doc, row):
+	"""Resolve and snapshot per-row defaults, keeping old date-only clients usable."""
+	context = item_context(row)
+	legacy_date = row.get("schedule_date") if not row.get("from_date") else None
+	if legacy_date:
+		legacy_date = planning_date(legacy_date, _("Legacy Schedule Date"), context)
+	if (
+		not row.get("from_date")
+		and legacy_date
+		and not getdate(doc.start_date) <= getdate(legacy_date) <= getdate(doc.end_date)
+	):
+		frappe.throw(
+			_(
+				"{0}: legacy Schedule Date {1} is outside the header range; use From Date and To Date to override the range."
+			).format(context, escape_html(str(legacy_date)))
+		)
+	row.from_date = planning_date(
+		row.get("from_date") or legacy_date or doc.get("schedule_date") or doc.start_date,
+		_("From Date"),
+		context,
+	)
+	row.frequency = row.get("frequency") or doc.frequency
+	row.to_date = planning_date(
+		row.get("to_date") or (row.from_date if row.frequency == "Once" else doc.end_date),
+		_("To Date"),
+		context,
+	)
+	if row.from_date > row.to_date:
+		frappe.throw(
+			_("{0}: From Date {1} is after To Date {2}.").format(context, row.from_date, row.to_date)
+		)
+	# Once always represents one day, regardless of the header's default end.
+	if row.frequency == "Once":
+		row.to_date = row.from_date
+	for key in ("interval", "recurrence_unit", "weekdays", "custom_dates"):
+		if row.get(key) is None or (key in ("interval", "recurrence_unit") and row.get(key) == ""):
+			row.set(key, doc.get(key))
+	row.interval = 1 if row.interval is None else row.interval
+	row.recurrence_unit = row.recurrence_unit or "Days"
+	try:
+		weekdays = []
+		for value in (
+			(row.weekdays or "")
+			if row.frequency == "Weekly" or (row.frequency == "Custom" and row.recurrence_unit == "Weeks")
+			else ""
+		).split(","):
+			if value.strip():
+				if value.strip() not in WEEKDAYS:
+					raise ValueError(f"Weekdays contains {value.strip()!r}; use Mon,Tue,Wed,Thu,Fri,Sat,Sun.")
+				weekdays.append(WEEKDAYS.index(value.strip()))
+		explicit_dates = (
+			(row.custom_dates or "").split()
+			if row.frequency == "Custom" and row.recurrence_unit == "Dates"
+			else []
+		)
+		# Header explicit dates are defaults; clip them to the row's window.
+		# Explicit dates supplied on a row itself must all be within its window.
+		if (
+			row.frequency == "Custom"
+			and row.recurrence_unit == "Dates"
+			and row.custom_dates == doc.get("custom_dates")
+		):
+			explicit_dates = [
+				value for value in explicit_dates if row.from_date <= date.fromisoformat(value) <= row.to_date
+			]
+			row.custom_dates = "\n".join(explicit_dates)
+		dates = production_dates(
+			row.from_date,
+			row.to_date,
+			row.frequency,
+			row.interval,
+			row.recurrence_unit,
+			weekdays,
+			explicit_dates,
+		)
+	except (ValueError, TypeError, OverflowError) as exc:
+		frappe.throw(
+			_("{0}: invalid dates or recurrence ({1} to {2}, {3}): {4}").format(
+				context, row.from_date, row.to_date, escape_html(str(row.frequency)), escape_html(str(exc))
+			)
+		)
+	row.schedule_date = row.from_date  # Hidden legacy snapshot, not a second planning date.
+	row.occurrence_count = len(dates)
+	return dates
+
+
 def validate_schedule(doc):
 	require_planner(doc.company)
 	if not doc.get("items") and doc.get("template"):
 		doc.append("items", {"template": doc.template, "qty_per_occurrence": doc.qty_per_occurrence})
 	if not doc.get("items"):
-		frappe.throw(_("Add at least one item to produce."))
-	schedule_dates(doc)
-	doc.schedule_date = getdate(doc.get("schedule_date") or doc.start_date)
-	if not getdate(doc.start_date) <= doc.schedule_date <= getdate(doc.end_date):
-		frappe.throw(_("Schedule Date must be within the schedule date range."))
-	seen_responsibilities = set()
+		frappe.throw(_("Items & Date Ranges: add at least one item row."))
+	doc.start_date = planning_date(doc.start_date, _("Default From Date"), _("Planning Defaults"))
+	doc.end_date = planning_date(doc.end_date, _("Default To Date"), _("Planning Defaults"))
+	try:
+		production_dates(doc.start_date, doc.end_date, "Once")
+	except (ValueError, TypeError, OverflowError) as exc:
+		frappe.throw(
+			_("Planning Defaults ({0} to {1}): {2}").format(
+				doc.start_date, doc.end_date, escape_html(str(exc))
+			)
+		)
+	if doc.frequency not in FREQUENCIES:
+		frappe.throw(
+			_("Planning Defaults: select a supported Default Frequency; received {0}.").format(
+				escape_html(str(doc.frequency))
+			)
+		)
+	doc.schedule_date = planning_date(
+		doc.get("schedule_date") or doc.start_date, _("Legacy Schedule Date"), _("Planning Defaults")
+	)
+	if not doc.start_date <= doc.schedule_date <= doc.end_date:
+		frappe.throw(
+			_("Planning Defaults: legacy Schedule Date {0} is outside {1} to {2}.").format(
+				doc.schedule_date, doc.start_date, doc.end_date
+			)
+		)
+	seen_responsibilities = {}
 	for role in doc.get("responsibilities") or []:
-		validate_supervisor(role.supervisor)
+		context = _("Responsibility row {0} ({1})").format(
+			role.idx, escape_html(role.supervisor or _("no user selected"))
+		)
+		validate_supervisor(role.supervisor, context=context)
 		if not company_allowed(doc.company, role.supervisor):
-			frappe.throw(_("The assigned user must have access to the schedule company."))
+			frappe.throw(
+				_("{0}: the user does not have access to company {1}.").format(
+					context, escape_html(doc.company)
+				)
+			)
 		role.work_area = (role.work_area or "").strip()
-		if not role.work_area:
-			frappe.throw(_("Select an Operation for each responsibility."))
-		if not frappe.db.exists("Operation", role.work_area):
-			frappe.throw(_("Select an existing Operation for each responsibility."))
+		if not role.work_area or not frappe.db.exists("Operation", role.work_area):
+			frappe.throw(
+				_("{0}: select an existing Work Area / Operation; received {1}.").format(
+					context, escape_html(role.work_area or _("blank"))
+				)
+			)
 		key = (role.supervisor, role.work_area.casefold())
 		if key in seen_responsibilities:
-			frappe.throw(_("The same user/work area may only be assigned once."))
-		seen_responsibilities.add(key)
+			frappe.throw(
+				_("Responsibility rows {0} and {1}: user {2} and operation {3} are duplicated.").format(
+					seen_responsibilities[key],
+					role.idx,
+					escape_html(role.supervisor),
+					escape_html(role.work_area),
+				)
+			)
+		seen_responsibilities[key] = role.idx
 		role.status, role.percent_completed = "Planned", 0
-	seen = set()
+	seen = {}
 	all_dates = set()
 	assignment_count = 0
 	for row in doc.items:
+		context = item_context(row)
 		if not row.template:
-			frappe.throw(_("Choose a template before selecting a variant."))
+			frappe.throw(_("{0}: select Template before selecting Variant.").format(context))
 		template = frappe.get_doc("Item", row.template)
 		template.check_permission("read")
 		if template.disabled or not template.has_variants:
-			frappe.throw(_("Select an enabled Item template on each row."))
+			frappe.throw(
+				_("{0}: Template {1} must be enabled and have variants.").format(
+					context, escape_html(row.template)
+				)
+			)
 		if row.item_code:
 			variant = frappe.get_doc("Item", row.item_code)
 			variant.check_permission("read")
 			if variant.disabled or variant.has_variants or variant.variant_of != row.template:
-				frappe.throw(_("The planned variant must belong to the selected template."))
+				frappe.throw(
+					_("{0}: Variant {1} must be enabled and belong to Template {2}.").format(
+						context, escape_html(row.item_code), escape_html(row.template)
+					)
+				)
 			if variant.stock_uom != template.stock_uom:
-				frappe.throw(_("The planned variant and template must use the same stock UOM."))
+				frappe.throw(
+					_("{0}: variant UOM {1} differs from template UOM {2}.").format(
+						context, escape_html(variant.stock_uom), escape_html(template.stock_uom)
+					)
+				)
 		row.supervisor = template.get("custom_production_supervisor")
 		if not doc.get("responsibilities"):
-			validate_supervisor(row.supervisor)
-		row.schedule_date = getdate(row.get("schedule_date") or doc.schedule_date)
-		if not getdate(doc.start_date) <= row.schedule_date <= getdate(doc.end_date):
-			frappe.throw(_("Each item Schedule Date must be within the schedule date range."))
-		key = (row.template, row.item_code or "", row.schedule_date)
-		if key in seen:
+			validate_supervisor(row.supervisor, context=context + _(" — Template Default Supervisor"))
+		row_dates = item_dates(doc, row)
+		item_key = (row.template, row.item_code or "")
+		previous = seen.setdefault(item_key, {})
+		collisions = [value for value in row_dates if value in previous]
+		if collisions:
+			first_row = previous[collisions[0]]
+			conflicts = [value for value in collisions if previous[value] == first_row]
+			date_text = ", ".join(value.isoformat() for value in conflicts[:5])
+			if len(conflicts) > 5:
+				date_text += _(" (and {0} more)").format(len(conflicts) - 5)
 			frappe.throw(
 				_(
-					"The same item may only appear once per Schedule Date. Use another date or combine the quantity."
-				)
+					"Date collision for item {0} in rows {1} and {2}: {3}. Change the date range/frequency or combine the quantities."
+				).format(escape_html(row.item_code or row.template), first_row, row.idx, date_text)
 			)
-		seen.add(key)
-		row_dates = schedule_dates(doc, row.schedule_date)
+		previous.update({value: row.idx for value in row_dates})
 		all_dates.update(row_dates)
 		assignment_count += len(row_dates) * max(len(doc.get("responsibilities") or []), 1)
+		if assignment_count > 1000:
+			frappe.throw(
+				_(
+					"{0}: this row brings the schedule to {1} dated assignments including responsibilities; the limit is 1,000. Shorten the range or reduce the number of responsibilities."
+				).format(context, assignment_count)
+			)
 		row.item_name = variant.item_name if row.item_code else template.item_name
 		row.uom = template.stock_uom
-		row.qty_per_occurrence = positive_qty(row.qty_per_occurrence)
+		row.qty_per_occurrence = positive_qty(row.qty_per_occurrence, context + _(" — Qty / Date"))
 		row.planned_qty = flt(row.qty_per_occurrence * len(row_dates), 6)
 		row.completed_qty = row.percent_completed = 0
 		row.remaining_qty = row.planned_qty
 	doc.title = doc.get("title") or doc.items[0].template
 	doc.total_items = doc.remaining_items = len(doc.items)
-	if assignment_count > 1000:
-		frappe.throw(
-			_("A schedule may contain at most 1,000 dated item assignments, including responsibilities.")
-		)
 	doc.occurrence_count = len(all_dates)
 	doc.percent_completed = 0
 	doc.status = "Draft"
-	# Retain legacy values for older API clients; all calculations use child rows.
 	doc.template, doc.supervisor, doc.uom = (
 		doc.items[0].get(key) for key in ("template", "supervisor", "uom")
 	)
@@ -203,6 +365,7 @@ def refresh_schedule_progress(schedule):
 		)
 		values = {
 			"planned_qty": flt(planned, 6),
+			"occurrence_count": len(by_date),
 			"completed_qty": flt(completed, 6),
 			"remaining_qty": flt(max(planned - completed, 0), 6),
 			"percent_completed": completion_percent(item_rows),

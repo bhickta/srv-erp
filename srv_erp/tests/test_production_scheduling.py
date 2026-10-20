@@ -902,7 +902,7 @@ class TestProductionScheduling(FrappeTestCase):
 			row.item_code = self.variant
 		entry.insert().submit()
 		self.assertEqual(schedule.reload().status, "Completed")
-		with self.assertRaisesRegex(frappe.ValidationError, "once per Schedule Date"):
+		with self.assertRaisesRegex(frappe.ValidationError, "Date collision.*rows 1 and 2"):
 			self.multi_schedule(
 				rows=[
 					{"template": self.template, "qty_per_occurrence": 10},
@@ -910,7 +910,314 @@ class TestProductionScheduling(FrappeTestCase):
 				]
 			)
 
-	def test_repeated_variant_recurrence_keeps_overlapping_occurrences_separate(self):
+	def test_repeated_variant_recurrence_reports_the_conflicting_rows_and_dates(self):
+		with self.assertRaisesRegex(
+			frappe.ValidationError, r"Date collision.*rows 1 and 2: 2026-10-02, 2026-10-03"
+		):
+			self.multi_schedule(
+				rows=[
+					{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+					{
+						"template": self.template,
+						"item_code": self.variant,
+						"qty_per_occurrence": 20,
+						"schedule_date": "2026-10-02",
+					},
+				],
+				end_date="2026-10-03",
+				frequency="Daily",
+			)
+
+	def test_row_range_daily_preview_and_generated_targets(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-01",
+					"to_date": "2026-10-08",
+					"frequency": "Daily",
+					"qty_per_occurrence": 2000,
+				}
+			]
+		)
+		self.assertEqual((schedule.items[0].occurrence_count, schedule.items[0].planned_qty), (8, 16000))
+		names = frappe.get_all(
+			ASSIGNMENT,
+			filters={"schedule": schedule.name},
+			fields=["planned_date", "target_qty"],
+			order_by="planned_date",
+		)
+		self.assertEqual(len(names), 8)
+		self.assertEqual({row.target_qty for row in names}, {2000})
+		preview = schedule.preview()
+		self.assertEqual((preview["assignment_count"], preview["items"][0]["occurrence_count"]), (8, 8))
+		self.assertEqual(
+			[str(value) for value in preview["items"][0]["dates"]],
+			[f"2026-10-{day:02d}" for day in range(1, 9)],
+		)
+		self.assertEqual(preview["items"][0]["planned_qty"], 16000)
+
+	def test_row_ranges_and_frequencies_override_header_defaults(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-01",
+					"to_date": "2026-10-03",
+					"frequency": "Daily",
+					"qty_per_occurrence": 10,
+				},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-05",
+					"to_date": "2026-10-19",
+					"frequency": "Weekly",
+					"qty_per_occurrence": 20,
+				},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-20",
+					"to_date": "2026-10-31",
+					"frequency": "Once",
+					"qty_per_occurrence": 30,
+				},
+			]
+		)
+		self.assertEqual([row.occurrence_count for row in schedule.items], [3, 3, 1])
+		self.assertEqual([row.planned_qty for row in schedule.items], [30, 60, 30])
+		self.assertEqual(str(schedule.items[2].to_date), "2026-10-20")
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 7)
+
+	def test_rows_inherit_dates_frequency_and_custom_interval(self):
+		schedule = self.multi_schedule(
+			rows=[{"template": self.template, "qty_per_occurrence": 5}],
+			end_date="2026-10-07",
+			frequency="Custom",
+			interval=2,
+			recurrence_unit="Days",
+		)
+		row = schedule.items[0]
+		self.assertEqual(
+			(str(row.from_date), str(row.to_date), row.frequency, row.interval),
+			("2026-10-01", "2026-10-07", "Custom", 2),
+		)
+		self.assertEqual(row.occurrence_count, 4)
+		self.assertEqual(row.planned_qty, 20)
+
+	def test_row_custom_rules_and_explicit_dates_can_differ(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-01",
+					"to_date": "2026-10-07",
+					"frequency": "Custom",
+					"interval": 3,
+					"recurrence_unit": "Days",
+					"qty_per_occurrence": 10,
+				},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-08",
+					"to_date": "2026-10-20",
+					"frequency": "Custom",
+					"recurrence_unit": "Dates",
+					"custom_dates": "2026-10-09\n2026-10-15",
+					"qty_per_occurrence": 20,
+				},
+			]
+		)
+		self.assertEqual([row.occurrence_count for row in schedule.items], [3, 2])
+		self.assertEqual([row.planned_qty for row in schedule.items], [30, 40])
+
+	def test_overlapping_ranges_without_generated_date_collisions_are_allowed(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-05",
+					"to_date": "2026-10-19",
+					"frequency": "Weekly",
+					"qty_per_occurrence": 10,
+				},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"from_date": "2026-10-06",
+					"to_date": "2026-10-20",
+					"frequency": "Weekly",
+					"qty_per_occurrence": 20,
+				},
+			]
+		)
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 6)
+
+	def test_row_range_errors_identify_row_item_and_dates(self):
+		with self.assertRaisesRegex(
+			frappe.ValidationError, r"Item row 1.*From Date 2026-10-08 is after To Date 2026-10-02"
+		):
+			self.multi_schedule(
+				rows=[
+					{
+						"template": self.template,
+						"from_date": "2026-10-08",
+						"to_date": "2026-10-02",
+						"qty_per_occurrence": 10,
+					}
+				]
+			)
+		with self.assertRaisesRegex(frappe.ValidationError, r"Item row 1.*From Date must be a valid date"):
+			# Exercise the resolver before Frappe coerces a Date field during insertion.
+			from srv_erp.production.service import item_dates
+
+			item_dates(
+				frappe._dict(start_date="2026-10-01", end_date="2026-10-03"),
+				frappe._dict(idx=1, template=self.template, from_date="bad-date"),
+			)
+
+	def test_row_custom_errors_include_field_and_row(self):
+		for values, message in [
+			({"frequency": "Weekly", "weekdays": "Funday"}, "Weekdays contains"),
+			(
+				{"frequency": "Custom", "recurrence_unit": "Days", "interval": 0},
+				"interval must be a positive",
+			),
+			(
+				{"frequency": "Custom", "recurrence_unit": "Dates", "custom_dates": "2026-10-20"},
+				"Select dates within",
+			),
+		]:
+			with (
+				self.subTest(values=values),
+				self.assertRaisesRegex(frappe.ValidationError, "Item row 1.*" + message),
+			):
+				self.multi_schedule(
+					rows=[
+						{
+							"template": self.template,
+							"from_date": "2026-10-01",
+							"to_date": "2026-10-03",
+							"qty_per_occurrence": 1,
+							**values,
+						}
+					]
+				)
+
+	def test_quantity_and_missing_default_supervisor_errors_identify_row(self):
+		with self.assertRaisesRegex(frappe.ValidationError, r"Item row 1.*Qty / Date.*positive"):
+			self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 0}])
+		frappe.db.set_value("Item", self.template, "custom_production_supervisor", None)
+		with self.assertRaisesRegex(frappe.ValidationError, r"Item row 1.*Template Default Supervisor"):
+			self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 1}])
+
+	def test_collision_error_identifies_both_rows_item_and_generated_dates(self):
+		with self.assertRaisesRegex(
+			frappe.ValidationError, r"Date collision for item .* in rows 1 and 2: 2026-10-03, 2026-10-04"
+		):
+			self.multi_schedule(
+				rows=[
+					{
+						"template": self.template,
+						"item_code": self.variant,
+						"from_date": "2026-10-01",
+						"to_date": "2026-10-04",
+						"frequency": "Daily",
+						"qty_per_occurrence": 10,
+					},
+					{
+						"template": self.template,
+						"item_code": self.variant,
+						"from_date": "2026-10-03",
+						"to_date": "2026-10-05",
+						"frequency": "Daily",
+						"qty_per_occurrence": 20,
+					},
+				]
+			)
+
+	def test_range_assignment_limit_error_identifies_the_row(self):
+		with self.assertRaisesRegex(frappe.ValidationError, r"Item row 1.*1,000"):
+			self.role_schedule(
+				rows=[
+					{
+						"template": self.template,
+						"from_date": "2026-01-01",
+						"to_date": "2027-12-31",
+						"frequency": "Daily",
+						"qty_per_occurrence": 1,
+					}
+				]
+			)
+
+	def test_submitted_row_range_and_recurrence_cannot_be_changed(self):
+		schedule = self.multi_schedule()
+		for field, value in [
+			("from_date", "2026-10-02"),
+			("to_date", "2026-10-02"),
+			("frequency", "Daily"),
+			("interval", 3),
+			("weekdays", "Mon"),
+		]:
+			with self.subTest(field=field), self.assertRaises(frappe.ValidationError):
+				schedule.reload()
+				schedule.items[0].set(field, value)
+				schedule.save()
+
+	def test_range_migration_keeps_original_sources_and_submitted_quantities(self):
+		from srv_erp.production.migrate import execute
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(end_date="2026-10-03", frequency="Daily")
+		entry = make_production_entry(schedule.name, planned_date="2026-10-01").insert().submit()
+		sources = frappe.get_all(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="name")
+		for row in schedule.items:
+			frappe.db.set_value(
+				row.doctype,
+				row.name,
+				{
+					"from_date": None,
+					"to_date": None,
+					"frequency": None,
+					"recurrence_unit": None,
+					"interval": 0,
+				},
+			)
+		execute()
+		execute()
+		schedule.reload()
+		self.assertEqual(
+			frappe.get_all(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="name"), sources
+		)
+		self.assertEqual(schedule.items[0].frequency, "Daily")
+		self.assertEqual(str(schedule.items[0].from_date), "2026-10-01")
+		self.assertEqual(str(schedule.items[0].to_date), "2026-10-03")
+		self.assertEqual(schedule.items[0].occurrence_count, 3)
+		self.assertEqual({row.completed_qty for row in schedule.items}, {10, 20})
+		self.assertEqual(frappe.get_doc(ENTRY, entry.name).docstatus, 1)
+
+	def test_overproduction_error_names_output_row_date_and_pending_quantity(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10}]
+		)
+		entry = make_production_entry(schedule.name)
+		entry.items[0].qty = 11
+		entry.insert()
+		with self.assertRaisesRegex(
+			frappe.ValidationError, r"Entry row\(s\) 1:.*2026-10-01.*10.*pending.*11"
+		):
+			entry.submit()
+
+	def test_migration_preserves_preexisting_submitted_overlapping_recurrence(self):
+		from srv_erp.production.migrate import execute
 		from srv_erp.production.service import make_production_entry
 
 		schedule = self.multi_schedule(
@@ -920,20 +1227,68 @@ class TestProductionScheduling(FrappeTestCase):
 					"template": self.template,
 					"item_code": self.variant,
 					"qty_per_occurrence": 20,
-					"schedule_date": "2026-10-02",
+					"schedule_date": "2026-10-03",
 				},
 			],
 			end_date="2026-10-03",
-			frequency="Daily",
 		)
-		self.assertEqual({row.planned_qty for row in schedule.items}, {30, 40})
-		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 5)
-		entry = make_production_entry(schedule.name, planned_date="2026-10-02")
-		self.assertEqual(len(entry.items), 2)
-		self.assertEqual({row.qty for row in entry.items}, {10, 20})
-		self.assertEqual(len({row.assignment for row in entry.items}), 2)
-		entry.insert().submit()
-		remaining = make_production_entry(schedule.name)
-		self.assertEqual(len(remaining.items), 3)
-		remaining.insert().submit()
-		self.assertEqual(schedule.reload().status, "Completed")
+		# Reproduce assignments generated by the previous release, where
+		# differently anchored Daily rows could overlap on later dates.
+		first = frappe.get_doc(
+			ASSIGNMENT, {"schedule": schedule.name, "schedule_item": schedule.items[0].name}
+		)
+		for day in ("2026-10-02", "2026-10-03"):
+			assignment = frappe.copy_doc(first)
+			assignment.planned_date = day
+			assignment.occurrence_key = f"{schedule.name}:{schedule.items[0].name}:{day}:default"
+			assignment.flags.from_production_schedule = True
+			assignment.insert(ignore_permissions=True)
+		frappe.db.set_value(SCHEDULE, schedule.name, "frequency", "Daily")
+		for row in schedule.items:
+			frappe.db.set_value(
+				row.doctype,
+				row.name,
+				{
+					"from_date": None,
+					"to_date": None,
+					"frequency": None,
+					"recurrence_unit": None,
+					"interval": 0,
+				},
+			)
+		entry = make_production_entry(schedule.name, planned_date="2026-10-01").insert().submit()
+		sources = set(frappe.get_all(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="name"))
+		execute()
+		execute()
+		self.assertEqual(
+			set(frappe.get_all(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="name")), sources
+		)
+		self.assertEqual(len(sources), 4)
+		self.assertEqual(submitted_qty(entry.items[0].assignment), 10)
+		self.assertEqual(frappe.get_doc(ENTRY, entry.name).docstatus, 1)
+		self.assertEqual([row.frequency for row in schedule.reload().items], ["Daily", "Daily"])
+
+	def test_once_row_with_no_end_defaults_to_its_own_day(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"from_date": "2026-10-10",
+					"frequency": "Once",
+					"qty_per_occurrence": 10,
+				}
+			]
+		)
+		row = schedule.items[0]
+		self.assertEqual(
+			(str(row.from_date), str(row.to_date), row.occurrence_count), ("2026-10-10", "2026-10-10", 1)
+		)
+
+	def test_submitted_plan_round_trip_accepts_browser_serialized_dates(self):
+		schedule = self.multi_schedule()
+		payload = schedule.as_dict(convert_dates_to_str=True)
+		doc = frappe.get_doc(payload)
+		doc.save()
+		self.assertEqual(
+			frappe.get_doc(SCHEDULE, schedule.name).items[0].planned_qty, schedule.items[0].planned_qty
+		)

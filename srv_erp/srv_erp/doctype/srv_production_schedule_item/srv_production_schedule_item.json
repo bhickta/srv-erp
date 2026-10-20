@@ -7,13 +7,18 @@
  "engine": "InnoDB",
  "fields": [
   {
+   "fieldname": "item_section",
+   "fieldtype": "Section Break",
+   "label": "Item"
+  },
+  {
    "fieldname": "template",
    "fieldtype": "Link",
    "label": "Template",
    "options": "Item",
    "reqd": 1,
    "in_list_view": 1,
-   "columns": 2
+   "columns": 1
   },
   {
    "fieldname": "item_code",
@@ -25,27 +30,14 @@
    "description": "Optional: leave blank to plan the template; select a variant to plan that exact item."
   },
   {
+   "fieldname": "item_column",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
-  },
-  {
-   "fieldname": "schedule_date",
-   "fieldtype": "Date",
-   "label": "Schedule Date",
-   "reqd": 1,
-   "in_list_view": 1,
-   "columns": 2
-  },
-  {
-   "fieldname": "qty_per_occurrence",
-   "fieldtype": "Float",
-   "label": "Qty / Date",
-   "precision": "6",
-   "reqd": 1,
-   "in_list_view": 1,
-   "columns": 1
   },
   {
    "fieldname": "uom",
@@ -57,22 +49,126 @@
    "columns": 1
   },
   {
+   "fieldname": "planning_section",
+   "fieldtype": "Section Break",
+   "label": "Dates & Quantity"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "read_only_depends_on": "eval:doc.frequency == 'Once'",
+   "description": "For Once, To Date equals From Date."
+  },
+  {
+   "fieldname": "frequency_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "label": "Frequency",
+   "options": "\nOnce\nDaily\nWeekdays\nWeekly\nMonthly\nCustom",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "qty_per_occurrence",
+   "fieldtype": "Float",
+   "label": "Qty / Date",
+   "precision": "6",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "totals_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "occurrence_count",
+   "fieldtype": "Int",
+   "label": "Production Dates",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
    "fieldname": "planned_qty",
    "fieldtype": "Float",
-   "label": "Planned",
+   "label": "Total Planned",
    "precision": "6",
-   "in_list_view": 0,
+   "in_list_view": 1,
    "columns": 1,
    "read_only": 1,
    "allow_on_submit": 1,
    "no_copy": 1
   },
   {
+   "fieldname": "recurrence_section",
+   "fieldtype": "Section Break",
+   "label": "Custom Recurrence",
+   "depends_on": "eval:doc.frequency == 'Custom' || doc.frequency == 'Weekly'"
+  },
+  {
+   "fieldname": "interval",
+   "fieldtype": "Int",
+   "label": "Every",
+   "depends_on": "eval:doc.frequency == 'Custom' && doc.recurrence_unit != 'Dates'"
+  },
+  {
+   "fieldname": "recurrence_unit",
+   "fieldtype": "Select",
+   "label": "Recurrence Unit",
+   "options": "\nDays\nWeeks\nMonths\nDates",
+   "depends_on": "eval:doc.frequency == 'Custom'"
+  },
+  {
+   "fieldname": "weekdays_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weekdays",
+   "fieldtype": "Data",
+   "label": "Weekdays",
+   "description": "Comma-separated Mon,Tue,Wed,Thu,Fri,Sat,Sun. Blank uses From Date weekday.",
+   "depends_on": "eval:doc.frequency == 'Weekly' || (doc.frequency == 'Custom' && doc.recurrence_unit == 'Weeks')"
+  },
+  {
+   "fieldname": "custom_dates_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_dates",
+   "fieldtype": "Small Text",
+   "label": "Custom Dates",
+   "description": "One YYYY-MM-DD date per line, inside this row\u2019s date range.",
+   "depends_on": "eval:doc.frequency == 'Custom' && doc.recurrence_unit == 'Dates'"
+  },
+  {
+   "fieldname": "progress_section",
+   "fieldtype": "Section Break",
+   "label": "Progress & Template Default",
+   "collapsible": 1
+  },
+  {
    "fieldname": "completed_qty",
    "fieldtype": "Float",
    "label": "Finished",
    "precision": "6",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "columns": 1,
    "read_only": 1,
    "allow_on_submit": 1,
@@ -83,26 +179,25 @@
    "fieldtype": "Float",
    "label": "Remaining",
    "precision": "6",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "columns": 1,
    "read_only": 1,
    "allow_on_submit": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "progress_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "percent_completed",
    "fieldtype": "Percent",
    "label": "Work %",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "columns": 1,
    "read_only": 1,
    "allow_on_submit": 1,
    "no_copy": 1
-  },
-  {
-   "fieldname": "details",
-   "fieldtype": "Section Break",
-   "label": "Responsibility"
   },
   {
    "fieldname": "supervisor",
@@ -110,21 +205,48 @@
    "label": "Template Default Supervisor",
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
+   "reqd": 0,
+   "in_list_view": 0,
+   "columns": 2,
+   "hidden": 1,
+   "read_only": 1
   }
  ],
  "field_order": [
+  "item_section",
   "template",
   "item_code",
+  "item_column",
   "item_name",
-  "schedule_date",
-  "qty_per_occurrence",
   "uom",
+  "planning_section",
+  "from_date",
+  "to_date",
+  "frequency_column",
+  "frequency",
+  "qty_per_occurrence",
+  "totals_column",
+  "occurrence_count",
   "planned_qty",
+  "recurrence_section",
+  "interval",
+  "recurrence_unit",
+  "weekdays_column",
+  "weekdays",
+  "custom_dates_column",
+  "custom_dates",
+  "progress_section",
   "completed_qty",
   "remaining_qty",
+  "progress_column",
   "percent_completed",
-  "details",
-  "supervisor"
+  "supervisor",
+  "schedule_date"
  ],
  "permissions": []
 }

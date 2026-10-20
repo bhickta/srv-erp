@@ -12,26 +12,31 @@ frappe.ui.form.on("SRV Production Schedule", {
 			},
 		}));
 	},
-	start_date(frm) {
-		if (!frm.doc.schedule_date) return frm.set_value("schedule_date", frm.doc.start_date);
-	},
-	schedule_date(frm) {
+	async start_date(frm) {
 		if (frm.doc.docstatus !== 0) return;
-		const previous = frm._schedule_date;
-		for (const row of frm.doc.items || []) {
-			if (!row.schedule_date || row.schedule_date === previous) {
-				frappe.model.set_value(
-					row.doctype,
-					row.name,
-					"schedule_date",
-					frm.doc.schedule_date,
-				);
-			}
-		}
-		frm._schedule_date = frm.doc.schedule_date;
+		await frm.set_value("schedule_date", frm.doc.start_date);
+		return srv_production_update_defaults(frm, "start_date");
+	},
+	end_date(frm) {
+		return srv_production_update_defaults(frm, "end_date");
+	},
+	frequency(frm) {
+		return srv_production_update_defaults(frm, "frequency");
+	},
+	interval(frm) {
+		return srv_production_update_defaults(frm, "interval");
+	},
+	recurrence_unit(frm) {
+		return srv_production_update_defaults(frm, "recurrence_unit");
+	},
+	weekdays(frm) {
+		return srv_production_update_defaults(frm, "weekdays");
+	},
+	custom_dates(frm) {
+		return srv_production_update_defaults(frm, "custom_dates");
 	},
 	onload(frm) {
-		frm._schedule_date = frm.doc.schedule_date;
+		frm._planning_defaults = srv_production_defaults(frm);
 	},
 	refresh(frm) {
 		frm.set_df_property("responsibilities", "read_only", frm.doc.docstatus !== 0);
@@ -42,28 +47,34 @@ frappe.ui.form.on("SRV Production Schedule", {
 				const escape = (value) => frappe.utils.escape_html(String(value ?? ""));
 				const rows = message.items
 					.map(
-						(row) =>
-							`<tr><td>${escape(row.item_code || row.template)}</td><td>${escape(
-								row.schedule_date,
-							)}</td><td>${escape(row.qty_per_occurrence)}</td><td>${escape(
-								row.planned_qty,
-							)} ${escape(row.uom)}</td></tr>`,
+						(row) => `<tr>
+					<td>${escape(row.row)}</td><td>${escape(row.item_code || row.template)}</td>
+					<td class="text-nowrap">${escape(row.from_date)}</td><td class="text-nowrap">${escape(row.to_date)}</td>
+					<td>${escape(row.frequency)}</td><td>${escape(row.occurrence_count)}</td>
+					<td>${escape(row.qty_per_occurrence)}</td><td>${escape(row.planned_qty)} ${escape(row.uom)}</td>
+				</tr>`,
 					)
 					.join("");
-				frappe.msgprint({
+				const details = message.items
+					.map(
+						(row) => `<details class="mb-3">
+					<summary>${__("Row")} ${escape(row.row)} · ${escape(row.item_code || row.template)} · ${escape(row.occurrence_count)} ${row.occurrence_count === 1 ? __("date") : __("dates")}</summary>
+					<table class="table table-bordered mt-2"><thead><tr><th>${__("Schedule Date")}</th><th>${__("Qty / Date")}</th><th>${__("UOM")}</th></tr></thead>
+					<tbody>${row.dates.map((date) => `<tr><td>${escape(date)}</td><td>${escape(row.qty_per_occurrence)}</td><td>${escape(row.uom)}</td></tr>`).join("")}</tbody></table>
+				</details>`,
+					)
+					.join("");
+				const preview = new frappe.ui.Dialog({
 					title: __("Production Schedule Preview"),
-					wide: true,
-					message: `<p>${__("Production Dates")}: ${message.dates
-						.map(escape)
-						.join(", ")}</p>
-					<p>${__("Responsibilities")}: ${message.responsibilities.map((role) => `${escape(role.supervisor)} · ${escape(role.work_area)}`).join(", ") || __("Template defaults")}</p>
-					<p>${__("Dated Item Assignments")}: ${message.assignment_count}</p>
-					<table class="table table-bordered"><thead><tr><th>${__("Item")}</th><th>${__(
-						"Schedule Date",
-					)}</th><th>${__("Qty / Date")}</th><th>${__(
-						"Total Planned",
-					)}</th></tr></thead><tbody>${rows}</tbody></table>`,
+					size: "extra-large",
 				});
+				preview.$body
+					.html(`<p>${__("Production Dates")}: ${escape(message.dates.length)} · ${__("Dated Item Assignments")}: ${escape(message.assignment_count)}</p>
+					<p>${__("Responsibilities")}: ${message.responsibilities.map((role) => `${escape(role.supervisor)} · ${escape(role.work_area)}`).join(", ") || __("Template defaults")}</p>
+					<div class="table-responsive"><table class="table table-bordered"><thead><tr>
+					${["Row", "Item", "From Date", "To Date", "Frequency", "Dates", "Qty / Date", "Total Planned"].map((label) => `<th>${__(label)}</th>`).join("")}
+					</tr></thead><tbody>${rows}</tbody></table></div>${details}`);
+				preview.show();
 			});
 		}
 		if (frm.doc.docstatus === 1) {
@@ -160,12 +171,17 @@ frappe.ui.form.on("SRV Production Schedule", {
 
 frappe.ui.form.on("SRV Production Schedule Item", {
 	items_add(frm, cdt, cdn) {
-		frappe.model.set_value(
-			cdt,
-			cdn,
-			"schedule_date",
-			frm.doc.schedule_date || frm.doc.start_date,
-		);
+		return frappe.model.set_value(cdt, cdn, srv_production_defaults(frm));
+	},
+	from_date(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row.frequency === "Once")
+			return frappe.model.set_value(cdt, cdn, "to_date", row.from_date);
+	},
+	frequency(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row.frequency === "Once")
+			return frappe.model.set_value(cdt, cdn, "to_date", row.from_date);
 	},
 	async item_code(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
@@ -191,3 +207,31 @@ frappe.ui.form.on("SRV Production Schedule Item", {
 		});
 	},
 });
+
+function srv_production_defaults(frm) {
+	return {
+		from_date: frm.doc.start_date || null,
+		to_date: frm.doc.end_date || null,
+		frequency: frm.doc.frequency,
+		interval: frm.doc.interval,
+		recurrence_unit: frm.doc.recurrence_unit,
+		weekdays: frm.doc.weekdays || "",
+		custom_dates: frm.doc.custom_dates || "",
+	};
+}
+
+async function srv_production_update_defaults(frm, field) {
+	if (frm.doc.docstatus !== 0) return;
+	const key = { start_date: "from_date", end_date: "to_date" }[field] || field;
+	const defaults = srv_production_defaults(frm);
+	const previous = frm._planning_defaults || {};
+	const required = ["from_date", "to_date", "frequency", "interval", "recurrence_unit"].includes(
+		key,
+	);
+	for (const row of frm.doc.items || []) {
+		if (row[key] == null || (required && row[key] === "") || row[key] === previous[key]) {
+			await frappe.model.set_value(row.doctype, row.name, key, defaults[key]);
+		}
+	}
+	frm._planning_defaults = { ...previous, [key]: defaults[key] };
+}

@@ -4,56 +4,55 @@ The Production Scheduling workspace provides recurring, multi-item production pl
 
 ## Setup
 
-Assign **SRV Production Planner** to people who manage schedules and **SRV Production Supervisor** to responsible system users. System Managers also have planner access. An Item manager fills **Production Supervisor** on each Item template. Template defaults supply responsibility when the schedule has no explicit Responsibilities. To assign several people, add each user and their **Work Area / Operation** to the schedule (for example, Nishant — Fabrication and Anmol — Bending). **Work Area / Operation** links to the standard ERPNext **Operation** master. Create operations such as Fabrication and Bending there, then select them on responsibility rows. Each responsibility receives the full target for every scheduled item and date; entries and balances are independent.
+Assign **SRV Production Planner** to people who manage schedules and **SRV Production Supervisor** to responsible system users. System Managers also have planner access. Item managers can fill **Production Supervisor** on templates as the fallback owner when a schedule has no explicit responsibilities.
 
-The normal application migration installs the new child tables and converts existing single-item schedules and entries without renaming documents or changing their submitted quantities. Existing dated assignments retain their links and receive item-row references and completion percentages. Existing text work-area names are preserved by creating missing Operation records; the fallback Production operation is created automatically. The conversion can be run repeatedly without duplicating rows.
+To assign several people, add a user and **Work Area / Operation** to each schedule responsibility, for example Nishant — Fabrication and Anmol — Bending. Work Area / Operation links to ERPNext's **Operation** master. Each responsibility receives the full target for every generated item/date, with independent entries, pending quantities and completion.
 
-## Plan multiple templates or variants
+## Plan items with their own date ranges
 
-1. Open **Production Scheduling → Production Schedules → New**. Enter a title, company and date range. **Schedule Date** defaults to the range start and supplies the date for new item rows.
-2. In **Items to Produce**, add a row and select its **Template** first. The **Variant** picker shows only enabled variants belonging to that template. Leave Variant blank to plan production across that template, or select a variant to require that exact item.
-3. Set **Qty / Date** and each row’s **Schedule Date**, then add more item rows. The same template or variant can appear on separate rows with different Schedule Dates; duplicate rows for the same item and date must be combined. Each row has independent dated assignments and balances. Recurring rows can generate occurrences on the same later date, and their quantities are additive. Item dates must lie inside the schedule range; recurrence starts at each item’s date and runs through End Date. Changing the header date updates rows still using its previous default and preserves manually chosen dates. Each row receives its template's supervisor and stock UOM. Different rows can have different default supervisors and UOMs. Explicit Responsibilities apply to every item instead of those defaults.
-4. Choose Once, Daily, Weekdays, Weekly, Monthly or Custom, then use **Preview Dates**. The preview shows dates and each item's quantity per date and total planned quantity.
-5. Save and submit. The system generates one dated assignment per item row, occurrence and responsibility. Open **View → Assignments Calendar** to see the dated plans.
+1. Open **Production Scheduling → Production Schedules → New**. Enter the title and company.
+2. In **Planning Defaults**, set **Default From Date**, **Default To Date** and **Default Frequency**. They populate new item rows. Changing a default updates rows still using the previous value and preserves manual overrides. Each row may use its own date range, including dates outside the header defaults.
+3. Add responsibilities, or leave the table empty to use each template's default supervisor.
+4. In **Items & Date Ranges**, select **Template** first and optionally choose a specific **Variant**. Set the row's **From Date**, **To Date**, **Frequency** and **Qty / Date**. Leave Variant blank to plan output across that template; selecting a variant requires that exact produced item.
+5. Use **Preview Dates** before submission. The summary shows each row's range, frequency, generated-date count, quantity per date and total planned quantity. Expand a row in the preview to see every generated Schedule Date and its quantity.
+6. Save and submit. The system creates one assignment per generated item/date/responsibility. Open **View → Assignments Calendar** to see the plans.
+
+Example: one item row with **23–30 October / Daily / 2,000 Qty per Date** produces eight dated targets and **16,000 total planned**. Do not add a separate row for every date of that same Daily range. To plan a single day, use **Once**; its To Date is normalized to From Date.
+
+The same template or variant can appear on multiple rows if their generated production dates do not collide. Overlapping date ranges are allowed when their frequencies produce different dates. If two rows plan the same item on an actual generated date, validation identifies the item, both row numbers and the conflicting dates, for example **Date collision for item FB 374 in rows 1 and 3: 2026-10-27, 2026-10-28**. Change the range/frequency or combine the quantities. Existing submitted schedules with historical overlaps retain their original assignments during migration; new or edited plans use the collision check.
+
+Expand an item row for **Custom Recurrence** and **Progress & Template Default** sections. Each row can override the header's custom interval, recurrence unit, weekdays and explicit dates. Monthly recurrence retains the original day anchor, using month-end when necessary. Custom supports every N days/weeks/months, selected weekdays (`Mon,Tue,Wed,Thu,Fri,Sat,Sun`) or explicit dates, one per line. Weekly intervals count weeks from Monday; blank weekdays use the row's From Date weekday. Date boundaries are inclusive; holidays are not automatically excluded. Each range is limited to 3,660 days and the whole schedule to 1,000 dated assignments including responsibilities.
 
 **Plan Production** on a template or variant also starts a schedule with that item filled in.
 
-Monthly recurrence retains the original day anchor, using month-end when necessary. Custom recurrence supports every N days/weeks/months, selected weekdays (`Mon,Tue,Wed,Thu,Fri,Sat,Sun`) or explicit dates, one per line. Weekly intervals count weeks from Monday; blank weekdays use the start weekday. Date boundaries are inclusive, and holidays are not automatically excluded. A schedule is limited to 1,000 dated item assignments and 3,660 days.
+## Schedule Date versus From/To Date
+
+**From Date and To Date** are the item row's planning range. **Schedule Date** is the exact day on a generated assignment or production-entry item. The production-entry header shows the earliest source date in that entry, while each entry item retains its exact assignment date. **Production Date** is when the work actually occurred.
+
+The earlier planning Schedule Date fields remain hidden for compatibility. Migration copies each historical item date into From Date and copies the old header recurrence into the row. Existing document names, assignments, source links and submitted quantities remain unchanged. Missing Operation records for historical work-area labels are created, including the default Production operation. Migration is repeatable and does not regenerate submitted assignments.
 
 ## Schedule → Production Entry
 
-On a submitted schedule, choose **Create → Production Entry**. To map only specific item lines, select their table checkboxes first. Select a supervisor, their work area, and optionally one schedule date; leaving the date blank includes all their pending dates. The entry opens with the source item codes and names, schedule dates, pending quantities, UOMs and source references already filled in.
+On a submitted schedule, choose **Create → Production Entry**. Select item checkboxes first to map only those rows. Choose a supervisor, their operation, and optionally a Schedule Date. Leaving the date blank includes all their pending dates. The entry opens with item codes and names, source dates, pending quantities and UOMs filled in.
 
-Adjust **Produced Qty** to the actual output. Remove rows that were not produced on this entry. For a specifically planned variant, the produced variant is fixed to that item. For a template-level plan, select an actual variant; rows can be duplicated to split the same dated target across several variants, as long as their combined quantity stays within the pending target.
+Adjust **Produced Qty** and remove rows not produced on this entry. For a template-level target, select the actual variant. Duplicate an output row to split that target across variants; the combined quantity must stay within the source balance. One entry belongs to one schedule, supervisor and operation. Errors for invalid output or excess production include the output row, item, source date and pending quantity.
 
-Save a draft or submit. Drafts do not consume pending quantities. Submission updates each assignment, the schedule item rows and overall progress. **View → Production Entries** and the schedule's linked-document section show the related entries, like other ERPNext source-to-transaction flows. The next mapped entry brings in only remaining items and quantities.
+Save a draft or submit. Drafts do not consume pending quantities. Submission updates the assignments and schedule progress. The next mapped entry brings in the remaining quantities. Supervisors can also open their own assignment and use **Record Production**, which carries the operation and date automatically.
 
-Supervisors can open their own calendar assignments and use **Record Production** to create the same mapped entry for their supervisor and planned date. They do not need to re-enter plan references or item quantities. Future actual production dates, unrelated variants, mixed schedules and quantities exceeding a source target are rejected. One entry belongs to one schedule, supervisor and work area. The header Schedule Date is the earliest source date in that entry; each item retains its own exact assignment date. These dates are derived from the source, while **Production Date** records when the work actually occurred. Item names come from the selected Item master.
+## Progress, layout and access
 
-## Progress and statuses
+Schedules move through **Draft → To Produce → Partly Produced → Completed**, or **Cancelled**. Entry statuses are Draft, Submitted and Cancelled. Responsibilities have Planned, In Progress, Completed and Cancelled statuses.
 
-| Schedule status | Meaning |
-| --- | --- |
-| Draft | Editable plan; no dated assignments have been generated |
-| To Produce | Submitted plan with no submitted production yet |
-| Partly Produced | Some production is submitted, with outstanding quantities |
-| Completed | Every dated item target is fully produced |
-| Cancelled | Schedule cancelled; further production is blocked |
+The header shows work completion and item lines remaining. Each row's expanded progress section shows finished/remaining quantities and Work %. Overall work completion averages dated responsibility targets. Multiple responsibilities do not multiply physical planned quantities: finishing fabrication of 10 units while bending has produced zero gives 50% work completion, zero finished and 10 remaining. When bending finishes, the item reaches 10 finished and 100%. If planners change stage targets independently, the smallest target defines physical quantity; every stage must fulfill its own target before the plan completes.
 
-Item rows show **Finished**, **Remaining** and **Work %**. Responsibilities show their own status and work completion. Work completion averages dated responsibility targets. Finished quantity requires every responsibility for that item/date to have completed the units; multiple responsibilities do not multiply physical planned quantities. For example, completing fabrication of 10 units while bending has produced zero gives 50% work completion, zero finished and 10 remaining. When bending finishes, the item reaches 10 finished and 100%. If a planner adjusts stage targets independently, the smallest target defines the physical quantity and every stage must still fulfill its own target to complete the plan. The header shows **Completion %**, total item lines and item lines remaining. Overall completion is the average fulfillment percentage of dated item assignments, which avoids adding incompatible UOMs. For example, one half-complete assignment and one complete assignment give 75%. Completion requires every assignment to reach its target, regardless of percentage rounding.
+Cancelling an entry reverses its contribution and can reopen the plan. Only planners can cancel or amend entries. Reverse submitted production before cancelling the schedule. Submitted source ranges, recurrence and responsibilities are immutable; planners can adjust dated assignments with a new change reason.
 
-Production entries have Draft, Submitted and Cancelled statuses. Cancelling an entry reverses its contribution and can reopen a completed schedule. Only planners can cancel or amend entries. To cancel the schedule, reverse its submitted production first.
+The form groups Planning Defaults, Responsibilities and Items & Date Ranges separately. The item grid shows the planning fields and total quantity; expanded rows group item identity, dates/quantity, custom recurrence and progress into sections and columns. Legacy planning dates are hidden.
 
-## Layout and access
+Schedule, Assignment and Entry lists hide configured Cancelled, Rejected and Disabled statuses by default for all users. Users may remove/change the filter to inspect history. Explicit saved status/document-status filters are respected; existing views without one receive the default on opening. Document permissions are unchanged.
 
-Production Schedule, Assignment and Entry lists hide Cancelled, Rejected and Disabled statuses by default for all users. Remove or change the status filter to inspect history within your existing access. Explicit saved status/document-status filters are respected; an older saved view with no status filter receives the active default when opened. These are view defaults and do not change document permissions.
-
-Schedules and entries use compact column groups for their headers and full-width item tables. Submitted schedule source rows are read-only. Planners can adjust individual dated targets, dates or supervisors with a new change reason; changing Item defaults affects future plans only. Generated assignments and their schedules remain available for audit history.
-
-Supervisors see only their own dated assignments. Every entry row must be accessible to its supervisor, and the server applies those checks to mapping, lists, direct document access and submission. Production records cannot be shared to bypass responsibility. Company user permissions continue to apply.
-
-If assignments from a historical grouped entry are later split between supervisors, the complete entry becomes planner-only to prevent disclosing another supervisor's rows. Each assignment's quantities and progress remain correct. Parent schedules remain planner-only because they may include several supervisors' items.
+Supervisors see their own dated assignments and entries. Mapping, lists, direct reads, child-table access and submission apply ownership and company permissions. Production records cannot be shared to bypass responsibility. If a historical grouped entry is later split between supervisors by reassignment, it becomes planner-only to protect other users' rows. Parent schedules remain planner-only because they can contain multiple users' plans.
 
 ## Verification
 
-Run `srv_erp.tests.test_production_scheduling` on an isolated development test site. It covers recurrence, mapping, variant selection, multi-item progress, split output, cancellation, supervisor privacy, source immutability and legacy data migration.
+Run `srv_erp.tests.test_production_scheduling` on an isolated development test site. It covers recurrence, per-row ranges, defaults, preview quantities, date collisions and diagnostic messages, item/variant mapping, independent operation balances, source immutability, supervisor privacy, cancellation and repeatable migration.
