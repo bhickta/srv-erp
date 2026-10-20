@@ -16,9 +16,16 @@ def ensure_roles():
 
 def setup_production():
 	ensure_roles()
+	ensure_operation("Production")
 	# These roles need item/UOM selection without granting general stock entry access.
 	for role in (PLANNER, SUPERVISOR):
-		for doctype, ptype in (("Item", "read"), ("UOM", "read"), ("Company", "read"), ("User", "select")):
+		for doctype, ptype in (
+			("Item", "read"),
+			("UOM", "read"),
+			("Company", "read"),
+			("User", "select"),
+			("Operation", "select"),
+		):
 			if not frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": role, "permlevel": 0}):
 				add_permission(doctype, role, ptype=ptype)
 	create_custom_fields(
@@ -50,3 +57,9 @@ def validate_supervisor(user):
 def validate_item_supervisor(doc, method=None):
 	if doc.has_variants and doc.get("custom_production_supervisor"):
 		validate_supervisor(doc.custom_production_supervisor)
+
+
+def ensure_operation(name):
+	"""Keep existing production labels usable when converting Data to Link."""
+	if not frappe.db.exists("Operation", name):
+		frappe.get_doc({"doctype": "Operation", "name": name}).insert(ignore_permissions=True)

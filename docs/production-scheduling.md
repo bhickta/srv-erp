@@ -4,9 +4,9 @@ The Production Scheduling workspace provides recurring, multi-item production pl
 
 ## Setup
 
-Assign **SRV Production Planner** to people who manage schedules and **SRV Production Supervisor** to responsible system users. System Managers also have planner access. An Item manager fills **Production Supervisor** on each Item template. Template defaults supply responsibility when the schedule has no explicit Responsibilities. To assign several people, add each user and their **Work Area / Operation** to the schedule (for example, Nishant — Fabrication and Anmol — Bending). Each responsibility receives the full target for every scheduled item and date; entries and balances are independent.
+Assign **SRV Production Planner** to people who manage schedules and **SRV Production Supervisor** to responsible system users. System Managers also have planner access. An Item manager fills **Production Supervisor** on each Item template. Template defaults supply responsibility when the schedule has no explicit Responsibilities. To assign several people, add each user and their **Work Area / Operation** to the schedule (for example, Nishant — Fabrication and Anmol — Bending). **Work Area / Operation** links to the standard ERPNext **Operation** master. Create operations such as Fabrication and Bending there, then select them on responsibility rows. Each responsibility receives the full target for every scheduled item and date; entries and balances are independent.
 
-The normal application migration installs the new child tables and converts existing single-item schedules and entries without renaming documents or changing their submitted quantities. Existing dated assignments retain their links and receive item-row references and completion percentages. The conversion can be run repeatedly without duplicating rows.
+The normal application migration installs the new child tables and converts existing single-item schedules and entries without renaming documents or changing their submitted quantities. Existing dated assignments retain their links and receive item-row references and completion percentages. Existing text work-area names are preserved by creating missing Operation records; the fallback Production operation is created automatically. The conversion can be run repeatedly without duplicating rows.
 
 ## Plan multiple templates or variants
 
