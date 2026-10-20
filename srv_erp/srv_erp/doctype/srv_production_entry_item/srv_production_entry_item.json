@@ -20,22 +20,31 @@
    "label": "Template",
    "options": "Item",
    "read_only": 1,
-   "in_list_view": 1,
+   "in_list_view": 0,
    "columns": 2
   },
   {
    "fieldname": "item_code",
    "fieldtype": "Link",
-   "label": "Produced Variant",
+   "label": "Item Code",
    "options": "Item",
    "reqd": 1,
    "in_list_view": 1,
    "columns": 2
   },
   {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1,
+   "fetch_from": "item_code.item_name",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
    "fieldname": "planned_date",
    "fieldtype": "Date",
-   "label": "Planned Date",
+   "label": "Schedule Date",
    "read_only": 1,
    "in_list_view": 1,
    "columns": 2
@@ -88,6 +97,13 @@
    "read_only": 1
   },
   {
+   "fieldname": "work_area",
+   "fieldtype": "Link",
+   "label": "Work Area / Operation",
+   "read_only": 1,
+   "options": "Operation"
+  },
+  {
    "fieldname": "planned_qty",
    "fieldtype": "Float",
    "label": "Planned Qty",
@@ -106,6 +122,7 @@
   "assignment",
   "template",
   "item_code",
+  "item_name",
   "planned_date",
   "remaining_qty",
   "qty",
@@ -113,6 +130,7 @@
   "source_details",
   "planned_item",
   "supervisor",
+  "work_area",
   "planned_qty",
   "previously_produced_qty"
  ],

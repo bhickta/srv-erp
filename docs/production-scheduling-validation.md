@@ -56,3 +56,23 @@ Validated the multi-item revision on the separate `production-items-test.localho
 Chromium exercised the form workflow at 1600px and inspected the responsive form at 390px: create two variant rows under a selected template, verify the template-filtered variant picker, preview, save/submit, use Create → Production Entry, receive pending quantities 10 and 20, submit 5 and 20, and observe Partly Produced / 75% / one item line remaining. A supervisor then opened the pending calendar assignment, mapped the remaining five units without re-entering source data, submitted them, and the parent reached Completed / 100% / zero item lines remaining. Screenshots were inspected to remove internal column labels and confirm compact header sections and full-width item tables.
 
 Overall completion is deliberately the mean completion of dated item assignments, rather than a sum of unlike UOMs. One entry groups only one supervisor's assignments. If a later reassignment splits a grouped entry's current ownership, supervisors cannot access that mixed-ownership entry; planners retain the complete history.
+
+## Item dates, names and multiple work responsibilities (October 20, 2026)
+
+Validated separate candidates based on `version-15` (`319c002`) and `dev` (`8013e48`) using isolated local databases on port 3311. Production includes the multi-item prerequisites already present on dev. No shared development or production site was changed.
+
+- **39 production tests passed on each branch**, including independent fabrication/bending balances and statuses, supervisor privacy, one user with several work areas, source-derived item names and dates, item recurrence anchors, date bounds, responsibility validation, immutable submitted sources, child-table access and sharing, cancellation and repeatable migration.
+- Moving one operation to a later date preserves its original physical occurrence: the planned quantity stays unchanged, the entry uses the revised source date, and finished quantity still requires every responsibility.
+- **17 Stock Entry/variant regression tests passed on each branch**. All **13 OEM domain/rules/boundary tests passed on dev**, with existing OEM hooks preserved.
+- The original seven schedules, 12 assignments and 10 entries retained their names, source links, document states and quantities after upgrading the production fixture. The migration backfills names, dates and the default Production work area without creating extra assignments or explicit responsibilities.
+- Ruff, ESLint, JavaScript syntax and Git whitespace checks passed.
+
+Chromium exercised the schedule and entry workflow on both candidates. Header-date changes updated rows using the old default while preserving a manual item-date override. The preview listed both work areas; the Create dialog updated available work areas when the supervisor changed. Mapped entries showed Item Code, Item Name and Schedule Date together. Fabrication submission left bending fully pending and showed 50% overall work completion with zero finished units. The bending supervisor saw only their own assignments and received HTTP 403 for the fabrication entry. Record Production inherited bending dates and quantities; submitting both remaining assignments completed the schedule at 100%. Desktop (1600px) and mobile (390px) forms were captured for inspection.
+
+The reused production test bench still reports the previously documented barcode `installers` asset error. Scheduling actions completed successfully. These checks used a local Frappe/ERPNext v15 runtime; deployment and migration on the live sites remain part of release installation.
+
+## Work Area / Operation links (October 20, 2026)
+
+Work Area / Operation now links to ERPNext's Operation master on responsibility rows, assignments, entry headers and entry items. The mapped-entry dialog uses an Operation Link filtered to the selected supervisor's pending operations. Production roles receive Operation selection permission. Migration creates missing Operation records for historical work-area text and the default Production operation, preserving source names, quantities and assignments.
+
+All **41 production tests passed on each branch**, including new checks for all four Link definitions, rejection of nonexistent operations, supervisor link search permission and idempotent conversion of existing text labels. Chromium exercised the filtered Operation Link, switching supervisors, mapped entry submission, independent stage balances and final completion. Ruff, ESLint and whitespace checks passed. Validation used only the isolated local production/dev test sites.

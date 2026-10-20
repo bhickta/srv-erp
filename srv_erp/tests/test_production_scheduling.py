@@ -105,6 +105,9 @@ class TestProductionScheduling(FrappeTestCase):
 		super().setUpClass()
 		frappe.set_user("Administrator")
 		setup_production()
+		for operation in ("Fabrication", "Bending"):
+			if not frappe.db.exists("Operation", operation):
+				frappe.get_doc({"doctype": "Operation", "name": operation}).insert()
 		cls.company = frappe.get_all("Company", pluck="name", limit=1)[0]
 		cls.supervisors = ["production-a@example.test", "production-b@example.test"]
 		for user in cls.supervisors:
@@ -583,3 +586,354 @@ class TestProductionScheduling(FrappeTestCase):
 				user=self.supervisors[0],
 				flags={"ignore_share_permission": True},
 			)
+
+	def role_schedule(self, **kwargs):
+		return self.multi_schedule(
+			responsibilities=[
+				{"supervisor": self.supervisors[0], "work_area": "Fabrication"},
+				{"supervisor": self.supervisors[1], "work_area": "Bending"},
+			],
+			**kwargs,
+		)
+
+	def test_responsibility_stages_have_independent_balances_and_privacy(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.role_schedule()
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 4)
+		frappe.set_user(self.supervisors[0])
+		entry = make_production_entry(schedule.name).insert().submit()
+		self.assertEqual(entry.work_area, "Fabrication")
+		self.assertEqual(len(entry.items), 2)
+		self.assertEqual({row.work_area for row in entry.items}, {"Fabrication"})
+		visible = frappe.get_list(ASSIGNMENT, filters={"schedule": schedule.name}, pluck="supervisor")
+		self.assertEqual(set(visible), {self.supervisors[0]})
+		frappe.set_user("Administrator")
+		schedule.reload()
+		self.assertEqual(
+			(schedule.percent_completed, schedule.status, schedule.remaining_items),
+			(50, "Partly Produced", 2),
+		)
+		self.assertEqual({row.completed_qty for row in schedule.items}, {0})
+		self.assertEqual({row.planned_qty for row in schedule.items}, {10, 20})
+		self.assertEqual(schedule.responsibilities[0].status, "Completed")
+		self.assertEqual(schedule.responsibilities[1].percent_completed, 0)
+		frappe.set_user(self.supervisors[1])
+		with self.assertRaises(frappe.PermissionError):
+			frappe.get_doc(ENTRY, entry.name).check_permission("read")
+		bending = make_production_entry(schedule.name).insert().submit()
+		self.assertEqual({row.qty for row in bending.items}, {10, 20})
+		frappe.set_user("Administrator")
+		schedule.reload()
+		self.assertEqual(
+			(schedule.percent_completed, schedule.status, schedule.remaining_items), (100, "Completed", 0)
+		)
+		bending.cancel()
+		schedule.reload()
+		self.assertEqual(schedule.percent_completed, 50)
+		self.assertTrue(all(row.completed_qty == 0 for row in schedule.items))
+		self.assertTrue(
+			all(frappe.get_doc(ASSIGNMENT, row.assignment).remaining_qty == 0 for row in entry.items)
+		)
+
+	def test_item_dates_and_names_follow_sources_and_cannot_be_forged(self):
+		from srv_erp.production.service import make_production_entry
+
+		frappe.db.set_value("Item", self.variant, "item_name", "Fabricated panel")
+		second = self.second_variant()
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{
+					"template": self.template,
+					"item_code": second,
+					"qty_per_occurrence": 20,
+					"schedule_date": "2026-10-03",
+				},
+			],
+			end_date="2026-10-03",
+			schedule_date="2026-10-02",
+		)
+		self.assertEqual(str(schedule.items[0].schedule_date), "2026-10-02")
+		entry = make_production_entry(schedule.name)
+		self.assertEqual(str(entry.schedule_date), "2026-10-02")
+		self.assertEqual({str(row.planned_date) for row in entry.items}, {"2026-10-02", "2026-10-03"})
+		for row in entry.items:
+			row.planned_date = "2020-01-01"
+			row.item_name = "Forged name"
+			row.work_area = "Bending"
+		entry.schedule_date = "2020-01-01"
+		entry.insert().submit()
+		self.assertEqual(str(entry.schedule_date), "2026-10-02")
+		self.assertEqual({str(row.planned_date) for row in entry.items}, {"2026-10-02", "2026-10-03"})
+		self.assertEqual(
+			next(row.item_name for row in entry.items if row.item_code == self.variant), "Fabricated panel"
+		)
+		self.assertEqual({row.work_area for row in entry.items}, {"Production"})
+
+	def test_item_recurrence_starts_at_its_own_schedule_date(self):
+		schedule = self.multi_schedule(
+			rows=[
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"qty_per_occurrence": 10,
+					"schedule_date": "2026-10-02",
+				}
+			],
+			end_date="2026-10-03",
+			frequency="Daily",
+		)
+		self.assertEqual(schedule.items[0].planned_qty, 20)
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 2)
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(schedule_date="2026-09-30")
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				rows=[{"template": self.template, "qty_per_occurrence": 1, "schedule_date": "2026-10-02"}]
+			)
+
+	def test_same_user_multiple_areas_require_separate_entries(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			responsibilities=[
+				{"supervisor": self.supervisors[0], "work_area": "Fabrication"},
+				{"supervisor": self.supervisors[0], "work_area": "Bending"},
+			]
+		)
+		with self.assertRaises(frappe.ValidationError):
+			make_production_entry(schedule.name)
+		entry = make_production_entry(schedule.name, work_area="Fabrication")
+		foreign = frappe.get_all(
+			ASSIGNMENT, filters={"schedule": schedule.name, "work_area": "Bending"}, pluck="name"
+		)[0]
+		entry.items[0].assignment = foreign
+		with self.assertRaises(frappe.ValidationError):
+			entry.insert()
+		make_production_entry(schedule.name, work_area="Fabrication").insert().submit()
+		self.assertEqual(len(make_production_entry(schedule.name, work_area="Bending").items), 2)
+
+	def test_responsibility_validation_and_submitted_sources_are_immutable(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				responsibilities=[
+					{"supervisor": self.supervisors[0], "work_area": "Bending"},
+					{"supervisor": self.supervisors[0], "work_area": " bending "},
+				]
+			)
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(responsibilities=[{"supervisor": self.supervisors[0], "work_area": " "}])
+		schedule = self.role_schedule()
+		schedule.responsibilities[0].work_area = "Packing"
+		with self.assertRaises(frappe.ValidationError):
+			schedule.save()
+		schedule.reload()
+		schedule.items[0].schedule_date = "2026-10-02"
+		with self.assertRaises(frappe.ValidationError):
+			schedule.save()
+
+	def test_explicit_responsibilities_do_not_require_template_default(self):
+		frappe.db.set_value("Item", self.template, "custom_production_supervisor", None)
+		schedule = self.role_schedule()
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 4)
+
+	def test_role_migration_is_idempotent_and_keeps_original_sources(self):
+		from srv_erp.production.migrate import execute
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule()
+		entry = make_production_entry(schedule.name).insert().submit()
+		sources = {row.assignment for row in entry.items}
+		frappe.db.set_value(SCHEDULE, schedule.name, "schedule_date", None)
+		for row in schedule.items:
+			frappe.db.set_value(row.doctype, row.name, {"schedule_date": None, "item_name": None})
+		for row in entry.items:
+			frappe.db.set_value(row.doctype, row.name, {"item_name": None, "work_area": None})
+			frappe.db.set_value(ASSIGNMENT, row.assignment, "work_area", None)
+		frappe.db.set_value(ENTRY, entry.name, {"schedule_date": None, "work_area": None})
+		execute()
+		execute()
+		schedule.reload()
+		entry.reload()
+		self.assertEqual({row.assignment for row in entry.items}, sources)
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 2)
+		self.assertEqual(schedule.responsibilities, [])
+		self.assertEqual(schedule.status, "Completed")
+		self.assertEqual(str(entry.schedule_date), "2026-10-01")
+		self.assertEqual(entry.work_area, "Production")
+		self.assertTrue(all(row.item_name and row.schedule_date for row in schedule.items))
+		self.assertTrue(all(row.item_name and row.work_area == "Production" for row in entry.items))
+
+	def test_rescheduling_one_operation_does_not_double_physical_quantity(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.role_schedule(end_date="2026-10-03")
+		name = frappe.get_all(
+			ASSIGNMENT, filters={"schedule": schedule.name, "work_area": "Bending"}, pluck="name"
+		)[0]
+		assignment = frappe.get_doc(ASSIGNMENT, name)
+		assignment.planned_date = "2026-10-03"
+		assignment.change_reason = "Bending is scheduled after fabrication"
+		assignment.save()
+		schedule.reload()
+		self.assertEqual({row.planned_qty for row in schedule.items}, {10, 20})
+		make_production_entry(schedule.name, work_area="Fabrication").insert().submit()
+		schedule.reload()
+		self.assertEqual({row.completed_qty for row in schedule.items}, {0})
+		bending = make_production_entry(schedule.name, work_area="Bending")
+		self.assertIn("2026-10-03", {str(row.planned_date) for row in bending.items})
+		bending.insert().submit()
+		schedule.reload()
+		self.assertEqual((schedule.status, schedule.percent_completed), ("Completed", 100))
+		self.assertEqual({row.completed_qty for row in schedule.items}, {10, 20})
+
+	def test_responsibility_child_access_and_shares_cannot_leak_other_users(self):
+		from frappe.client import get, get_list
+
+		schedule = self.role_schedule()
+		row = schedule.responsibilities[1]
+		frappe.set_user(self.supervisors[0])
+		with self.assertRaises(frappe.PermissionError):
+			get_list(row.doctype, parent=SCHEDULE)
+		with self.assertRaises(frappe.PermissionError):
+			get(row.doctype, name=row.name, parent=SCHEDULE)
+		frappe.set_user("Administrator")
+		with self.assertRaises(frappe.PermissionError):
+			frappe.share.add_docshare(
+				row.doctype, row.name, user=self.supervisors[0], flags={"ignore_share_permission": True}
+			)
+
+	def test_work_area_links_existing_operation_and_supervisors_can_select(self):
+		from frappe.desk.search import search_link
+
+		for doctype in (
+			"SRV Production Schedule Responsibility",
+			ASSIGNMENT,
+			ENTRY,
+			"SRV Production Entry Item",
+		):
+			field = frappe.get_meta(doctype).get_field("work_area")
+			self.assertEqual((field.fieldtype, field.options), ("Link", "Operation"))
+		with self.assertRaises(frappe.ValidationError):
+			self.multi_schedule(
+				responsibilities=[
+					{"supervisor": self.supervisors[0], "work_area": "_Missing Production Operation"}
+				]
+			)
+		frappe.set_user(self.supervisors[0])
+		self.assertTrue(frappe.has_permission("Operation", ptype="select"))
+		results = search_link("Operation", "Bending", filters={"name": ["in", ["Bending"]]})
+		self.assertIn("Bending", [row["value"] for row in results])
+
+	def test_operation_link_migration_preserves_existing_text_and_is_idempotent(self):
+		from srv_erp.production.migrate import execute
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.role_schedule()
+		entry = make_production_entry(schedule.name, work_area="Fabrication").insert().submit()
+		legacy = "_Test Legacy Fabrication Area"
+		self.assertFalse(frappe.db.exists("Operation", legacy))
+		for role in schedule.responsibilities:
+			if role.work_area == "Fabrication":
+				frappe.db.set_value(role.doctype, role.name, "work_area", legacy)
+		for row in entry.items:
+			frappe.db.set_value(ASSIGNMENT, row.assignment, "work_area", legacy)
+			frappe.db.set_value(row.doctype, row.name, "work_area", legacy)
+		frappe.db.set_value(ENTRY, entry.name, "work_area", legacy)
+		sources = {row.assignment for row in entry.items}
+		execute()
+		execute()
+		self.assertEqual(frappe.db.count("Operation", {"name": legacy}), 1)
+		entry.reload()
+		schedule.reload()
+		self.assertEqual(entry.work_area, legacy)
+		self.assertEqual(schedule.responsibilities[0].work_area, legacy)
+		self.assertEqual({row.assignment for row in entry.items}, sources)
+		self.assertTrue(all(row.work_area == legacy for row in entry.items))
+		self.assertEqual(schedule.percent_completed, 50)
+
+	def test_same_variant_on_different_dates_has_independent_entry_balances(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"qty_per_occurrence": 20,
+					"schedule_date": "2026-10-03",
+				},
+			],
+			end_date="2026-10-03",
+		)
+		self.assertEqual(schedule.total_items, 2)
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 2)
+		entry = make_production_entry(schedule.name, planned_date="2026-10-01")
+		self.assertEqual(len(entry.items), 1)
+		entry.items[0].qty = 4
+		entry.insert().submit()
+		pending = make_production_entry(schedule.name)
+		self.assertEqual(
+			{str(row.planned_date): row.qty for row in pending.items}, {"2026-10-01": 6, "2026-10-03": 20}
+		)
+		self.assertEqual(len({row.assignment for row in pending.items}), 2)
+		pending.insert().submit()
+		schedule.reload()
+		self.assertEqual(
+			(schedule.status, schedule.percent_completed, schedule.remaining_items), ("Completed", 100, 0)
+		)
+		self.assertEqual({row.completed_qty for row in schedule.items}, {10, 20})
+
+	def test_template_can_repeat_on_different_dates_but_not_same_default_date(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "qty_per_occurrence": 10},
+				{"template": self.template, "qty_per_occurrence": 20, "schedule_date": "2026-10-03"},
+			],
+			end_date="2026-10-03",
+		)
+		entry = make_production_entry(schedule.name)
+		self.assertEqual({str(row.planned_date) for row in entry.items}, {"2026-10-01", "2026-10-03"})
+		for row in entry.items:
+			row.item_code = self.variant
+		entry.insert().submit()
+		self.assertEqual(schedule.reload().status, "Completed")
+		with self.assertRaisesRegex(frappe.ValidationError, "once per Schedule Date"):
+			self.multi_schedule(
+				rows=[
+					{"template": self.template, "qty_per_occurrence": 10},
+					{"template": self.template, "qty_per_occurrence": 20, "schedule_date": "2026-10-01"},
+				]
+			)
+
+	def test_repeated_variant_recurrence_keeps_overlapping_occurrences_separate(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{
+					"template": self.template,
+					"item_code": self.variant,
+					"qty_per_occurrence": 20,
+					"schedule_date": "2026-10-02",
+				},
+			],
+			end_date="2026-10-03",
+			frequency="Daily",
+		)
+		self.assertEqual({row.planned_qty for row in schedule.items}, {30, 40})
+		self.assertEqual(frappe.db.count(ASSIGNMENT, {"schedule": schedule.name}), 5)
+		entry = make_production_entry(schedule.name, planned_date="2026-10-02")
+		self.assertEqual(len(entry.items), 2)
+		self.assertEqual({row.qty for row in entry.items}, {10, 20})
+		self.assertEqual(len({row.assignment for row in entry.items}), 2)
+		entry.insert().submit()
+		remaining = make_production_entry(schedule.name)
+		self.assertEqual(len(remaining.items), 3)
+		remaining.insert().submit()
+		self.assertEqual(schedule.reload().status, "Completed")

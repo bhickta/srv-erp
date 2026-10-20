@@ -9,8 +9,10 @@
   "company",
   "template",
   "item_code",
+  "item_name",
   "responsibility_column",
   "supervisor",
+  "work_area",
   "planned_date",
   "status",
   "progress_section",
@@ -24,7 +26,8 @@
   "correction_section",
   "change_reason",
   "occurrence_key",
-  "schedule_item"
+  "schedule_item",
+  "responsibility"
  ],
  "fields": [
   {
@@ -68,6 +71,12 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
    "fieldname": "responsibility_column",
    "fieldtype": "Column Break"
   },
@@ -79,6 +88,15 @@
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "work_area",
+   "fieldtype": "Link",
+   "label": "Work Area / Operation",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "options": "Operation"
   },
   {
    "fieldname": "planned_date",
@@ -174,6 +192,13 @@
    "fieldname": "schedule_item",
    "fieldtype": "Data",
    "label": "Schedule Item",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "responsibility",
+   "fieldtype": "Data",
+   "label": "Responsibility",
    "read_only": 1,
    "hidden": 1
   }
