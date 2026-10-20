@@ -254,6 +254,10 @@ async function srv_production_edit_plan(frm) {
 		args: { schedule: frm.doc.name },
 	});
 	if (!rows.length) return frappe.msgprint(__("This schedule has no active dated plans."));
+	for (const row of rows) {
+		row.item = row.item_code || row.template;
+		row.idx = row.row_number;
+	}
 	const original = new Map(rows.map((row) => [row.name, { ...row }]));
 	const dialog = new frappe.ui.Dialog({
 		title: __("Update Submitted Production Plan"),
@@ -435,11 +439,11 @@ async function srv_production_edit_plan(frm) {
 			});
 		},
 	});
-	for (const row of rows) {
-		row.item = row.item_code || row.template;
-		row.idx = row.row_number;
-	}
-	// Frappe hides dialog grid indices globally; keep these visible for row diagnostics.
-	dialog.$wrapper.find(".row-index").css("display", "flex");
+	// Frappe hides dialog grid indices globally; retain them across refreshes and pagination.
+	dialog.$wrapper
+		.addClass("srv-production-plan-update")
+		.append(
+			"<style>.modal.srv-production-plan-update .form-grid .row-index { display: flex; }</style>",
+		);
 	dialog.show();
 }
