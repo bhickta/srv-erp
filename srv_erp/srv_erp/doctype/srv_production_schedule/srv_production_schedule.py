@@ -133,7 +133,11 @@ class SRVProductionSchedule(Document):
 				_("Submitted Items & Date Ranges: rows cannot be added or removed; amend the schedule.")
 			)
 		for row, old in zip(self.items, previous.items, strict=True):
-			changed = [key for key in source_keys if row.get(key) != old.get(key)]
+			# Browser payloads serialize Date fields as strings; compare the
+			# canonical representation so notes-only edits remain possible.
+			current_values = row.as_dict(convert_dates_to_str=True)
+			previous_values = old.as_dict(convert_dates_to_str=True)
+			changed = [key for key in source_keys if current_values.get(key) != previous_values.get(key)]
 			if changed:
 				labels = ", ".join(row.meta.get_label(key) or key for key in changed)
 				frappe.throw(
