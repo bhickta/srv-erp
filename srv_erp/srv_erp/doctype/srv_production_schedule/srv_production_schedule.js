@@ -107,7 +107,7 @@ frappe.ui.form.on("SRV Production Schedule", {
 									onchange() {
 										if (!dialog) return;
 										const options = areas(dialog.get_value("supervisor"));
-										dialog.set_value("work_area", options[0]);
+										return dialog.set_value("work_area", options[0]);
 									},
 									reqd: 1,
 								},
