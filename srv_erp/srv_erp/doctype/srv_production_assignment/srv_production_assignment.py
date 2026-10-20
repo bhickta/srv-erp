@@ -25,7 +25,17 @@ class SRVProductionAssignment(Document):
 		previous, docstatus = lock_assignment(self.name)
 		if docstatus != 1:
 			frappe.throw(_("The production schedule is not active."))
-		for key in ("schedule", "occurrence_key", "company", "template", "uom"):
+		for key in (
+			"schedule",
+			"schedule_item",
+			"responsibility",
+			"work_area",
+			"occurrence_key",
+			"company",
+			"template",
+			"item_code",
+			"uom",
+		):
 			if self.get(key) != previous.get(key):
 				frappe.throw(_("The source and item of a generated assignment cannot be changed."))
 		validate_supervisor(self.supervisor)
@@ -42,9 +52,16 @@ class SRVProductionAssignment(Document):
 			frappe.throw(_("Enter a new change reason to reschedule, reassign or change the target."))
 		self.completed_qty = completed
 		self.remaining_qty = flt(self.target_qty - completed, 6)
+		self.percent_completed = flt(100 * completed / self.target_qty, 2)
 		self.status = (
 			"Completed" if completed >= self.target_qty else "In Progress" if completed else "Planned"
 		)
+
+	def on_update(self):
+		if not self.flags.from_production_schedule:
+			from srv_erp.production.service import refresh_schedule_progress
+
+			refresh_schedule_progress(self.schedule)
 
 	def on_trash(self):
 		frappe.throw(_("Generated assignments must be retained for audit history."))

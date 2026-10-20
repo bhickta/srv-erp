@@ -4,31 +4,41 @@
  "module": "Srv Erp",
  "engine": "InnoDB",
  "field_order": [
-  "notice",
-  "assignment",
+  "entry_details",
+  "schedule",
   "company",
-  "template",
   "supervisor",
+  "entry_date_column",
   "production_date",
+  "schedule_date",
+  "work_area",
+  "entry_status_column",
+  "status",
+  "item_count",
+  "output_section",
+  "items",
+  "remarks_section",
+  "remarks",
+  "notice",
+  "amended_from",
+  "assignment",
+  "template",
   "item_code",
   "qty",
-  "uom",
-  "remarks",
-  "amended_from"
+  "uom"
  ],
  "fields": [
   {
-   "fieldname": "notice",
-   "fieldtype": "HTML",
-   "label": "Notice",
-   "options": "<p>Records production quantities and plan progress. This entry does not update stock.</p>"
+   "fieldname": "entry_details",
+   "fieldtype": "Section Break",
+   "label": "Production Entry"
   },
   {
-   "fieldname": "assignment",
-   "fieldtype": "Link",
-   "label": "Assignment",
-   "options": "SRV Production Assignment",
+   "fieldname": "schedule",
+   "fieldtype": "Data",
+   "label": "Production Schedule",
    "reqd": 1,
+   "read_only": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
   },
@@ -41,20 +51,16 @@
    "reqd": 1
   },
   {
-   "fieldname": "template",
-   "fieldtype": "Link",
-   "label": "Template",
-   "options": "Item",
-   "read_only": 1,
-   "reqd": 1
-  },
-  {
    "fieldname": "supervisor",
    "fieldtype": "Link",
    "label": "Supervisor",
    "options": "User",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "entry_date_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "production_date",
@@ -65,35 +71,66 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "item_code",
-   "fieldtype": "Link",
-   "label": "Item Code",
-   "options": "Item",
-   "reqd": 1,
-   "in_list_view": 1,
-   "description": "A concrete variant of the planned template."
-  },
-  {
-   "fieldname": "qty",
-   "fieldtype": "Float",
-   "label": "Qty",
-   "reqd": 1,
-   "precision": "6",
-   "in_list_view": 1,
-   "description": "Actual output in the variant stock UOM."
-  },
-  {
-   "fieldname": "uom",
-   "fieldtype": "Link",
-   "label": "Uom",
-   "options": "UOM",
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
    "read_only": 1,
+   "description": "Earliest source item date."
+  },
+  {
+   "fieldname": "work_area",
+   "fieldtype": "Data",
+   "label": "Work Area / Operation",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "entry_status_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nSubmitted\nCancelled",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_count",
+   "fieldtype": "Int",
+   "label": "Output Lines",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_section",
+   "fieldtype": "Section Break",
+   "label": "Produced Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "SRV Production Entry Item",
    "reqd": 1
+  },
+  {
+   "fieldname": "remarks_section",
+   "fieldtype": "Section Break",
+   "label": "Remarks",
+   "collapsible": 1
   },
   {
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "notice",
+   "fieldtype": "HTML",
+   "label": "Notice",
+   "options": "<p>Records production quantities and plan progress. This entry does not update stock.</p>"
   },
   {
    "fieldname": "amended_from",
@@ -102,6 +139,59 @@
    "options": "SRV Production Entry",
    "read_only": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "assignment",
+   "fieldtype": "Link",
+   "label": "Assignment",
+   "options": "SRV Production Assignment",
+   "reqd": 0,
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Item",
+   "read_only": 1,
+   "reqd": 0,
+   "hidden": 1,
+   "in_list_view": 0
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 0,
+   "in_list_view": 0,
+   "description": "A concrete variant of the planned template.",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "Qty",
+   "reqd": 0,
+   "precision": "6",
+   "in_list_view": 0,
+   "description": "Actual output in the variant stock UOM.",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM",
+   "read_only": 1,
+   "reqd": 0,
+   "hidden": 1,
+   "in_list_view": 0
   }
  ],
  "permissions": [
@@ -145,5 +235,5 @@
  "is_submittable": 1,
  "autoname": "hash",
  "naming_rule": "Random",
- "title_field": "assignment"
+ "title_field": "schedule"
 }

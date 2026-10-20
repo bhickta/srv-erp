@@ -4,22 +4,52 @@
  "module": "Srv Erp",
  "engine": "InnoDB",
  "field_order": [
+  "schedule_details",
+  "title",
   "company",
-  "template",
-  "supervisor",
-  "uom",
-  "qty_per_occurrence",
+  "schedule_date",
+  "schedule_status_column",
+  "status",
+  "percent_completed",
+  "schedule_counts_column",
+  "total_items",
+  "remaining_items",
+  "dates_section",
   "start_date",
   "end_date",
+  "frequency_column",
   "frequency",
   "interval",
   "recurrence_unit",
+  "custom_dates_column",
   "weekdays",
   "custom_dates",
+  "occurrence_count",
+  "responsibilities_section",
+  "responsibilities",
+  "items_section",
+  "items",
+  "notes_section",
   "notes",
-  "amended_from"
+  "amended_from",
+  "template",
+  "supervisor",
+  "uom",
+  "qty_per_occurrence"
  ],
  "fields": [
+  {
+   "fieldname": "schedule_details",
+   "fieldtype": "Section Break",
+   "label": "Schedule"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Schedule Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
   {
    "fieldname": "company",
    "fieldtype": "Link",
@@ -29,34 +59,60 @@
    "in_standard_filter": 1
   },
   {
-   "fieldname": "template",
-   "fieldtype": "Link",
-   "label": "Template",
-   "options": "Item",
-   "reqd": 1,
-   "in_list_view": 1
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
+   "description": "Defaults onto new item rows; individual item dates can be changed."
   },
   {
-   "fieldname": "supervisor",
-   "fieldtype": "Link",
-   "label": "Supervisor",
-   "options": "User",
-   "read_only": 1
+   "fieldname": "schedule_status_column",
+   "fieldtype": "Column Break"
   },
   {
-   "fieldname": "uom",
-   "fieldtype": "Link",
-   "label": "Uom",
-   "options": "UOM",
-   "read_only": 1
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nTo Produce\nPartly Produced\nCompleted\nCancelled",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
   },
   {
-   "fieldname": "qty_per_occurrence",
-   "fieldtype": "Float",
-   "label": "Qty Per Occurrence",
-   "reqd": 1,
-   "precision": "6",
-   "description": "Target quantity per date in the template stock UOM."
+   "fieldname": "percent_completed",
+   "fieldtype": "Percent",
+   "label": "Completion %",
+   "in_list_view": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "schedule_counts_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_items",
+   "fieldtype": "Int",
+   "label": "Item Lines",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "remaining_items",
+   "fieldtype": "Int",
+   "label": "Item Lines Remaining",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "dates_section",
+   "fieldtype": "Section Break",
+   "label": "Dates & Frequency"
   },
   {
    "fieldname": "start_date",
@@ -71,6 +127,10 @@
    "label": "End Date",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "frequency_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "frequency",
@@ -96,6 +156,10 @@
    "depends_on": "eval:doc.frequency == 'Custom'"
   },
   {
+   "fieldname": "custom_dates_column",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "weekdays",
    "fieldtype": "Data",
    "label": "Weekdays",
@@ -110,6 +174,47 @@
    "depends_on": "eval:doc.frequency == 'Custom' && doc.recurrence_unit == 'Dates'"
   },
   {
+   "fieldname": "occurrence_count",
+   "fieldtype": "Int",
+   "label": "Production Dates",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "responsibilities_section",
+   "fieldtype": "Section Break",
+   "label": "Responsibilities"
+  },
+  {
+   "fieldname": "responsibilities",
+   "fieldtype": "Table",
+   "label": "Responsibilities",
+   "options": "SRV Production Schedule Responsibility",
+   "allow_on_submit": 1,
+   "description": "Each user/work area gets an independent target for every item. Leave empty to use the template supervisors."
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Items to Produce"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "SRV Production Schedule Item",
+   "reqd": 1,
+   "allow_on_submit": 1,
+   "description": "Choose a template first, then optionally select a specific variant. Quantity is per production date."
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
+  },
+  {
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
@@ -121,6 +226,47 @@
    "options": "SRV Production Schedule",
    "read_only": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Item",
+   "reqd": 0,
+   "in_list_view": 0,
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "supervisor",
+   "fieldtype": "Link",
+   "label": "Supervisor",
+   "options": "User",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 0,
+   "in_list_view": 0
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM",
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 0,
+   "in_list_view": 0
+  },
+  {
+   "fieldname": "qty_per_occurrence",
+   "fieldtype": "Float",
+   "label": "Qty Per Occurrence",
+   "reqd": 0,
+   "precision": "6",
+   "description": "Target quantity per date in the template stock UOM.",
+   "hidden": 1,
+   "read_only": 1,
+   "in_list_view": 0
   }
  ],
  "permissions": [
@@ -155,5 +301,6 @@
  "is_submittable": 1,
  "autoname": "hash",
  "naming_rule": "Random",
- "title_field": "template"
+ "title_field": "title",
+ "search_fields": "title,company,status"
 }

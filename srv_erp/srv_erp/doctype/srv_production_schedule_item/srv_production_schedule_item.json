@@ -1,0 +1,130 @@
+{
+ "doctype": "DocType",
+ "name": "SRV Production Schedule Item",
+ "module": "Srv Erp",
+ "istable": 1,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "fields": [
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Variant",
+   "options": "Item",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Optional: leave blank to plan the template; select a variant to plan that exact item."
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "schedule_date",
+   "fieldtype": "Date",
+   "label": "Schedule Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "qty_per_occurrence",
+   "fieldtype": "Float",
+   "label": "Qty / Date",
+   "precision": "6",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM",
+   "read_only": 1,
+   "in_list_view": 0,
+   "columns": 1
+  },
+  {
+   "fieldname": "planned_qty",
+   "fieldtype": "Float",
+   "label": "Planned",
+   "precision": "6",
+   "in_list_view": 0,
+   "columns": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "completed_qty",
+   "fieldtype": "Float",
+   "label": "Finished",
+   "precision": "6",
+   "in_list_view": 1,
+   "columns": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "remaining_qty",
+   "fieldtype": "Float",
+   "label": "Remaining",
+   "precision": "6",
+   "in_list_view": 1,
+   "columns": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "percent_completed",
+   "fieldtype": "Percent",
+   "label": "Work %",
+   "in_list_view": 1,
+   "columns": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Section Break",
+   "label": "Responsibility"
+  },
+  {
+   "fieldname": "supervisor",
+   "fieldtype": "Link",
+   "label": "Template Default Supervisor",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "template",
+  "item_code",
+  "item_name",
+  "schedule_date",
+  "qty_per_occurrence",
+  "uom",
+  "planned_qty",
+  "completed_qty",
+  "remaining_qty",
+  "percent_completed",
+  "details",
+  "supervisor"
+ ],
+ "permissions": []
+}
