@@ -2,7 +2,7 @@
 
 import frappe
 
-from srv_erp.production.service import ASSIGNMENT, ENTRY, SCHEDULE, refresh_schedule_progress
+from srv_erp.production.service import ASSIGNMENT, ENTRY, SCHEDULE, item_dates, refresh_schedule_progress
 
 
 def execute():
@@ -65,21 +65,21 @@ def execute():
 				update_modified=False,
 			)
 	backfill_dates_and_names()
+	backfill_item_ranges()
 	frappe.db.sql("""UPDATE `tabSRV Production Assignment`
 		SET percent_completed=CASE WHEN target_qty>0 THEN ROUND(completed_qty / target_qty * 100, 2) ELSE 0 END""")
 	for name in frappe.get_all(SCHEDULE, pluck="name"):
 		doc = frappe.get_doc(SCHEDULE, name)
 		if doc.docstatus == 0:
-			from srv_erp.production.service import schedule_dates
-
-			count = len({date for row in doc.items for date in schedule_dates(doc, row.schedule_date)})
+			count = len({date for row in doc.items for date in item_dates(doc, row)})
 			for row in doc.items:
-				planned = row.qty_per_occurrence * len(schedule_dates(doc, row.schedule_date))
+				planned = row.qty_per_occurrence * len(item_dates(doc, row))
 				frappe.db.set_value(
 					row.doctype,
 					row.name,
 					{
 						"planned_qty": planned,
+						"occurrence_count": row.occurrence_count,
 						"remaining_qty": planned,
 						"completed_qty": 0,
 						"percent_completed": 0,
@@ -145,3 +145,18 @@ def backfill_operation_links():
 		for name in frappe.get_all(doctype, pluck="work_area", distinct=True):
 			if name:
 				ensure_operation(name)
+
+
+def backfill_item_ranges():
+	# Preserve the historical recurrence for each row. Do not validate overlaps
+	# or regenerate assignments for submitted schedules created by older code.
+	frappe.db.sql("""UPDATE `tabSRV Production Schedule Item` i
+		INNER JOIN `tabSRV Production Schedule` s ON s.name=i.parent
+		SET i.from_date=COALESCE(i.from_date, i.schedule_date, s.schedule_date, s.start_date),
+		i.to_date=COALESCE(i.to_date, CASE WHEN COALESCE(NULLIF(i.frequency, ''), s.frequency)='Once'
+		THEN COALESCE(i.from_date, i.schedule_date, s.schedule_date, s.start_date) ELSE s.end_date END),
+		i.frequency=COALESCE(NULLIF(i.frequency, ''), s.frequency),
+		i.`interval`=CASE WHEN COALESCE(i.recurrence_unit, '')='' THEN s.`interval` ELSE i.`interval` END,
+		i.recurrence_unit=COALESCE(NULLIF(i.recurrence_unit, ''), s.recurrence_unit),
+		i.weekdays=COALESCE(i.weekdays, s.weekdays),
+		i.custom_dates=COALESCE(i.custom_dates, s.custom_dates)""")
