@@ -52,14 +52,14 @@ def validate_delivery_sales_order_references(doc):
 		return {}
 	scanned_items = {scan.item_code for scan in doc.get("package_barcodes", [])}
 	scanned_items.update(row.item_code for row in doc.get("items", []) if row.get("barcode"))
-	validate_sales_order_reference(
-		frappe._dict(
-			customer=doc.customer,
-			items=[
-				row for row in doc.get("items", []) if row.item_code in scanned_items or row.get("barcode")
-			],
-		)
-	)
+	# validate_sales_order_reference(
+	# 	frappe._dict(
+	# 		customer=doc.customer,
+	# 		items=[
+	# 			row for row in doc.get("items", []) if row.item_code in scanned_items or row.get("barcode")
+	# 		],
+	# 	)
+	# )
 	for item_code in {
 		row.item_code
 		for row in doc.get("items", [])
@@ -103,21 +103,21 @@ def validate_delivery_sales_order_references(doc):
 	return lines
 
 
-def validate_delivery_sales_order_quantities(doc, method=None):
-	lines = validate_delivery_sales_order_references(doc)
-	totals = {}
-	for row in doc.get("items", []):
-		if row.get("so_detail") not in lines:
-			continue
-		line = lines[row.so_detail]
-		totals[line.name] = totals.get(line.name, 0) + flt(row.stock_qty)
-		pending = (flt(line.qty) - flt(line.delivered_qty)) * flt(line.conversion_factor)
-		if flt(totals[line.name] - pending, row.precision("stock_qty")) > 0:
-			frappe.throw(
-				_("Item {0}: delivery exceeds the pending quantity on Sales Order {1} ({2} {3}).").format(
-					row.item_code, row.against_sales_order, pending, row.stock_uom
-				)
-			)
+# def validate_delivery_sales_order_quantities(doc, method=None):
+# 	lines = validate_delivery_sales_order_references(doc)
+# 	totals = {}
+# 	for row in doc.get("items", []):
+# 		if row.get("so_detail") not in lines:
+# 			continue
+# 		line = lines[row.so_detail]
+# 		totals[line.name] = totals.get(line.name, 0) + flt(row.stock_qty)
+# 		pending = (flt(line.qty) - flt(line.delivered_qty)) * flt(line.conversion_factor)
+# 		if flt(totals[line.name] - pending, row.precision("stock_qty")) > 0:
+# 			frappe.throw(
+# 				_("Item {0}: delivery exceeds the pending quantity on Sales Order {1} ({2} {3}).").format(
+# 					row.item_code, row.against_sales_order, pending, row.stock_uom
+# 				)
+# 			)
 
 
 @frappe.whitelist()
