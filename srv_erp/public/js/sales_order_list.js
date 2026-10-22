@@ -148,12 +148,23 @@ frappe.listview_settings["Sales Order"] = {
 	add_fields: [
 		...(standard_sales_order_listview_settings.add_fields || []),
 		"workflow_state",
+		"delivery_status",
 	],
 	get_indicator(doc) {
 		// Closed is a terminal fulfillment state and always wins, even though
 		// the workflow state of a closed order is still "Approved".
 		if (doc.status === "Closed") {
 			return [__("Closed"), "gray", "status,=,Closed"];
+		}
+
+		if (doc.docstatus === 2 || doc.status === "Cancelled") {
+			return [__("Cancelled"), "red", "docstatus,=,2"];
+		}
+		if (doc.docstatus === 1 && doc.status === "On Hold") {
+			return [__("On Hold"), "orange", "status,=,On Hold"];
+		}
+		if (doc.docstatus === 1 && doc.delivery_status === "Fully Delivered") {
+			return [__("Complete (Delivered)"), "green", "docstatus,=,1|delivery_status,=,Fully Delivered|status,!=,Closed|status,!=,On Hold"];
 		}
 
 		// Everything else follows the workflow state (Pending/Approved/Rejected)

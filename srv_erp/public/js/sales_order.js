@@ -592,6 +592,21 @@ function refresh_closed_sales_order_indicator(frm) {
 }
 
 
+function refresh_sales_order_delivery_indicator(frm) {
+	const complete = frm.doc.docstatus === 1 &&
+		frm.doc.delivery_status === "Fully Delivered" &&
+		!["Closed", "On Hold", "Cancelled"].includes(frm.doc.status);
+	if (complete) {
+		frm.page.set_indicator(__("Complete (Delivered)"), "green");
+		frm.__srv_delivery_indicator_shown = true;
+	} else if (frm.__srv_delivery_indicator_shown) {
+		// Restore the regular indicator when a delivery is cancelled/returned.
+		if (!is_sales_order_closed(frm)) frm.toolbar.set_indicator();
+		frm.__srv_delivery_indicator_shown = false;
+	}
+}
+
+
 function get_items_requiring_approval(frm) {
 	return (frm.doc.items || [])
 		.filter((row) => cint(row.custom_item_requires_approval))
@@ -685,6 +700,7 @@ frappe.ui.form.on("Sales Order", {
 	refresh(frm) {
 		refresh_closed_sales_order_indicator(frm);
 		refresh_sales_order_item_approval_indicator(frm);
+		refresh_sales_order_delivery_indicator(frm);
 		refresh_current_stock(frm);
 		setup_delivery_item_filter(frm);
 		setup_sales_order_brand_filter(frm);
