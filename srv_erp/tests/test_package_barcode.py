@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import frappe
 from erpnext.stock.doctype.item.test_item import make_item
 from frappe.tests.utils import FrappeTestCase
@@ -45,6 +47,43 @@ class TestPackageBarcode(FrappeTestCase):
 		result = generate_package_barcodes(self.item.name, "Nos", 1)
 
 		self.assertTrue(result.barcodes[0].startswith("TEST-PBC-"))
+
+	def test_generated_code_contains_package_conversion_and_remains_unique(self):
+		result = generate_package_barcodes(self.item.name, "Box", 2)
+		self.assertEqual(len(set(result.barcodes)), 2)
+		for name in result.barcodes:
+			self.assertTrue(name.endswith("-10PKG"))
+			self.assertNotIn("Nos", name)
+			self.assertEqual(scan_package_barcode(name)["uom"], "Box")
+
+	def test_conversion_suffix_supports_decimals_and_stock_uom(self):
+		with patch("srv_erp.package_barcode.service.get_item_uom_conversion_factor", return_value=2.5):
+			result = generate_package_barcodes(self.item.name, "Box", 1)
+		self.assertTrue(result.barcodes[0].endswith("-2.5PKG"))
+		result = generate_package_barcodes(self.item.name, "Nos", 1)
+		self.assertTrue(result.barcodes[0].endswith("-1PKG"))
+
+	def test_legacy_printed_barcode_still_resolves(self):
+		legacy = frappe.get_doc(
+			{
+				"doctype": "Package Barcode",
+				"barcode": "_TEST-LEGACY-PBC-00001",
+				"item_code": self.item.name,
+				"uom": "Box",
+				"status": "Active",
+			}
+		).insert()
+		self.assertEqual(scan_package_barcode(legacy.barcode)["package_barcode"], legacy.name)
+
+	def test_invalid_conversion_fails_before_creating_batch(self):
+		before = frappe.db.count("Package Barcode Batch")
+		for factor in (0, -1, float("nan"), float("inf")):
+			with (
+				patch("srv_erp.package_barcode.service.get_item_uom_conversion_factor", return_value=factor),
+				self.assertRaisesRegex(PackageBarcodeError, "conversion factor"),
+			):
+				generate_package_barcodes(self.item.name, "Box", 1)
+		self.assertEqual(frappe.db.count("Package Barcode Batch"), before)
 
 	def test_scan_package_barcode(self):
 		result = generate_package_barcodes(self.item.name, "Nos", 1)
