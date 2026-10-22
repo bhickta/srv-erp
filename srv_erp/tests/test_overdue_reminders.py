@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -51,15 +52,6 @@ class TestOverdueMilestones(TestCase):
 		):
 			self.assertIsNone(overdue_milestone(order(**values), "2026-10-21"))
 
-	@patch("srv_erp.selling.overdue_reminders.frappe")
-	@patch("srv_erp.selling.overdue_reminders.is_notifications_enabled")
-	def test_recipients_require_enabled_system_user_read_permission_and_preferences(self, enabled, mock):
-		mock.get_all.return_value = ["allowed", "denied", "disabled", "opted-out", "allowed"]
-		mock.db.exists.side_effect = lambda _dt, filters: filters["name"] != "disabled"
-		mock.has_permission.side_effect = lambda *args, **kwargs: kwargs["user"] != "denied"
-		enabled.side_effect = lambda user: user != "opted-out"
-		self.assertEqual(recipients(order(owner="allowed")), ["allowed"])
-
 
 class TestOverdueNotificationLog(FrappeTestCase):
 	def setUp(self):
@@ -82,7 +74,7 @@ class TestOverdueNotificationLog(FrappeTestCase):
 		row = self.doc.append("items", {"qty": 10, "delivered_qty": 4, "delivery_date": "2026-10-01"})
 		row.db_insert()
 
-	def run_job(self, today):
+	def run_job(self, today, blanket=False):
 		# Restrict the job to this test order; other fixtures must not receive alerts.
 		original = frappe.get_all
 
@@ -92,7 +84,11 @@ class TestOverdueNotificationLog(FrappeTestCase):
 		with (
 			patch("srv_erp.selling.overdue_reminders.nowdate", return_value=today),
 			patch("srv_erp.selling.overdue_reminders.frappe.get_all", side_effect=orders),
-			patch("srv_erp.selling.overdue_reminders.recipients", return_value=["Administrator"]),
+			(
+				nullcontext()
+				if blanket
+				else patch("srv_erp.selling.overdue_reminders.recipients", return_value=["Administrator"])
+			),
 			patch("frappe.sendmail") as sendmail,
 		):
 			count = send_overdue_reminders()
@@ -128,3 +124,36 @@ class TestOverdueNotificationLog(FrappeTestCase):
 		self.assertEqual(self.run_job("2026-10-14"), 0)
 		frappe.db.set_value("Sales Order Item", self.doc.items[0].name, "delivered_qty", 10)
 		self.assertEqual(self.run_job("2026-10-16"), 0)
+
+	def test_blanket_alert_reaches_unassigned_user_without_sales_order_access(self):
+		email = "blanket-" + frappe.generate_hash(length=8) + "@example.test"
+		role = "_Test Blanket Reminder Desk"
+		if not frappe.db.exists("Role", role):
+			frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 1}).insert(
+				ignore_permissions=True
+			)
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": email,
+				"first_name": "Blanket Recipient",
+				"roles": [{"role": role}],
+				"notifications": 0,
+				"enabled": 1,
+				"user_type": "System User",
+				"send_welcome_email": 0,
+			}
+		).insert(ignore_permissions=True)
+		self.assertFalse(frappe.has_permission("Sales Order", "read", doc=self.doc, user=user.name))
+		self.assertIn(user.name, recipients())
+		self.assertGreaterEqual(self.run_job("2026-10-06", blanket=True), 2)
+		self.assertTrue(
+			frappe.db.exists(
+				"Notification Log", {"document_name": self.doc.name, "for_user": user.name, "type": "Alert"}
+			)
+		)
+		self.assertEqual(self.run_job("2026-10-06", blanket=True), 0)
+		frappe.db.set_value("User", user.name, "enabled", 0)
+		self.assertNotIn(user.name, recipients())
+		frappe.db.set_value("User", user.name, {"enabled": 1, "user_type": "Website User"})
+		self.assertNotIn(user.name, recipients())
