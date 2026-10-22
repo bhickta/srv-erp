@@ -89,3 +89,9 @@ Validated candidates based on production `f97185d` and dev `d242023` in the isol
 - Ruff, ESLint, JavaScript syntax and Git whitespace checks passed. The production test bench retains its previously documented barcode `installers` asset error; the scheduling workflow passed, including the intentionally triggered collision error.
 
 Release installation requires the normal schema migration and restart of application processes to load the new controllers. This validation did not deploy or restart live services.
+
+## Submitted plan updates (20 October 2026)
+
+Validated the planner-only **Update Plan** flow on the isolated development sites for production and dev. The production scheduling suite now contains 69 tests, including partial production corrections, immutable entry snapshots, minimum targets, stale-plan/production detection, wrong-schedule and supervisor/company access checks, inactive schedules, atomic date swaps, collisions, completed-plan reopening, rollback on a failing save hook and per-assignment change history.
+
+Browser verification covers opening a submitted, partially produced two-operation schedule, selecting dated rows, applying a common target/date, inline target edits with remaining-quantity preview, saving refreshed totals and preserved production-entry dates/quantities, and the specific error for a target below recorded production. Desktop and mobile dialogs were inspected. Existing schedule source rows remain immutable and no database fields are added.
