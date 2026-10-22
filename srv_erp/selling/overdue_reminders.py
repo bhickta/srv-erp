@@ -4,7 +4,6 @@ import hashlib
 
 import frappe
 from frappe import _
-from frappe.desk.doctype.notification_settings.notification_settings import is_notifications_enabled
 from frappe.utils import date_diff, escape_html, flt, getdate, nowdate
 
 INTERVAL_DAYS = 5
@@ -32,28 +31,18 @@ def overdue_milestone(doc, today):
 	return due_date, days, days // INTERVAL_DAYS * INTERVAL_DAYS
 
 
-def recipients(doc):
-	users = {doc.owner}
-	users.update(
-		frappe.get_all(
-			"ToDo",
-			filters={"reference_type": "Sales Order", "reference_name": doc.name, "status": "Open"},
-			pluck="allocated_to",
-		)
+def recipients():
+	"""Blanket reminders for every enabled Desk user, independent of order ownership."""
+	return frappe.get_all(
+		"User", filters={"enabled": 1, "user_type": "System User"}, pluck="name", order_by="name"
 	)
-	return [
-		user
-		for user in sorted(users - {None, "Guest"})
-		if frappe.db.exists("User", {"name": user, "enabled": 1, "user_type": "System User"})
-		and frappe.has_permission("Sales Order", "read", doc=doc, user=user)
-		and is_notifications_enabled(user)
-	]
 
 
 def send_overdue_reminders():
 	"""A delayed run sends the latest milestone once, rather than an old-reminder burst."""
 	today = nowdate()
 	count = 0
+	users = recipients()
 	for name in frappe.get_all(
 		"Sales Order", filters={"docstatus": 1, "status": ["not in", list(INACTIVE_STATUSES)]}, pluck="name"
 	):
@@ -63,7 +52,7 @@ def send_overdue_reminders():
 		if not milestone:
 			continue
 		due_date, days, interval = milestone
-		for user in recipients(doc):
+		for user in users:
 			key = hashlib.sha256(f"srv-so-overdue:{name}:{due_date}:{interval}:{user}".encode()).hexdigest()
 			if frappe.db.exists("Notification Log", key):
 				continue
