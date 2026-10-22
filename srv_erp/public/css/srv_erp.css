@@ -19,3 +19,19 @@ body[data-route^="List/Sales Order"] .list-row {
 body[data-route^="List/Sales Order"] .list-row * {
 	font-size: inherit !important;
 }
+
+.srv-production-assignment-progress {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 100px;
+}
+
+.srv-production-assignment-progress .progress {
+	flex: 1;
+	min-width: 40px;
+}
+
+.srv-production-assignment-progress > span {
+	white-space: nowrap;
+}

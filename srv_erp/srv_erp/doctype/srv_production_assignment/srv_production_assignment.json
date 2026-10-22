@@ -59,7 +59,6 @@
    "options": "Item",
    "read_only": 1,
    "reqd": 1,
-   "in_list_view": 1,
    "in_standard_filter": 1
   },
   {
@@ -67,14 +66,14 @@
    "fieldtype": "Link",
    "label": "Planned Variant",
    "options": "Item",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name",
-   "read_only": 1
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "responsibility_column",
@@ -86,7 +85,6 @@
    "label": "Supervisor",
    "options": "User",
    "reqd": 1,
-   "in_list_view": 1,
    "in_standard_filter": 1
   },
   {
@@ -94,7 +92,6 @@
    "fieldtype": "Link",
    "label": "Work Area / Operation",
    "read_only": 1,
-   "in_list_view": 1,
    "in_standard_filter": 1,
    "options": "Operation"
   },
@@ -103,7 +100,6 @@
    "fieldtype": "Date",
    "label": "Planned Date",
    "reqd": 1,
-   "in_list_view": 1,
    "in_standard_filter": 1
   },
   {
@@ -146,8 +142,7 @@
    "fieldtype": "Float",
    "label": "Completed Qty",
    "read_only": 1,
-   "precision": "6",
-   "in_list_view": 1
+   "precision": "6"
   },
   {
    "fieldname": "percent_completed",
@@ -232,6 +227,6 @@
  "sort_order": "DESC",
  "autoname": "hash",
  "naming_rule": "Random",
- "title_field": "template",
+ "title_field": "item_name",
  "is_calendar_and_gantt": 1
 }
