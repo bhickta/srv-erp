@@ -9,4 +9,4 @@ Deliverable: Separate production and dev PRs. Merge dev only after validation; l
 
 Implementation: Resolve and validate the selected UOM conversion once per generation batch, then append -<value>PKG to the configured series. This is the generation-time conversion value; barcode resolution and stock transaction quantity rules continue to use the existing UOM logic. No historical identifiers are rewritten.
 
-Validation: All 20 package-barcode tests pass, including whole/fractional/stock-UOM factors, uniqueness, custom series, scan round-trips, legacy labels and invalid factors before batch creation.
+Validation: All 17 dev package-barcode tests pass (20 pass on production, whose baseline includes three additional tests), including whole/fractional/stock-UOM factors, uniqueness, custom series, scan round-trips, legacy labels and invalid factors before batch creation.
