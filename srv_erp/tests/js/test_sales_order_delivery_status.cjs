@@ -48,6 +48,7 @@ assert.equal(indicator({ docstatus: 1, status: "To Bill" }), native);
 const calls = [];
 const frm = {
   doc: { ...complete },
+	toolbar: { set_indicator: () => calls.push(["regular"]) },
   page: {
     set_indicator: (...args) => calls.push(args),
     clear_indicator: () => calls.push(["clear"]),
@@ -62,7 +63,7 @@ assert.equal(
 );
 frm.doc.delivery_status = "Partly Delivered";
 context.refresh_sales_order_delivery_indicator(frm);
-assert.equal(calls.at(-1)[0], "clear");
+assert.equal(calls.at(-1)[0], "regular");
 frm.doc = { ...complete, status: "Closed" };
 const before = calls.length;
 context.refresh_sales_order_delivery_indicator(frm);

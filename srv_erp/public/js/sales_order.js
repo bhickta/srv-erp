@@ -601,7 +601,7 @@ function refresh_sales_order_delivery_indicator(frm) {
 		frm.__srv_delivery_indicator_shown = true;
 	} else if (frm.__srv_delivery_indicator_shown) {
 		// Restore the regular indicator when a delivery is cancelled/returned.
-		if (!is_sales_order_closed(frm)) frm.page.clear_indicator();
+		if (!is_sales_order_closed(frm)) frm.toolbar.set_indicator();
 		frm.__srv_delivery_indicator_shown = false;
 	}
 }
