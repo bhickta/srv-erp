@@ -597,7 +597,7 @@ function refresh_sales_order_delivery_indicator(frm) {
 		frm.doc.delivery_status === "Fully Delivered" &&
 		!["Closed", "On Hold", "Cancelled"].includes(frm.doc.status);
 	if (complete) {
-		frm.page.set_indicator(__("Complete (Delivered)"), "green");
+		frm.page.set_indicator(__("Complete (Delivered)"), "blue");
 		frm.__srv_delivery_indicator_shown = true;
 	} else if (frm.__srv_delivery_indicator_shown) {
 		// Restore the regular indicator when a delivery is cancelled/returned.
@@ -807,7 +807,6 @@ frappe.ui.form.on("Sales Order Item", {
 	},
 
 	discount_percentage: schedule_rate_discount,
-
 	discount_amount: schedule_rate_discount,
 
 	rate(frm, cdt, cdn) {

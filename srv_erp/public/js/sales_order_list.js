@@ -120,6 +120,18 @@ function setup_default_workflow_state_filter(listview) {
 			"in",
 			"Approved, Pending"
 		);
+		listview.filter_area.add(
+			listview.doctype,
+			"docstatus",
+			"!=",
+			"2"
+		);
+		listview.filter_area.add(
+			listview.doctype,
+			"status",
+			"!=",
+			"Closed"
+		);
 	}
 }
 
@@ -271,7 +283,7 @@ frappe.listview_settings["Sales Order"] = {
 			return [__("On Hold"), "orange", "status,=,On Hold"];
 		}
 		if (doc.docstatus === 1 && doc.delivery_status === "Fully Delivered") {
-			return [__("Complete (Delivered)"), "green", "docstatus,=,1|delivery_status,=,Fully Delivered|status,!=,Closed|status,!=,On Hold"];
+			return [__("Complete (Delivered)"), "blue", "docstatus,=,1|delivery_status,=,Fully Delivered|status,!=,Closed|status,!=,On Hold"];
 		}
 
 		// Everything else follows the workflow state (Pending/Approved/Rejected)

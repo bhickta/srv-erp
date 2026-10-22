@@ -219,6 +219,14 @@ after_migrate = ["srv_erp.install.after_migrate"]
 
 doc_events = {
 	"DocShare": {"validate": "srv_erp.production.permissions.prevent_production_sharing"},
+	"Customer": {
+		"on_update": "srv_erp.customer.customer.sync_customer_linked_docs",
+		"after_rename": "srv_erp.customer.customer.sync_customer_linked_docs_after_rename",
+	},
+	"Address": {
+		"on_update": "srv_erp.customer.customer.sync_address_linked_docs",
+		"after_rename": "srv_erp.customer.customer.sync_address_linked_docs",
+	},
 	"*": {
 		"before_validate": [
 			"srv_erp.selling.sales_person_user_mapping.set_mapped_sales_person",

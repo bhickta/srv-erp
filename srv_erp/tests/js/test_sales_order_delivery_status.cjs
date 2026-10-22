@@ -28,7 +28,7 @@ const complete = {
   delivery_status: "Fully Delivered",
 };
 assert.equal(indicator(complete)[0], "Complete (Delivered)");
-assert.equal(indicator(complete)[1], "green");
+assert.equal(indicator(complete)[1], "blue");
 assert.match(indicator(complete)[2], /delivery_status,=,Fully Delivered/);
 assert.equal(indicator({ ...complete, status: "Closed" })[0], "Closed");
 assert.equal(indicator({ ...complete, status: "On Hold" })[0], "On Hold");
@@ -56,6 +56,7 @@ const frm = {
 };
 context.refresh_sales_order_delivery_indicator(frm);
 assert.equal(calls[0][0], "Complete (Delivered)");
+assert.equal(calls[0][1], "blue");
 assert.equal(
   frm.doc.status,
   "To Bill",
