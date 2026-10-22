@@ -43,7 +43,7 @@
   },
   {
    "default": "PBC-.YYYY.-.#####",
-   "description": "Naming series used for generated package barcode values.",
+   "description": "Base naming series for new barcodes. The selected package UOM conversion value is appended automatically, e.g. PBC-2026-00001-20PKG.",
    "fieldname": "package_barcode_naming_series",
    "fieldtype": "Data",
    "label": "Package Barcode Naming Series",

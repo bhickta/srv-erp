@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 import frappe
 from frappe import _
@@ -114,10 +116,20 @@ class PackageBarcodeGenerator:
 				PackageBarcodeError,
 			)
 
+		factor = get_item_uom_conversion_factor(self.item_code, self.uom)
+		if not math.isfinite(factor) or factor <= 0:
+			frappe.throw(
+				_("Item {0}, package UOM {1}: conversion factor must be a positive finite number.").format(
+					frappe.bold(self.item_code), frappe.bold(self.uom)
+				),
+				PackageBarcodeError,
+			)
+		self.package_size = format(Decimal(str(factor)).normalize(), "f")
+
 	def make_unique_barcode(self) -> str:
 		series = get_barcode_naming_series()
 		for _attempt in range(10):
-			barcode = make_autoname(series)
+			barcode = f"{make_autoname(series)}-{self.package_size}PKG"
 			if not frappe.db.exists("Package Barcode", {"barcode": barcode}):
 				return barcode
 
