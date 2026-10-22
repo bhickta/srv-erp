@@ -293,6 +293,10 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+	"daily": ["srv_erp.selling.overdue_reminders.send_overdue_reminders"],
+}
+
 # scheduler_events = {
 # 	"all": [
 # 		"srv_erp.tasks.all"
