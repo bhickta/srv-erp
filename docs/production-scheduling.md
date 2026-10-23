@@ -13,7 +13,7 @@ To assign several people, add a user and **Work Area / Operation** to each sched
 1. Open **Production Scheduling → Production Schedules → New**. Enter the title and company.
 2. In **Planning Defaults**, set **Default From Date**, **Default To Date** and **Default Frequency**. They populate new item rows. Changing a default updates rows still using the previous value and preserves manual overrides. Each row may use its own date range, including dates outside the header defaults.
 3. Add responsibilities, or leave the table empty to use each template's default supervisor.
-4. In **Items & Date Ranges**, select **Template** first and optionally choose a specific **Variant**. Set the row's **From Date**, **To Date**, **Frequency** and **Qty / Date**. Leave Variant blank to plan output across that template; selecting a variant requires that exact produced item.
+4. In **Items & Date Ranges**, select **Template** first and optionally choose a specific **Variant**. Set the row's **From Date**, **To Date**, **Frequency** and **Qty / Date**. Leave Variant blank to plan and record production against the template code; selecting a variant requires that exact produced item.
 5. Use **Preview Dates** before submission. The summary shows each row's range, frequency, generated-date count, quantity per date and total planned quantity. Expand a row in the preview to see every generated Schedule Date and its quantity.
 6. Save and submit. The system creates one assignment per generated item/date/responsibility. Open **View → Assignments Calendar** to see the plans.
 
@@ -37,9 +37,9 @@ A matching Variant is retained when Template and Variant are filled together, in
 
 On a submitted schedule, choose **Create → Production Entry**. Select item checkboxes first to map only those rows. Choose a supervisor, their operation, and optionally a Schedule Date. Leaving the date blank includes all their pending dates. The entry opens with item codes and names, source dates, pending quantities and UOMs filled in.
 
-If a saved schedule has no Variant, its mapped entry requires the actual produced variant in **Item Code**. The entry shows guidance and identifies each missing row, template and Schedule Date on Save. Select the correct variant directly in the entry to record production against an existing template-only plan. Missing historical selections are not inferred or backfilled.
+Entries automatically use the scheduled Variant as **Item Code**, or the scheduled Template when Variant is blank. This also applies to existing template-only plans and unsaved entries created by an older client. For template-level targets, the item picker includes the template and its enabled variants. A variant-specific plan only permits that exact variant. Historical plan selections are not guessed or rewritten.
 
-Adjust **Produced Qty** and remove rows not produced on this entry. For a template-level target, select the actual variant. Duplicate an output row to split that target across variants; the combined quantity must stay within the source balance. One entry belongs to one schedule, supervisor and operation. Errors for invalid output or excess production include the output row, item, source date and pending quantity.
+Adjust **Produced Qty** and remove rows not produced on this entry. For a template-level target, keep the template code or select an actual variant. Duplicate an output row to split that target across variants; the combined quantity must stay within the source balance. One entry belongs to one schedule, supervisor and operation. Errors for invalid output or excess production include the output row, item, source date and pending quantity.
 
 Save a draft or submit. Drafts do not consume pending quantities. Submission updates the assignments and schedule progress. The next mapped entry brings in the remaining quantities. Supervisors can also open their own assignment and use **Record Production**, which carries the operation and date automatically.
 

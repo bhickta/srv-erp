@@ -446,12 +446,23 @@ class TestProductionScheduling(FrappeTestCase):
 					"production_date": "2099-01-01",
 				}
 			).insert()
+		unrelated = frappe.get_doc(
+			{
+				"doctype": "Item",
+				"name": "_Test Unrelated Production-" + frappe.generate_hash(length=8),
+				"item_name": "Unrelated item",
+				"stock_uom": "Nos",
+				"has_variants": 0,
+			}
+		)
+		unrelated.item_code = unrelated.name
+		unrelated.db_insert()
 		with self.assertRaises(frappe.ValidationError):
 			frappe.get_doc(
 				{
 					"doctype": ENTRY,
 					"assignment": names[0],
-					"item_code": self.template,
+					"item_code": unrelated.name,
 					"qty": 1,
 					"production_date": "2026-10-01",
 				}
@@ -540,6 +551,60 @@ class TestProductionScheduling(FrappeTestCase):
 			.insert()
 			.submit()
 		)
+
+	def test_template_plan_maps_template_code_and_tracks_production(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 10}])
+		entry = make_production_entry(schedule.name)
+		self.assertEqual(entry.items[0].item_code, self.template)
+		self.assertFalse(entry.items[0].planned_item)
+		entry.insert().submit()
+		self.assertEqual(submitted_qty(entry.items[0].assignment), 10)
+		self.assertEqual(schedule.reload().status, "Completed")
+		entry.cancel()
+		self.assertEqual(schedule.reload().status, "To Produce")
+
+	def test_mixed_plan_and_old_client_missing_codes_use_source_defaults(self):
+		from srv_erp.production.service import make_production_entry
+
+		schedule = self.multi_schedule(
+			rows=[
+				{"template": self.template, "item_code": self.variant, "qty_per_occurrence": 10},
+				{"template": self.template, "qty_per_occurrence": 20},
+			]
+		)
+		entry = make_production_entry(schedule.name)
+		self.assertEqual({row.item_code for row in entry.items}, {self.variant, self.template})
+		for row in entry.items:
+			row.item_code = None
+		entry.insert().submit()
+		self.assertEqual({row.item_code for row in entry.items}, {self.variant, self.template})
+		self.assertEqual(schedule.reload().percent_completed, 100)
+
+	def test_variant_plan_cannot_be_fulfilled_with_template_code(self):
+		from srv_erp.production.service import make_production_entry
+
+		entry = make_production_entry(self.multi_schedule().name)
+		entry.items[0].item_code = self.template
+		with self.assertRaisesRegex(frappe.ValidationError, "planned variant"):
+			entry.insert()
+
+	def test_production_item_picker_supports_template_and_variant_targets(self):
+		from srv_erp.production.service import make_production_entry, production_item_query
+
+		schedule = self.multi_schedule(rows=[{"template": self.template, "qty_per_occurrence": 10}])
+		entry = make_production_entry(schedule.name)
+		filters = {"assignment": entry.items[0].assignment}
+		choices = production_item_query("Item", "", "name", 0, 100, filters)
+		self.assertTrue({self.template, self.variant}.issubset({row[0] for row in choices}))
+		frappe.set_user(self.supervisors[1])
+		with self.assertRaises(frappe.PermissionError):
+			production_item_query("Item", "", "name", 0, 100, filters)
+		frappe.set_user("Administrator")
+		fixed = make_production_entry(self.multi_schedule().name).items[0]
+		choices = production_item_query("Item", "", "name", 0, 100, {"assignment": fixed.assignment})
+		self.assertEqual([row[0] for row in choices], [fixed.item_code])
 
 	def test_multi_item_variant_plan_mapping_and_progress(self):
 		from srv_erp.production.service import make_production_entry
