@@ -48,33 +48,37 @@ class SRVProductionEntry(Document):
 			frappe.throw(_("Create a separate production entry for each work area."))
 		for row in self.items:
 			source = assignments[row.assignment]
+			row.item_code = row.item_code or source.item_code or source.template
 			context = _("Entry row {0} ({1}, scheduled {2}, {3})").format(
 				row.idx,
 				escape_html(row.item_code or source.template),
 				source.planned_date,
 				escape_html(source.work_area or "Production"),
 			)
-			if not row.item_code:
-				frappe.throw(context + ": " + _("Select a produced variant."))
 			item = frappe.get_doc("Item", row.item_code)
 			item.check_permission("read")
-			if item.disabled or item.has_variants or item.variant_of != source.template:
-				frappe.throw(
-					context
-					+ ": "
-					+ _("Select an enabled variant of template {0}.").format(escape_html(source.template))
-				)
 			if source.item_code and item.name != source.item_code:
 				frappe.throw(
 					context
 					+ ": "
 					+ _("Production must use planned variant {0}.").format(escape_html(source.item_code))
 				)
+			is_template_output = not source.item_code and item.name == source.template
+			is_variant_output = not item.has_variants and item.variant_of == source.template
+			if item.disabled or not (is_template_output or is_variant_output):
+				frappe.throw(
+					context
+					+ ": "
+					+ _("Select planned template {0} or an enabled variant belonging to it.").format(
+						escape_html(source.template)
+					)
+				)
+
 			if item.stock_uom != source.uom:
 				frappe.throw(
 					context
 					+ ": "
-					+ _("Produced variants must use planned UOM {0}.").format(escape_html(source.uom))
+					+ _("Produced items must use planned UOM {0}.").format(escape_html(source.uom))
 				)
 			row.qty = positive_qty(row.qty, context + _(" — Produced Qty"))
 			row.item_name = item.item_name

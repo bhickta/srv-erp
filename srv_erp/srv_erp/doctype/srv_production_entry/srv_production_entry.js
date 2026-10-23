@@ -3,13 +3,8 @@ frappe.ui.form.on("SRV Production Entry", {
 		frm.set_query("item_code", "items", (doc, cdt, cdn) => {
 			const row = locals[cdt][cdn];
 			return {
-				filters: row.planned_item
-					? { name: row.planned_item, disabled: 0 }
-					: {
-							variant_of: row.template || "__select_assignment_first__",
-							has_variants: 0,
-							disabled: 0,
-						},
+				query: "srv_erp.production.service.production_item_query",
+				filters: { assignment: row.assignment || "" },
 			};
 		});
 		frm.set_query("assignment", "items", () => ({
@@ -21,6 +16,19 @@ frappe.ui.form.on("SRV Production Entry", {
 				remaining_qty: [">", 0],
 			},
 		}));
+	},
+	async validate(frm) {
+		// Repair unsaved entries mapped by an earlier client before mandatory-field checks.
+		for (const row of frm.doc.items || []) {
+			if (!row.item_code && (row.planned_item || row.template)) {
+				await frappe.model.set_value(
+					row.doctype,
+					row.name,
+					"item_code",
+					row.planned_item || row.template,
+				);
+			}
+		}
 	},
 	refresh(frm) {
 		if (frm.doc.schedule && frappe.model.can_read("SRV Production Schedule")) {
@@ -37,6 +45,8 @@ frappe.ui.form.on("SRV Production Entry", {
 				),
 				"blue",
 			);
+		} else {
+			frm.set_intro(null);
 		}
 	},
 });
@@ -61,7 +71,7 @@ frappe.ui.form.on("SRV Production Entry Item", {
 			item_name: message.item_name,
 			work_area: message.work_area,
 			planned_item: message.item_code,
-			item_code: message.item_code,
+			item_code: message.item_code || message.template,
 			supervisor: message.supervisor,
 			planned_date: message.planned_date,
 			planned_qty: message.target_qty,
