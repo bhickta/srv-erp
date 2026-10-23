@@ -135,8 +135,23 @@ test("clearing the template clears the old item and defaults", async () => {
   assert.equal(row.supervisor, null);
 });
 
-test("entry validation identifies each missing variant row, template and date", () => {
+test("entry validation defaults to the planned variant or template and retains explicit selections", async () => {
   const handlers = {};
+  const rows = [
+    {
+      doctype: "SRV Production Entry Item",
+      name: "R1",
+      planned_item: "V1",
+      template: "T1",
+    },
+    { doctype: "SRV Production Entry Item", name: "R2", template: "T2" },
+    {
+      doctype: "SRV Production Entry Item",
+      name: "R3",
+      template: "T1",
+      item_code: "V3",
+    },
+  ];
   const context = vm.createContext({
     frappe: {
       ui: {
@@ -146,16 +161,13 @@ test("entry validation identifies each missing variant row, template and date", 
           },
         },
       },
-      utils: {
-        escape_html: (value) =>
-          value.replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
-      },
-      throw: (message) => {
-        throw new Error(message);
+      model: {
+        set_value: async (_doctype, name, key, value) => {
+          rows.find((row) => row.name === name)[key] = value;
+        },
       },
     },
-    __: (text, values = []) =>
-      text.replace(/\{(\d+)\}/g, (_, index) => values[index]),
+    __: (text) => text,
   });
   vm.runInContext(
     fs.readFileSync(
@@ -167,20 +179,9 @@ test("entry validation identifies each missing variant row, template and date", 
     ),
     context,
   );
-  const validate = handlers["SRV Production Entry"].validate;
-  assert.throws(
-    () =>
-      validate({
-        doc: {
-          items: [
-            { idx: 1, template: "CB 314", planned_date: "2026-10-21" },
-            { idx: 2, template: "CB 300", planned_date: "2026-10-21" },
-          ],
-        },
-      }),
-    /Row 1: template CB 314, schedule date 2026-10-21.*Row 2: template CB 300/,
-  );
-  assert.doesNotThrow(() =>
-    validate({ doc: { items: [{ idx: 1, item_code: "V1" }] } }),
+  await handlers["SRV Production Entry"].validate({ doc: { items: rows } });
+  assert.deepEqual(
+    rows.map((row) => row.item_code),
+    ["V1", "T2", "V3"],
   );
 });
