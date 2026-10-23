@@ -10,6 +10,7 @@ from frappe import _
 from frappe.utils import flt, format_date
 
 MAX_ORDERS_PER_PRINT = 200
+FINISHED_GOODS_WAREHOUSE = "Finished Goods - SE"
 
 
 def ensure_print_permission(order: "frappe.Document") -> None:
@@ -228,6 +229,7 @@ def get_required_stock_html(names: list[str] | str) -> str:
 					"item_name": item.item_name,
 					"item_group": item.item_group,
 					"uom": uom,
+					"conversion_factor": flt(item.conversion_factor),
 					"qty": 0,
 				}
 
@@ -238,7 +240,26 @@ def get_required_stock_html(names: list[str] | str) -> str:
 			_("None of the selected Sales Orders have pending items.")
 		)
 
-	print(f"required items: \n{required_items}")
+	stock_by_item = {
+		row.item_code: flt(row.actual_qty)
+		for row in frappe.get_all(
+			"Bin",
+			filters={
+				"warehouse": FINISHED_GOODS_WAREHOUSE,
+				"item_code": ["in", sorted({item["item_code"] for item in required_items.values()})],
+			},
+			fields=["item_code", "actual_qty"],
+		)
+	}
+
+	for item in required_items.values():
+		conversion_factor = item["conversion_factor"]
+		if conversion_factor <= 0:
+			frappe.throw(
+				_("A valid UOM conversion factor is required for item {0}.").format(item["item_code"])
+			)
+		item["current_stock"] = stock_by_item.get(item["item_code"], 0) / conversion_factor
+
 	item_groups = {}
 
 	for item in required_items.values():

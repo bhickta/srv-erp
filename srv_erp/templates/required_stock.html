@@ -106,11 +106,15 @@
     }
 
     .stock-table col.particulars {
-        width: 75%;
+        width: 60%;
     }
 
     .stock-table col.quantity {
-        width: 25%;
+        width: 20%;
+    }
+
+    .stock-table col.current-stock {
+        width: 20%;
     }
 
     /* =========================================================
@@ -150,6 +154,11 @@
         padding-right: 8px;
     }
 
+    .stock-table th.current-stock {
+        text-align: right;
+        padding-right: 8px;
+    }
+
     /* =========================================================
        TABLE BODY
        ========================================================= */
@@ -178,6 +187,12 @@
     }
 
     .stock-table td.quantity {
+        text-align: right;
+        white-space: nowrap;
+        padding-right: 8px;
+    }
+
+    .stock-table td.current-stock {
         text-align: right;
         white-space: nowrap;
         padding-right: 8px;
@@ -379,6 +394,8 @@
 
             <col class="quantity">
 
+            <col class="current-stock">
+
         </colgroup>
 
 
@@ -392,6 +409,10 @@
 
                 <th class="quantity">
                     Required Qty
+                </th>
+
+                <th class="current-stock">
+                    Current Stock
                 </th>
 
             </tr>
@@ -414,6 +435,9 @@
                 </td>
 
                 <td class="quantity">
+                </td>
+
+                <td class="current-stock">
                 </td>
 
             </tr>
@@ -448,6 +472,17 @@
 
                     {{ frappe.format(
                         item.qty,
+                        {"fieldtype": "Float"}
+                    ) }}
+
+                    {{ item.uom }}
+
+                </td>
+
+                <td class="current-stock">
+
+                    {{ frappe.format(
+                        item.current_stock,
                         {"fieldtype": "Float"}
                     ) }}
 

@@ -5,8 +5,10 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from srv_erp.selling.order_slip import (
+	FINISHED_GOODS_WAREHOUSE,
 	ensure_print_permission,
 	get_date_heading,
+	get_required_stock_html,
 	parse_order_names,
 )
 
@@ -38,6 +40,95 @@ class TestOrderSlipPermission(FrappeTestCase):
 
 
 class TestOrderSlipHelpers(FrappeTestCase):
+	@patch("srv_erp.selling.order_slip.frappe.get_all")
+	@patch("srv_erp.selling.order_slip.frappe.get_doc")
+	def test_required_stock_uses_finished_goods_bin_qty(self, get_doc, get_all):
+		item = SimpleNamespace(
+			item_code="ITEM-001",
+			item_name="Packed Item",
+			item_group="Products",
+			qty=2,
+			delivered_qty=0,
+			uom="Packing",
+			conversion_factor=12,
+			stock_uom="PCs",
+		)
+		order = SimpleNamespace(
+			check_permission=MagicMock(),
+			transaction_date="2026-08-01",
+			items=[item],
+		)
+		get_doc.return_value = order
+		get_all.return_value = [SimpleNamespace(item_code="ITEM-001", actual_qty=36)]
+
+		with (
+			patch("srv_erp.selling.order_slip.frappe.defaults.get_user_default", return_value="Company"),
+			patch("srv_erp.selling.order_slip.frappe.render_template", return_value="html") as render,
+		):
+			result = get_required_stock_html(["SO-0001"])
+
+		self.assertEqual(result, "html")
+		get_all.assert_called_once_with(
+			"Bin",
+			filters={
+				"warehouse": FINISHED_GOODS_WAREHOUSE,
+				"item_code": ["in", ["ITEM-001"]],
+			},
+			fields=["item_code", "actual_qty"],
+		)
+		self.assertEqual(
+			render.call_args.args[1]["item_groups"]["Products"][0]["current_stock"],
+			3,
+		)
+		self.assertEqual(
+			render.call_args.args[1]["item_groups"]["Products"][0]["uom"],
+			"Packing",
+		)
+		html = frappe.render_template(
+			"srv_erp/templates/required_stock.html",
+			render.call_args.args[1],
+		)
+		self.assertIn("Current Stock", html)
+		self.assertIn(frappe.format(3, {"fieldtype": "Float"}), html)
+		self.assertIn("Packing", html)
+
+	def test_delivery_note_ledger_shows_conversion_factor_and_stock_quantity(self):
+		delivery_note = SimpleNamespace(
+			name="DN-0001",
+			posting_date="2026-08-01",
+			currency="INR",
+			total=100,
+			grand_total=118,
+			customer_name="Customer Name",
+			items=[
+				SimpleNamespace(
+					item_code="ITEM-001",
+					item_name="Packed Item",
+					qty=2,
+					uom="Packing",
+					conversion_factor=12,
+					stock_qty=24,
+					stock_uom="PCs",
+					rate=50,
+				)
+			],
+		)
+
+		html = frappe.render_template(
+			"srv_erp/templates/delivery_note_ledger.html",
+			{
+				"delivery_notes": [delivery_note],
+				"date_heading": "01-08-2026",
+				"grand_total": 118,
+				"currency": "INR",
+			},
+		)
+
+		self.assertIn("UOM Conversion Value (Packing)", html)
+		self.assertIn("Qty in Stock UOM (PCs)", html)
+		self.assertIn("12.00", html)
+		self.assertIn("24.00 PCs", html)
+
 	def test_order_slip_template_uses_order_number_and_aligned_item_rows(self):
 		order = SimpleNamespace(
 			name="SO-0001",
