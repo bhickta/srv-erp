@@ -31,9 +31,13 @@ Expand an item row for **Custom Recurrence** and **Progress & Template Default**
 
 The earlier planning Schedule Date fields remain hidden for compatibility. Migration copies each historical item date into From Date and copies the old header recurrence into the row. Existing document names, assignments, source links and submitted quantities remain unchanged. Missing Operation records for historical work-area labels are created, including the default Production operation. Migration is repeatable and does not regenerate submitted assignments.
 
+A matching Variant is retained when Template and Variant are filled together, including pasted or batch-edited rows. Changing Template clears a Variant that belongs to a different template. Item Name follows the current selection.
+
 ## Schedule → Production Entry
 
 On a submitted schedule, choose **Create → Production Entry**. Select item checkboxes first to map only those rows. Choose a supervisor, their operation, and optionally a Schedule Date. Leaving the date blank includes all their pending dates. The entry opens with item codes and names, source dates, pending quantities and UOMs filled in.
+
+If a saved schedule has no Variant, its mapped entry requires the actual produced variant in **Item Code**. The entry shows guidance and identifies each missing row, template and Schedule Date on Save. Select the correct variant directly in the entry to record production against an existing template-only plan. Missing historical selections are not inferred or backfilled.
 
 Adjust **Produced Qty** and remove rows not produced on this entry. For a template-level target, select the actual variant. Duplicate an output row to split that target across variants; the combined quantity must stay within the source balance. One entry belongs to one schedule, supervisor and operation. Errors for invalid output or excess production include the output row, item, source date and pending quantity.
 

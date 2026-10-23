@@ -22,6 +22,25 @@ frappe.ui.form.on("SRV Production Entry", {
 			},
 		}));
 	},
+	validate(frm) {
+		const missing = (frm.doc.items || []).filter((row) => !row.item_code);
+		if (missing.length) {
+			const escape = (value) => frappe.utils.escape_html(String(value || ""));
+			frappe.throw(
+				__("Select a produced variant in Item Code for these rows:") +
+					"<br>" +
+					missing
+						.map((row) =>
+							__("Row {0}: template {1}, schedule date {2}", [
+								row.idx,
+								escape(row.template),
+								escape(row.planned_date),
+							]),
+						)
+						.join("<br>"),
+			);
+		}
+	},
 	refresh(frm) {
 		if (frm.doc.schedule && frappe.model.can_read("SRV Production Schedule")) {
 			frm.add_custom_button(
@@ -30,13 +49,22 @@ frappe.ui.form.on("SRV Production Entry", {
 				__("View"),
 			);
 		}
-		if (frm.is_new() && !frm.doc.items?.length) {
+		if (frm.doc.docstatus === 0 && frm.doc.items?.some((row) => !row.item_code)) {
+			frm.set_intro(
+				__(
+					"Select a produced variant in Item Code for the template-only plan rows before saving.",
+				),
+				"orange",
+			);
+		} else if (frm.is_new() && !frm.doc.items?.length) {
 			frm.set_intro(
 				__(
 					"Open a production schedule and use Create → Production Entry to bring in its pending items.",
 				),
 				"blue",
 			);
+		} else {
+			frm.set_intro(null);
 		}
 	},
 });

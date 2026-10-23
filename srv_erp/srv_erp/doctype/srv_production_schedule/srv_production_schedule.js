@@ -196,26 +196,53 @@ frappe.ui.form.on("SRV Production Schedule Item", {
 	},
 	async item_code(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
-		const code = row.item_code || row.template;
+		const template = row.template;
+		const code = row.item_code || template;
 		const { message } = code
 			? await frappe.db.get_value("Item", code, "item_name")
 			: { message: {} };
-		await frappe.model.set_value(cdt, cdn, "item_name", message.item_name || "");
+		if (row.template !== template || (row.item_code || row.template) !== code) return;
+		await frappe.model.set_value(cdt, cdn, "item_name", message?.item_name || "");
 	},
 	async template(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
-		await frappe.model.set_value(cdt, cdn, { item_code: null, supervisor: null, uom: null });
-		if (!row.template) return;
-		const { message } = await frappe.db.get_value("Item", row.template, [
+		const template = row.template;
+		if (!template) {
+			await frappe.model.set_value(cdt, cdn, {
+				item_code: null,
+				supervisor: null,
+				uom: null,
+				item_name: "",
+			});
+			return;
+		}
+		const { message } = await frappe.db.get_value("Item", template, [
 			"custom_production_supervisor",
 			"stock_uom",
 			"item_name",
 		]);
+		if (row.template !== template) return;
 		await frappe.model.set_value(cdt, cdn, {
 			supervisor: message.custom_production_supervisor,
 			uom: message.stock_uom,
-			item_name: message.item_name,
 		});
+		if (row.template !== template) return;
+		// Batch edits populate both links before their triggers run. Preserve a matching variant.
+		const selected = row.item_code;
+		if (selected) {
+			const { message: variant } = await frappe.db.get_value("Item", selected, [
+				"variant_of",
+				"item_name",
+			]);
+			if (row.template !== template || row.item_code !== selected) return;
+			if (variant?.variant_of !== template) {
+				await frappe.model.set_value(cdt, cdn, "item_code", null);
+				return;
+			}
+			await frappe.model.set_value(cdt, cdn, "item_name", variant.item_name);
+		} else {
+			await frappe.model.set_value(cdt, cdn, "item_name", message.item_name);
+		}
 	},
 });
 
