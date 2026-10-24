@@ -50,9 +50,6 @@
 				<th class="quantity">{{ _("Delivered Quantity") }}</th>
 				<th class="conversion-factor">{{ _("UOM Conversion Value (Packing)") }}</th>
 				<th class="stock-quantity">{{ _("Qty in Stock UOM (PCs)") }}</th>
-				<th class="rate">{{ _("Rate") }}</th>
-				<th class="total">{{ _("Gross Total") }}</th>
-				<th class="grand-total-column">{{ _("Delivery Note Total") }}</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -68,9 +65,6 @@
 				<td class="quantity document-heading-cell"></td>
 				<td class="conversion-factor document-heading-cell"></td>
 				<td class="stock-quantity document-heading-cell"></td>
-				<td class="rate document-heading-cell"></td>
-				<td class="total amount-cell document-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(delivery_note.total, currency=delivery_note.currency) }}</td>
-				<td class="grand-total-column amount-cell document-cell number-cell" rowspan="{{ item_count + 1 }}">{{ frappe.utils.fmt_money(delivery_note.grand_total, currency=delivery_note.currency) }}</td>
 			</tr>
 			{% for item in delivery_note.items %}
 			<tr class="{% if loop.last %}document-last-item{% endif %}">
@@ -86,9 +80,6 @@
 				<td class="stock-quantity item-cell number-cell">
 					<div>{{ frappe.utils.fmt_money(item.stock_qty, precision=2) }} {{ item.stock_uom }}</div>
 				</td>
-				<td class="rate item-cell number-cell">
-					<div>{{ frappe.utils.fmt_money(item.rate, currency=delivery_note.currency) }}/{{ item.uom or item.stock_uom }}</div>
-				</td>
 			</tr>
 			{% endfor %}
 			{% else %}
@@ -101,16 +92,13 @@
 				<td class="quantity"></td>
 				<td class="conversion-factor"></td>
 				<td class="stock-quantity"></td>
-				<td class="rate"></td>
-				<td class="total amount-cell number-cell">{{ frappe.utils.fmt_money(delivery_note.total, currency=delivery_note.currency) }}</td>
-				<td class="grand-total-column amount-cell number-cell">{{ frappe.utils.fmt_money(delivery_note.grand_total, currency=delivery_note.currency) }}</td>
 			</tr>
 			{% endif %}
 		{% endfor %}
-			<tr class="grand-total">
-				<td colspan="7" style="text-align:right">{{ _("Grand Total") }}</td>
+			<!-- <tr class="grand-total">
+				<td colspan="4" style="text-align:right">{{ _("Grand Total") }}</td>
 				<td class="grand-total-column number-cell">{{ frappe.utils.fmt_money(grand_total, currency=currency) }}</td>
-			</tr>
+			</tr> -->
 		</tbody>
 	</table>
 	<script>

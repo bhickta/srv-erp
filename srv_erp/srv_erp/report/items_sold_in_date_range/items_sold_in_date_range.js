@@ -36,6 +36,13 @@ frappe.query_reports["Items Sold in Date Range"] = {
 			},
 		},
 		{
+			fieldname: "show_sales_by",
+			label: __("Show Sales By"),
+			fieldtype: "Select",
+			options: ["Brand (Variant)", "Base Item (All Brands)"],
+			default: "Brand (Variant)",
+		},
+		{
 			fieldname: "company",
 			label: __("Company"),
 			fieldtype: "Link",

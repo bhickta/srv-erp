@@ -9,9 +9,15 @@ from srv_erp.srv_erp.report.hierarchical_filters import get_descendant_condition
 from srv_erp.srv_erp.report.uom_utils import add_selected_uom_columns
 
 DEFAULT_BRAND_VARIANT_ATTRIBUTE = "Brand"
+BASE_ITEM_VIEW = "Base Item (All Brands)"
 RESOLVED_BRAND_SQL = (
 	"COALESCE(NULLIF(variant_brand.attribute_value, ''), "
 	"NULLIF(item.brand, ''), template.brand)"
+)
+TEMPLATE_ITEM_SQL = "COALESCE(NULLIF(item.variant_of, ''), dni.item_code)"
+NET_SOLD_QTY_SQL = (
+	"CASE WHEN COALESCE(dn.is_return, 0) = 1 "
+	"THEN -ABS(dni.stock_qty) ELSE ABS(dni.stock_qty) END"
 )
 
 
@@ -44,7 +50,7 @@ def get_columns():
 			"options": "Item Group",
 			"width": 130,
 		},
-		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Link", "options": "Brand", "width": 120},
+		{"label": _("Brand"), "fieldname": "brand", "fieldtype": "Data", "width": 120},
 		{
 			"label": _("Sold Qty"),
 			"fieldname": "stock_qty",
@@ -85,14 +91,34 @@ def get_data(filters):
 		frappe.db.get_single_value("SRV Settings", "variant_auto_create_attribute")
 		or DEFAULT_BRAND_VARIANT_ATTRIBUTE
 	)
+	filters["all_brands_label"] = _("All Brands")
+	group_by_template = filters.get("show_sales_by") == BASE_ITEM_VIEW
+	item_code_sql = TEMPLATE_ITEM_SQL if group_by_template else "dni.item_code"
+	item_name_sql = (
+		"COALESCE(MAX(template.item_name), MAX(dni.item_name))"
+		if group_by_template
+		else "MAX(dni.item_name)"
+	)
+	item_group_sql = (
+		"MAX(COALESCE(template.item_group, dni.item_group))"
+		if group_by_template
+		else "MAX(dni.item_group)"
+	)
+	if group_by_template:
+		brand_sql = (
+			"%(brand)s" if filters.get("brand") else "%(all_brands_label)s"
+		)
+	else:
+		brand_sql = f"MAX({RESOLVED_BRAND_SQL})"
+
 	return frappe.db.sql(
 		f"""
 			SELECT
-				dni.item_code,
-				MAX(dni.item_name) AS item_name,
-				MAX(dni.item_group) AS item_group,
-				MAX({RESOLVED_BRAND_SQL}) AS brand,
-				SUM(dni.stock_qty) AS stock_qty,
+				{item_code_sql} AS item_code,
+				{item_name_sql} AS item_name,
+				{item_group_sql} AS item_group,
+				{brand_sql} AS brand,
+				SUM({NET_SOLD_QTY_SQL}) AS stock_qty,
 				MAX(dni.stock_uom) AS uom_stock_qty,
 				GROUP_CONCAT(
 					DISTINCT dn.name
@@ -109,11 +135,9 @@ def get_data(filters):
 				AND variant_brand.attribute = %(brand_variant_attribute)s
 			WHERE
 				dn.docstatus = 1
-				AND COALESCE(dn.is_return, 0) = 0
-				AND dni.qty > 0
 				{get_conditions(filters)}
-			GROUP BY dni.item_code
-			ORDER BY item_name, dni.item_code
+			GROUP BY {item_code_sql}
+			ORDER BY item_name, item_code
 		""",
 		filters,
 		as_dict=True,
@@ -137,7 +161,19 @@ def get_conditions(filters):
 		conditions.append("dn.posting_date <= %(to_date)s")
 	for fieldname, column in field_map.items():
 		if filters.get(fieldname):
-			conditions.append(f"{column} = %({fieldname})s")
+			if (
+				fieldname == "item_code"
+				and filters.get("show_sales_by") == BASE_ITEM_VIEW
+			):
+				conditions.append(
+					f"{TEMPLATE_ITEM_SQL} = COALESCE(NULLIF(("
+					"SELECT selected_item.variant_of "
+					"FROM `tabItem` selected_item "
+					"WHERE selected_item.name = %(item_code)s"
+					"), ''), %(item_code)s)"
+				)
+			else:
+				conditions.append(f"{column} = %({fieldname})s")
 	if filters.get("customer_group"):
 		conditions.append(
 			get_descendant_condition("Customer Group", "dn.customer_group", "customer_group")
