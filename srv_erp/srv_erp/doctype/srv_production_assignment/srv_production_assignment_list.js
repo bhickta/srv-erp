@@ -1,5 +1,6 @@
 frappe.listview_settings["SRV Production Assignment"] = {
 	filters: [
+		["planned_date", "timespan", "today"],
 		[
 			"status",
 			"not in",
@@ -10,18 +11,20 @@ frappe.listview_settings["SRV Production Assignment"] = {
 		],
 	],
 	onload(listview) {
-		// Apply the default to existing empty saved views too. Explicit history
-		// filters and filters removed during this visit remain under user control.
-		if (
-			!listview.filter_area
-				.get()
-				.some((filter) => ["status", "docstatus"].includes(filter[1]))
-		) {
+		// Fill missing defaults independently for existing saved views. Explicit
+		// date/status filters and filters removed during this visit stay editable.
+		const filters = listview.filter_area.get();
+		const defaults = frappe.listview_settings[listview.doctype].filters.filter(
+			([fieldname]) =>
+				!filters.some(
+					(filter) =>
+						filter[1] === fieldname ||
+						(fieldname === "status" && filter[1] === "docstatus"),
+				),
+		);
+		if (defaults.length) {
 			return listview.filter_area.add(
-				frappe.listview_settings[listview.doctype].filters.map((filter) => [
-					listview.doctype,
-					...filter,
-				]),
+				defaults.map((filter) => [listview.doctype, ...filter]),
 			);
 		}
 	},
