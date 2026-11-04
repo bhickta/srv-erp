@@ -8,6 +8,7 @@ from srv_erp.selling.order_slip import (
 	FINISHED_GOODS_WAREHOUSE,
 	ensure_print_permission,
 	get_date_heading,
+	get_delivery_note_valuation_html,
 	get_required_stock_html,
 	parse_order_names,
 )
@@ -128,6 +129,114 @@ class TestOrderSlipHelpers(FrappeTestCase):
 		self.assertIn("Qty in Stock UOM (PCs)", html)
 		self.assertIn("12.00", html)
 		self.assertIn("24.00 PCs", html)
+
+	@patch("srv_erp.selling.order_slip.frappe.get_all")
+	@patch("srv_erp.selling.order_slip.frappe.get_doc")
+	def test_delivery_note_valuation_uses_stock_qty_price_list_rate_and_sales_order_discount(
+		self, get_doc, get_all
+	):
+		item = SimpleNamespace(
+			name="DNI-0001",
+			item_code="ITEM-001",
+			item_name="Packed Item",
+			qty=2,
+			stock_qty=24,
+			stock_uom="PCs",
+			so_detail="SOI-0001",
+			price_list_rate=60,
+			amount=100,
+		)
+		delivery_note = SimpleNamespace(
+			doctype="Delivery Note",
+			name="DN-0001",
+			posting_date="2026-08-01",
+			currency="INR",
+			grand_total=100,
+			customer_name="Customer Name",
+			items=[item],
+		)
+		get_doc.return_value = delivery_note
+		get_all.return_value = [
+			SimpleNamespace(
+				name="SOI-0001",
+				srv_discount_percentage=10,
+				discount_percentage=0,
+			)
+		]
+
+		with (
+			patch("srv_erp.selling.order_slip.ensure_print_permission") as ensure_permission,
+			patch("srv_erp.selling.order_slip.frappe.render_template", return_value="html") as render,
+		):
+			result = get_delivery_note_valuation_html(["DN-0001"])
+
+		self.assertEqual(result, "html")
+		ensure_permission.assert_called_once_with(delivery_note)
+		get_all.assert_called_once_with(
+			"Sales Order Item",
+			filters={"name": ["in", ["SOI-0001"]]},
+			fields=["name", "srv_discount_percentage", "discount_percentage"],
+		)
+		self.assertEqual(
+			render.call_args.args[1]["valuation_items_by_note"]["DN-0001"][
+				"DNI-0001"
+			],
+			{"discount_percentage": 10, "rate": 60, "amount": 108},
+		)
+		self.assertTrue(render.call_args.args[1]["valuation"])
+
+	def test_delivery_note_valuation_template_shows_valuation_columns(self):
+		delivery_note = SimpleNamespace(
+			name="DN-0001",
+			posting_date="2026-08-01",
+			currency="INR",
+			customer_name="Customer Name",
+			items=[
+				SimpleNamespace(
+					name="DNI-0001",
+					item_code="ITEM-001",
+					item_name="Packed Item",
+					qty=2,
+					stock_qty=24,
+					stock_uom="PCs",
+					so_detail="SOI-0001",
+					price_list_rate=60,
+					amount=120,
+				)
+			],
+		)
+
+		html = frappe.render_template(
+			"srv_erp/templates/delivery_note_ledger.html",
+			{
+				"delivery_notes": [delivery_note],
+				"date_heading": "01-08-2026",
+				"grand_total": 100,
+				"currency": "INR",
+				"valuation": True,
+				"valuation_items_by_note": {
+					"DN-0001": {
+						"DNI-0001": {
+							"discount_percentage": 10,
+							"rate": 60,
+							"amount": 108,
+						}
+					}
+				},
+			},
+		)
+
+		self.assertIn("Delivery Note Valuation", html)
+		self.assertIn("Item Name", html)
+		self.assertIn("Delivered Qty (in Stock UOM)", html)
+		self.assertIn("Discount Percentage", html)
+		self.assertIn("Rate (as per price list)", html)
+		self.assertIn("Amount", html)
+		self.assertIn("Packed Item", html)
+		self.assertIn("24.00 PCs", html)
+		self.assertIn("10.00%", html)
+		self.assertIn("60.00", html)
+		self.assertIn("108.00", html)
 
 	def test_order_slip_template_uses_order_number_and_aligned_item_rows(self):
 		order = SimpleNamespace(

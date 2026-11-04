@@ -188,7 +188,96 @@ def get_delivery_note_ledger_html(names: list[str] | str) -> str:
 	)
 
 
- 
+@frappe.whitelist()
+def get_delivery_note_valuation_html(names: list[str] | str) -> str:
+	names = parse_order_names(names)
+
+	if not names:
+		frappe.throw(_("Select at least one Delivery Note to print."))
+
+	if len(names) > MAX_ORDERS_PER_PRINT:
+		frappe.throw(
+			_("You can print up to {0} Delivery Notes at a time.").format(
+				MAX_ORDERS_PER_PRINT
+			)
+		)
+
+	delivery_notes = []
+	dates = []
+	grand_total = 0
+	currencies = set()
+	sales_order_item_names = set()
+
+	for name in names:
+		delivery_note = frappe.get_doc("Delivery Note", name)
+		ensure_print_permission(delivery_note)
+		delivery_notes.append(delivery_note)
+
+		if delivery_note.posting_date:
+			dates.append(delivery_note.posting_date)
+
+		grand_total += flt(delivery_note.grand_total)
+		currencies.add(delivery_note.currency)
+
+		sales_order_item_names.update(
+			item.so_detail for item in delivery_note.items if item.so_detail
+		)
+
+	sales_order_items = {}
+	if sales_order_item_names:
+		sales_order_items = {
+			row.name: row
+			for row in frappe.get_all(
+				"Sales Order Item",
+				filters={"name": ["in", sorted(sales_order_item_names)]},
+				fields=[
+					"name",
+					"srv_discount_percentage",
+					"discount_percentage",
+				],
+			)
+		}
+
+	valuation_items_by_note = {}
+	for delivery_note in delivery_notes:
+		valuation_items = {}
+		for item in delivery_note.items:
+			sales_order_item = sales_order_items.get(item.so_detail)
+			custom_discount = flt(
+				sales_order_item.srv_discount_percentage
+				if sales_order_item
+				else 0
+			)
+			discount_percentage = custom_discount or flt(
+				sales_order_item.discount_percentage
+				if sales_order_item
+				else 0
+			)
+			rate = flt(item.price_list_rate)
+			gross_amount = rate * flt(item.qty)
+			discount_amount = gross_amount * discount_percentage / 100
+			valuation_items[item.name] = {
+				"discount_percentage": discount_percentage,
+				"rate": rate,
+				"amount": gross_amount - discount_amount,
+			}
+		valuation_items_by_note[delivery_note.name] = valuation_items
+
+	dates.sort()
+	currency = next(iter(currencies)) if len(currencies) == 1 else None
+	return frappe.render_template(
+		"srv_erp/templates/delivery_note_ledger.html",
+		{
+			"delivery_notes": delivery_notes,
+			"date_heading": get_date_heading(dates),
+			"grand_total": grand_total,
+			"currency": currency,
+			"valuation": True,
+			"valuation_items_by_note": valuation_items_by_note,
+		},
+	)
+
+
  
 @frappe.whitelist()
 def get_required_stock_html(names: list[str] | str) -> str:

@@ -32,7 +32,7 @@ required_apps = ["erpnext", "express_tally"]
 # include js, css files in header of desk.html
 app_include_css = "/assets/srv_erp/css/srv_erp.css"
 app_include_js = [
-	"/assets/srv_erp/js/sales_person_defaults.js",
+	"/assets/srv_erp/js/sales_person_defaults.js",	
 	"/assets/srv_erp/js/dynamic_item_request.js",
 	"/assets/srv_erp/js/grid_column_templates.js",
 	"/assets/srv_erp/js/grid_bulk_delete.js",
