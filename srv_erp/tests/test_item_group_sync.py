@@ -100,6 +100,33 @@ class TestItemGroupSync(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			variant.save()
 
+	def test_variant_disabled_can_be_changed_directly(self):
+		template = self.make_template(self.item_group_a)
+		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
+		variant.save()
+
+		variant = frappe.get_doc("Item", variant.name)
+		variant.disabled = 1
+		variant.save()
+
+		self.assertEqual(frappe.db.get_value("Item", variant.name, "disabled"), 1)
+
+		variant.reload()
+		variant.save()
+
+		self.assertEqual(frappe.db.get_value("Item", variant.name, "disabled"), 1)
+
+	def test_template_disabled_syncs_to_variants(self):
+		template = self.make_template(self.item_group_a)
+		variant = create_variant(template.name, {self.attribute: "_Test Variant Sync Small"})
+		variant.save()
+
+		template = frappe.get_doc("Item", template.name)
+		template.disabled = 1
+		template.save()
+
+		self.assertEqual(frappe.db.get_value("Item", variant.name, "disabled"), 1)
+
 	def make_template(self, item_group):
 		return make_item(
 			self.template,

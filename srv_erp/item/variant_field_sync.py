@@ -34,6 +34,7 @@ VARIANT_SPECIFIC_FIELDS = {
 	"total_projected_qty",
 }
 VARIANT_ITEM_NAME_FIELD = "item_name"
+VARIANT_EDITABLE_FIELDS = {"disabled"}
 
 
 def validate_template_controlled_variant_fields(doc, method=None):
@@ -47,6 +48,9 @@ def validate_template_controlled_variant_fields(doc, method=None):
 
 	blocked_fields = []
 	for fieldname in controlled_fields:
+		if fieldname in VARIANT_EDITABLE_FIELDS:
+			continue
+
 		template_value = get_template_controlled_field_value(fieldname, template, doc)
 		if doc.get(fieldname) == template_value:
 			continue
