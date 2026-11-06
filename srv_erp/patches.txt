@@ -32,3 +32,4 @@ srv_erp.patches.add_maximum_stock_custom_field
 srv_erp.oem_catalog.infrastructure.setup_patch
 srv_erp.patches.remove_legacy_oem_catalog_workspace
 srv_erp.patches.sync_transaction_customer_names
+srv_erp.patches.backfill_package_barcode_conversion_factors

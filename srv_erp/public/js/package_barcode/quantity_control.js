@@ -106,18 +106,18 @@ srv_erp.package_barcode.enforce_delivery_scan_qty = async function (frm) {
 			const scans = (frm.doc.package_barcodes || []).filter((row) => row.item_code === item_code);
 			let stock_qty = 0;
 			for (const scan of scans) {
-				const factor = flt(details.conversion_factors[scan.uom]);
+				const factor = flt(scan.conversion_factor || details.conversion_factors[scan.uom]);
 				if (factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan.uom, item_code]));
 				stock_qty += factor;
 			}
 			const rows = (frm.doc.items || []).filter((row) => row.item_code === item_code);
 			if (rows.length === 1) {
 				const row = rows[0];
-				const factor = flt(details.conversion_factors[row.uom]);
+				const factor = flt(details.conversion_factors[row.uom] || row.conversion_factor);
 				if (factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.uom, item_code]));
 				await frappe.model.set_value(row.doctype, row.name, "qty", stock_qty / factor);
 			} else {
-				const entered = rows.reduce((sum, row) => sum + flt(row.qty) * flt(details.conversion_factors[row.uom]), 0);
+				const entered = rows.reduce((sum, row) => sum + flt(row.qty) * flt(details.conversion_factors[row.uom] || row.conversion_factor), 0);
 				if (Math.abs(entered - stock_qty) > 0.000001) {
 					frappe.msgprint(__("Item {0}: quantities across all rows must equal {1} {2} from package scans.", [item_code, stock_qty, details.stock_uom]));
 				}
