@@ -75,6 +75,61 @@ class TestPackageBarcode(FrappeTestCase):
 		).insert()
 		self.assertEqual(scan_package_barcode(legacy.barcode)["package_barcode"], legacy.name)
 
+	def test_generated_barcode_stores_conversion_factor(self):
+		result = generate_package_barcodes(self.item.name, "Box", 1)
+		barcode = result.barcodes[0]
+
+		self.assertEqual(frappe.db.get_value("Package Barcode", barcode, "conversion_factor"), 10)
+		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
+
+	def test_scan_survives_removing_item_uom(self):
+		result = generate_package_barcodes(self.item.name, "Box", 1)
+		barcode = result.barcodes[0]
+
+		item = frappe.get_doc("Item", self.item.name)
+		item.set("uoms", [row for row in item.uoms if row.uom != "Box"])
+		item.save()
+
+		self.assertNotIn("Box", get_item_uom_options(self.item.name))
+		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
+
+		doc = frappe._dict(
+			{
+				"doctype": "Delivery Note",
+				"items": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"item_code": self.item.name,
+							"qty": 10,
+							"stock_qty": 10,
+							"uom": "Nos",
+						}
+					),
+				],
+				"package_barcodes": [
+					frappe._dict(
+						{
+							"idx": 1,
+							"package_barcode": result.barcodes[0],
+							"barcode": barcode,
+							"item_code": self.item.name,
+							"uom": "Box",
+						}
+					),
+				],
+			}
+		)
+
+		validate_stock_transaction(doc)
+
+	def test_barcode_suffix_supplies_factor_when_master_factor_is_missing(self):
+		result = generate_package_barcodes(self.item.name, "Box", 1)
+		barcode = result.barcodes[0]
+		frappe.db.set_value("Package Barcode", barcode, "conversion_factor", 0)
+
+		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
+
 	def test_invalid_conversion_fails_before_creating_batch(self):
 		before = frappe.db.count("Package Barcode Batch")
 		for factor in (0, -1, float("nan"), float("inf")):
