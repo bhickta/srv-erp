@@ -98,6 +98,11 @@ class TestPackageBarcode(FrappeTestCase):
 		self.assertNotIn("Box", get_item_uom_options(item.name))
 		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
 
+		from srv_erp.selling.delivery_note import resolve_delivery_uom_conversion
+
+		_stock_uom, conversion_factor = resolve_delivery_uom_conversion(item.name, "Box", 10)
+		self.assertEqual(conversion_factor, 10)
+
 		doc = frappe._dict(
 			{
 				"doctype": "Delivery Note",
