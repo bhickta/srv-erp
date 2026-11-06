@@ -83,14 +83,19 @@ class TestPackageBarcode(FrappeTestCase):
 		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
 
 	def test_scan_survives_removing_item_uom(self):
-		result = generate_package_barcodes(self.item.name, "Box", 1)
+		item_code = f"_Test Package Barcode Removed UOM {frappe.generate_hash(length=6)}"
+		item = make_item(
+			item_code,
+			properties={"is_stock_item": 1, "stock_uom": "Nos"},
+			uoms=[{"uom": "Box", "conversion_factor": 10}],
+		)
+		result = generate_package_barcodes(item.name, "Box", 1)
 		barcode = result.barcodes[0]
 
-		item = frappe.get_doc("Item", self.item.name)
 		item.set("uoms", [row for row in item.uoms if row.uom != "Box"])
 		item.save()
 
-		self.assertNotIn("Box", get_item_uom_options(self.item.name))
+		self.assertNotIn("Box", get_item_uom_options(item.name))
 		self.assertEqual(scan_package_barcode(barcode)["conversion_factor"], 10)
 
 		doc = frappe._dict(
@@ -100,7 +105,7 @@ class TestPackageBarcode(FrappeTestCase):
 					frappe._dict(
 						{
 							"idx": 1,
-							"item_code": self.item.name,
+							"item_code": item.name,
 							"qty": 10,
 							"stock_qty": 10,
 							"uom": "Nos",
@@ -113,7 +118,7 @@ class TestPackageBarcode(FrappeTestCase):
 							"idx": 1,
 							"package_barcode": result.barcodes[0],
 							"barcode": barcode,
-							"item_code": self.item.name,
+							"item_code": item.name,
 							"uom": "Box",
 						}
 					),
