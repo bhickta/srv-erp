@@ -11,7 +11,6 @@ TRANSACTION_TABLES = (
 	"tabSales Order Item",
 	"tabPurchase Receipt Item",
 	"tabPurchase Order Item",
-	"tabStock Reconciliation Item",
 	"tabSales Invoice Item",
 	"tabPurchase Invoice Item",
 )
