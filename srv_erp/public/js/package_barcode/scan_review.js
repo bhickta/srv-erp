@@ -38,7 +38,7 @@ srv_erp.package_barcode.render_scan_review = async function (frm) {
 		try {
 			for (const row of rows) {
 				const details = await srv_erp.package_barcode.get_item_uom_details(row.item_code);
-				const factor = flt(details.conversion_factors[row.uom]);
+				const factor = flt(row.conversion_factor || details.conversion_factors[row.uom]);
 				if (factor <= 0) throw new Error(__("Invalid scan UOM"));
 				totals[details.stock_uom] = (totals[details.stock_uom] || 0) + factor;
 			}

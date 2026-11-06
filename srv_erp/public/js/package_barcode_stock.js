@@ -145,7 +145,9 @@ srv_erp.package_barcode.apply_stock_reconciliation_package_uom = function (frm, 
 	}
 
 	return srv_erp.package_barcode.get_item_uom_details(row.item_code).then((details) => {
-		const conversion_factor = flt(details.conversion_factors?.[data.uom] || 0);
+		const conversion_factor = flt(
+			data.conversion_factor || details.conversion_factors?.[data.uom] || 0
+		);
 		if (!conversion_factor) {
 			frappe.throw(__("UOM {0} is not configured for Item {1}.", [data.uom, row.item_code]));
 		}
@@ -216,7 +218,9 @@ srv_erp.package_barcode.recalculate_stock_reconciliation_qty = function (frm, cd
 	srv_erp.package_barcode
 		.get_item_uom_details(row.item_code)
 		.then((details) => {
-			const conversion_factor = flt(details.conversion_factors?.[row.package_uom] || 0);
+			const conversion_factor = flt(
+				details.conversion_factors?.[row.package_uom] || row.package_conversion_factor || 0
+			);
 			if (!conversion_factor) {
 				frappe.throw(__("UOM {0} is not configured for Item {1}.", [row.package_uom, row.item_code]));
 			}

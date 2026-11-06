@@ -132,13 +132,13 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		}
 		const details = await srv_erp.package_barcode.get_item_uom_details(data.item_code);
 		const scan_uom = data.uom || details.stock_uom;
-		const scan_factor = flt(details.conversion_factors[scan_uom]);
+		const scan_factor = flt(data.conversion_factor || details.conversion_factors[scan_uom]);
 		if (scan_factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan_uom, data.item_code]));
 		const warehouse = this.frm.doc.last_scanned_warehouse || data.default_warehouse || this.frm.doc.set_warehouse;
 		const candidates = (this.frm.doc.items || []).filter((row) =>
 			row.item_code === data.item_code && (!warehouse || !row.warehouse || row.warehouse === warehouse) &&
 			(!row.batch_no || row.batch_no === data.batch_no) && !row.si_detail &&
-			flt(details.conversion_factors[row.uom]) > 0
+			(flt(details.conversion_factors[row.uom]) > 0 || flt(row.conversion_factor) > 0)
 		);
 		const linked = candidates.filter((row) => row.against_sales_order && row.so_detail);
 		const pool = linked.length ? linked : candidates;
@@ -162,8 +162,12 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 				label: `${line.against_sales_order} / ${line.so_detail} (${line.uom})` })), __("Select Sales Order Item"));
 		}
 		const is_new = !row;
-		const kept_uom = row?.uom || scan_uom;
-		const factor = flt(details.conversion_factors[kept_uom]);
+		let kept_uom = row?.uom || scan_uom;
+		let factor = flt(details.conversion_factors[kept_uom] || row?.conversion_factor || 0);
+		if (factor <= 0) {
+			kept_uom = details.stock_uom;
+			factor = flt(details.conversion_factors[kept_uom] || 1);
+		}
 		const previous_qty = flt(row?.qty);
 		const added_qty = flt(data.qty || 1) * scan_factor / factor;
 		if (row && this.is_duplicate_serial_no(row, data.serial_no)) throw new Error(__("Serial number already scanned"));
@@ -262,6 +266,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		row.barcode = data.barcode;
 		row.item_code = data.item_code;
 		row.uom = data.uom;
+		row.conversion_factor = data.conversion_factor;
 		refresh_field("package_barcodes");
 		srv_erp.package_barcode.refresh_barcode_only_items(this.frm);
 		srv_erp.package_barcode.render_scan_review(this.frm);

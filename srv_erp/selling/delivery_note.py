@@ -5,10 +5,16 @@ from frappe.utils import flt
 CLOSED_SALES_ORDER_STATUSES = ("Closed", "Completed")
 
 
-def resolve_delivery_uom_conversion(item_code, uom):
-	from srv_erp.package_barcode.service import get_item_uom_conversion_factor
+def resolve_delivery_uom_conversion(item_code, uom, stored_factor=None):
+	from srv_erp.package_barcode.service import PackageBarcodeError, get_item_uom_conversion_factor
 
-	factor = get_item_uom_conversion_factor(item_code, uom)
+	try:
+		factor = get_item_uom_conversion_factor(item_code, uom)
+	except PackageBarcodeError:
+		factor = flt(stored_factor)
+		if factor <= 0:
+			raise
+
 	if factor <= 0:
 		frappe.throw(_("UOM {0} has an invalid conversion factor for Item {1}.").format(uom, item_code))
 	return frappe.get_cached_value("Item", item_code, "stock_uom"), factor
@@ -22,7 +28,9 @@ def reconcile_delivery_quantities(doc, method=None):
 			continue
 		if flt(row.qty) < 0:
 			frappe.throw(_("Row {0}: Use a return Delivery Note for negative quantities.").format(row.idx))
-		row.stock_uom, row.conversion_factor = resolve_delivery_uom_conversion(row.item_code, row.uom)
+		row.stock_uom, row.conversion_factor = resolve_delivery_uom_conversion(
+			row.item_code, row.uom, row.get("conversion_factor")
+		)
 		row.stock_qty = flt(flt(row.qty) * row.conversion_factor, row.precision("stock_qty"))
 
 
