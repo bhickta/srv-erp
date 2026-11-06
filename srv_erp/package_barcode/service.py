@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -21,6 +22,7 @@ class PackageBarcodePayload:
 	barcode: str
 	item_code: str
 	uom: str
+	conversion_factor: float = 0.0
 	qty: int = 1
 
 	def as_dict(self) -> dict:
@@ -29,6 +31,7 @@ class PackageBarcodePayload:
 			"barcode": self.barcode,
 			"item_code": self.item_code,
 			"uom": self.uom,
+			"conversion_factor": self.conversion_factor,
 			"qty": self.qty,
 		}
 
@@ -66,6 +69,7 @@ class PackageBarcodeGenerator:
 					"barcode": barcode,
 					"item_code": self.item_code,
 					"uom": self.uom,
+					"conversion_factor": self.conversion_factor,
 					"generation_batch": batch.name,
 					"status": "Active",
 				}
@@ -124,6 +128,7 @@ class PackageBarcodeGenerator:
 				),
 				PackageBarcodeError,
 			)
+		self.conversion_factor = factor
 		self.package_size = format(Decimal(str(factor)).normalize(), "f")
 
 	def make_unique_barcode(self) -> str:
@@ -147,7 +152,7 @@ class PackageBarcodeResolver:
 		doc = frappe.db.get_value(
 			"Package Barcode",
 			{"barcode": self.barcode},
-			["name", "barcode", "item_code", "uom", "status"],
+			["name", "barcode", "item_code", "uom", "conversion_factor", "status"],
 			as_dict=True,
 		)
 		if not doc:
@@ -165,6 +170,9 @@ class PackageBarcodeResolver:
 			barcode=doc.barcode,
 			item_code=doc.item_code,
 			uom=doc.uom,
+			conversion_factor=get_package_barcode_conversion_factor(
+				doc.barcode, doc.item_code, doc.uom, doc.conversion_factor
+			),
 		)
 
 
@@ -210,7 +218,7 @@ class PackageBarcodeTransactionValidator:
 			for row in frappe.get_all(
 				"Package Barcode",
 				filters={"name": ("in", package_names)},
-				fields=["name", "barcode", "item_code", "uom", "status"],
+				fields=["name", "barcode", "item_code", "uom", "conversion_factor", "status"],
 			)
 		}
 
@@ -310,7 +318,12 @@ class PackageBarcodeTransactionValidator:
 			if not row.item_code or not row.get("package_uom"):
 				continue
 
-			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.package_uom)
+			try:
+				conversion_factor = get_item_uom_conversion_factor(row.item_code, row.package_uom)
+			except PackageBarcodeError:
+				conversion_factor = flt(row.get("package_conversion_factor"))
+				if conversion_factor <= 0:
+					raise
 			package_qty = flt(row.get("package_qty"))
 			qty_precision = get_row_precision(row, "qty")
 			row_qty = flt(row.get("qty"), qty_precision)
@@ -384,13 +397,35 @@ def get_scanned_stock_qty_by_item(rows) -> dict[str, float]:
 	scanned_qty: dict[str, float] = {}
 	for row in rows:
 		if row.item_code and row.uom:
-			conversion_factor = get_item_uom_conversion_factor(row.item_code, row.uom)
+			conversion_factor = get_scan_conversion_factor(row)
 			if conversion_factor <= 0:
 				frappe.throw(
 					_("UOM {0} has an invalid conversion factor for Item {1}.").format(row.uom, row.item_code)
 				)
 			scanned_qty[row.item_code] = scanned_qty.get(row.item_code, 0) + conversion_factor
 	return scanned_qty
+
+
+def get_scan_conversion_factor(row) -> float:
+	conversion_factor = flt(row.get("conversion_factor"))
+	if conversion_factor > 0:
+		return conversion_factor
+
+	if row.get("package_barcode"):
+		master = frappe.db.get_value(
+			"Package Barcode",
+			row.package_barcode,
+			["barcode", "item_code", "uom", "conversion_factor"],
+			as_dict=True,
+		)
+		if master:
+			conversion_factor = get_package_barcode_conversion_factor(
+				master.barcode, master.item_code, master.uom, master.conversion_factor
+			)
+			if conversion_factor > 0:
+				return conversion_factor
+
+	return get_item_uom_conversion_factor(row.item_code, row.uom)
 
 
 def get_transaction_qty_by_item(rows, quantity_field: str) -> dict[str, float]:
@@ -434,6 +469,25 @@ def get_item_uom_conversion_factor(item_code: str, uom: str) -> float:
 		_("UOM {0} is not configured for Item {1}.").format(frappe.bold(uom), frappe.bold(item_code)),
 		PackageBarcodeError,
 	)
+
+
+def get_package_barcode_conversion_factor(
+	barcode: str, item_code: str, uom: str, stored_factor: float | None = None
+) -> float:
+	conversion_factor = flt(stored_factor)
+	if conversion_factor > 0:
+		return conversion_factor
+
+	conversion_factor = parse_barcode_conversion_factor(barcode)
+	if conversion_factor > 0:
+		return conversion_factor
+
+	return get_item_uom_conversion_factor(item_code, uom)
+
+
+def parse_barcode_conversion_factor(barcode: str) -> float:
+	match = re.search(r"-(\d+(?:\.\d+)?)PKG$", barcode or "")
+	return flt(match.group(1)) if match else 0.0
 
 
 def get_row_precision(row, fieldname: str, default: int = 3) -> int:

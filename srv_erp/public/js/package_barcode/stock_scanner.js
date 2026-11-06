@@ -132,7 +132,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		}
 		const details = await srv_erp.package_barcode.get_item_uom_details(data.item_code);
 		const scan_uom = data.uom || details.stock_uom;
-		const scan_factor = flt(details.conversion_factors[scan_uom]);
+		const scan_factor = flt(data.conversion_factor || details.conversion_factors[scan_uom]);
 		if (scan_factor <= 0) frappe.throw(__("UOM {0} is not configured for Item {1}.", [scan_uom, data.item_code]));
 		const warehouse = this.frm.doc.last_scanned_warehouse || data.default_warehouse || this.frm.doc.set_warehouse;
 		const added_qty = Number(data.qty ?? 1);
@@ -265,6 +265,7 @@ srv_erp.package_barcode.PackageBarcodeScanner = class PackageBarcodeScanner exte
 		row.barcode = data.barcode;
 		row.item_code = data.item_code;
 		row.uom = data.uom;
+		row.conversion_factor = data.conversion_factor;
 		refresh_field("package_barcodes");
 		srv_erp.package_barcode.refresh_barcode_only_items(this.frm);
 		srv_erp.package_barcode.render_scan_review(this.frm);
